@@ -1,0 +1,135 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { prisma } from "@/server/db";
+import { requireAdminUser } from "@/server/current-user";
+
+function redirectError(message: string): never {
+  redirect(`/admin/org-structure?error=${encodeURIComponent(message)}`);
+}
+
+function redirectSuccess(message: string): never {
+  redirect(`/admin/org-structure?success=${encodeURIComponent(message)}`);
+}
+
+export async function createOrgPositionAction(formData: FormData) {
+  await requireAdminUser();
+
+  const title = String(formData.get("title") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim() || null;
+  const parentIdRaw = String(formData.get("parentId") ?? "").trim();
+  const parentId = parentIdRaw || null;
+  const order = Math.max(0, Math.floor(Number(formData.get("order") ?? 0)));
+  const isActive = String(formData.get("isActive") ?? "1") === "1";
+
+  if (!title) redirectError("Naziv pozicije je obavezan.");
+
+  await prisma.orgPosition.create({
+    data: { title, description, parentId, order, isActive }
+  });
+
+  revalidatePath("/admin/org-structure");
+  revalidatePath("/organization");
+  redirectSuccess("Pozicija je kreirana.");
+}
+
+export async function updateOrgPositionAction(formData: FormData) {
+  await requireAdminUser();
+
+  const id = String(formData.get("id") ?? "").trim();
+  const title = String(formData.get("title") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim() || null;
+  const parentIdRaw = String(formData.get("parentId") ?? "").trim();
+  const parentId = parentIdRaw || null;
+  const order = Math.max(0, Math.floor(Number(formData.get("order") ?? 0)));
+  const isActive = String(formData.get("isActive") ?? "1") === "1";
+
+  if (!id) redirectError("Nedostaje ID pozicije.");
+  if (!title) redirectError("Naziv pozicije je obavezan.");
+  if (parentId && parentId === id) redirectError("Pozicija ne može biti sama sebi roditelj.");
+
+  await prisma.orgPosition.update({
+    where: { id },
+    data: { title, description, parentId, order, isActive }
+  });
+
+  revalidatePath("/admin/org-structure");
+  revalidatePath("/organization");
+  redirectSuccess("Pozicija je sačuvana.");
+}
+
+export async function deleteOrgPositionAction(formData: FormData) {
+  await requireAdminUser();
+
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) redirectError("Nedostaje ID pozicije.");
+
+  await prisma.orgPosition.delete({ where: { id } });
+
+  revalidatePath("/admin/org-structure");
+  revalidatePath("/organization");
+  redirectSuccess("Pozicija je obrisana.");
+}
+
+export async function addOrgLinkAction(formData: FormData) {
+  await requireAdminUser();
+
+  const positionId = String(formData.get("positionId") ?? "").trim();
+  const label = String(formData.get("label") ?? "").trim();
+  const url = String(formData.get("url") ?? "").trim();
+  const order = Math.max(0, Math.floor(Number(formData.get("order") ?? 0)));
+
+  if (!positionId) redirectError("Nedostaje positionId.");
+  if (!label || !url) redirectError("Link label i URL su obavezni.");
+
+  await prisma.orgPositionLink.create({
+    data: { positionId, label, url, order }
+  });
+
+  revalidatePath("/admin/org-structure");
+  revalidatePath("/organization");
+  redirectSuccess("Link je dodat.");
+}
+
+export async function deleteOrgLinkAction(formData: FormData) {
+  await requireAdminUser();
+
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) redirectError("Nedostaje link ID.");
+
+  await prisma.orgPositionLink.delete({ where: { id } });
+
+  revalidatePath("/admin/org-structure");
+  revalidatePath("/organization");
+  redirectSuccess("Link je obrisan.");
+}
+
+export async function addOrgAssignmentAction(formData: FormData) {
+  await requireAdminUser();
+
+  const positionId = String(formData.get("positionId") ?? "").trim();
+  const userId = String(formData.get("userId") ?? "").trim();
+  if (!positionId || !userId) redirectError("Nedostaje positionId ili userId.");
+
+  await prisma.orgPositionAssignment.create({
+    data: { positionId, userId }
+  });
+
+  revalidatePath("/admin/org-structure");
+  revalidatePath("/organization");
+  redirectSuccess("Zaposleni je dodat na poziciju.");
+}
+
+export async function removeOrgAssignmentAction(formData: FormData) {
+  await requireAdminUser();
+
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) redirectError("Nedostaje assignment ID.");
+
+  await prisma.orgPositionAssignment.delete({ where: { id } });
+
+  revalidatePath("/admin/org-structure");
+  revalidatePath("/organization");
+  redirectSuccess("Zaposleni je uklonjen sa pozicije.");
+}
