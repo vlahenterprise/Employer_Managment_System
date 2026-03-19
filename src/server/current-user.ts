@@ -1,14 +1,11 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
+import { cache } from "react";
 import { prisma } from "./db";
 import { authOptions } from "./auth";
 
-export async function getCurrentUser() {
-  const session = await getServerSession(authOptions);
-  const userId = session?.user?.id;
-  if (!userId) return null;
-
-  return prisma.user.findUnique({
+const getUserById = cache((userId: string) =>
+  prisma.user.findUnique({
     where: { id: userId },
     select: {
       id: true,
@@ -24,7 +21,14 @@ export async function getCurrentUser() {
       updatedAt: true,
       team: { select: { id: true, name: true } }
     }
-  });
+  })
+);
+
+export async function getCurrentUser() {
+  const session = await getServerSession(authOptions);
+  const userId = session?.user?.id;
+  if (!userId) return null;
+  return getUserById(userId);
 }
 
 export async function requireActiveUser() {

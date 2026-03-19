@@ -79,7 +79,18 @@ export const authOptions: NextAuthOptions = {
         const email = normalizeEmail(parsed.data.email);
         if (!isAllowedEmail(email)) return null;
 
-        const user = await prisma.user.findUnique({ where: { email } });
+        const user = await prisma.user.findUnique({
+          where: { email },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+            status: true,
+            teamId: true,
+            passwordHash: true
+          }
+        });
         if (!user) return null;
         if (user.status !== "ACTIVE") return null;
         if (!user.passwordHash) return null;
@@ -112,7 +123,10 @@ export const authOptions: NextAuthOptions = {
       if (!email) return false;
       if (!isAllowedEmail(email)) return false;
 
-      const dbUser = await prisma.user.findUnique({ where: { email } });
+      const dbUser = await prisma.user.findUnique({
+        where: { email },
+        select: { status: true }
+      });
       if (!dbUser) return config.auth.autoProvision;
       return dbUser.status === "ACTIVE";
     },

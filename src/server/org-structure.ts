@@ -1,5 +1,7 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
+import { ORG_STRUCTURE_CACHE_TAG, ORG_USERS_CACHE_TAG } from "./cache-tags";
 import { prisma } from "./db";
 
 export type OrgStructureNode = {
@@ -14,14 +16,56 @@ export type OrgStructureNode = {
   users: Array<{ id: string; name: string; email: string; assignmentId: string }>;
 };
 
+const loadOrgPositionsCached = unstable_cache(
+  async () =>
+    prisma.orgPosition.findMany({
+      orderBy: [{ order: "asc" }, { title: "asc" }],
+      include: {
+        links: { orderBy: [{ order: "asc" }, { createdAt: "asc" }] },
+        assignees: { include: { user: { select: { id: true, name: true, email: true } } } }
+      }
+    }),
+  ["org-structure:positions"],
+  { tags: [ORG_STRUCTURE_CACHE_TAG] }
+);
+
+const loadOrgChartUsersCached = unstable_cache(
+  async () =>
+    prisma.user.findMany({
+      where: { status: "ACTIVE" },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        position: true,
+        managerId: true,
+        team: { select: { name: true } }
+      }
+    }),
+  ["org-structure:chart-users"],
+  { tags: [ORG_USERS_CACHE_TAG] }
+);
+
+const loadOrgPickerPositionsCached = unstable_cache(
+  async () => prisma.orgPosition.findMany({ orderBy: [{ order: "asc" }, { title: "asc" }], select: { id: true, title: true } }),
+  ["org-structure:picker-positions"],
+  { tags: [ORG_STRUCTURE_CACHE_TAG] }
+);
+
+const loadOrgPickerUsersCached = unstable_cache(
+  async () =>
+    prisma.user.findMany({
+      where: { status: "ACTIVE" },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, email: true, status: true }
+    }),
+  ["org-structure:picker-users"],
+  { tags: [ORG_USERS_CACHE_TAG] }
+);
+
 export async function getOrgStructure() {
-  const rows = await prisma.orgPosition.findMany({
-    orderBy: [{ order: "asc" }, { title: "asc" }],
-    include: {
-      links: { orderBy: [{ order: "asc" }, { createdAt: "asc" }] },
-      assignees: { include: { user: { select: { id: true, name: true, email: true } } } }
-    }
-  });
+  const rows = await loadOrgPositionsCached();
 
   const nodes: OrgStructureNode[] = rows.map((row) => ({
     id: row.id,
@@ -42,24 +86,21 @@ function normalizeKey(value: string | null | undefined) {
 }
 
 export async function getUserOrgStructure() {
-  const users = await prisma.user.findMany({
-    where: { status: "ACTIVE" },
-    orderBy: { name: "asc" },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      position: true,
-      managerId: true,
-      team: { select: { name: true } }
-    }
-  });
+  const users = await loadOrgChartUsersCached();
 
   let positions: Array<{ id: string; title: string; description: string | null; links: Array<{ id: string; label: string; url: string; order: number }> }> = [];
   try {
-    positions = await prisma.orgPosition.findMany({
-      include: { links: { orderBy: [{ order: "asc" }, { createdAt: "asc" }] } }
-    });
+    positions = (await loadOrgPositionsCached()).map((row) => ({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      links: row.links.map((link) => ({
+        id: link.id,
+        label: link.label,
+        url: link.url,
+        order: link.order
+      }))
+    }));
   } catch {
     positions = [];
   }
@@ -105,8 +146,8 @@ export async function getUserOrgStructure() {
 
 export async function getOrgPickers() {
   const [positions, users] = await Promise.all([
-    prisma.orgPosition.findMany({ orderBy: [{ order: "asc" }, { title: "asc" }], select: { id: true, title: true } }),
-    prisma.user.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, email: true, status: true } })
+    loadOrgPickerPositionsCached(),
+    loadOrgPickerUsersCached()
   ]);
 
   return {

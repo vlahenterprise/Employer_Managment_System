@@ -2,7 +2,7 @@ import "server-only";
 
 import { prisma } from "./db";
 import { APP_TIMEZONE, getAppSettings } from "./app-settings";
-import { buildOrgIndex, getAllowedEmployeesForManager, isAncestorManager, isDirectManager, loadOrgUsers } from "./org";
+import { buildApprovalHierarchyContext, canManagerApproveEmployee, getAllowedEmployeesForManager, loadOrgUsers } from "./org";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { normalizeIsoDate } from "./iso-date";
 
@@ -55,41 +55,16 @@ export function normalizeTaskFilters(filters: {
   return { fromIso, toIso, teamId, employeeId };
 }
 
-async function isUserOnApprovedLeave(userId: string) {
-  const iso = todayIso();
-  const from = fromZonedTime(`${iso}T00:00:00`, APP_TIMEZONE);
-  const to = fromZonedTime(`${iso}T23:59:59.999`, APP_TIMEZONE);
-  const hit = await prisma.absence.findFirst({
-    where: {
-      employeeId: userId,
-      status: "APPROVED",
-      dateFrom: { lte: to },
-      dateTo: { gte: from }
-    },
-    select: { id: true }
-  });
-  return Boolean(hit);
-}
-
 async function canApproveTask(actorId: string, assigneeId: string) {
   if (!actorId || !assigneeId) return false;
   if (actorId === assigneeId) return false;
 
-  const orgUsers = await loadOrgUsers();
-  const { managerOf, byId } = buildOrgIndex(orgUsers);
-
-  if (isDirectManager(actorId, assigneeId, managerOf)) return true;
-
   const settings = await getAppSettings();
-  const allowAncestor = Boolean(Number(settings.AllowAncestorApprovalTasks || 0));
-  if (!allowAncestor) return false;
-
-  if (!isAncestorManager(actorId, assigneeId, managerOf)) return false;
-
-  const directMgrId = managerOf.get(assigneeId) ?? null;
-  if (!directMgrId) return false;
-  if (!byId.has(directMgrId)) return false;
-  return isUserOnApprovedLeave(directMgrId);
+  const context = await buildApprovalHierarchyContext({
+    allowAncestor: Boolean(Number(settings.AllowAncestorApprovalTasks || 0)),
+    employeeIds: [assigneeId]
+  });
+  return canManagerApproveEmployee(actorId, assigneeId, context);
 }
 
 export type TaskDashboardItem = {
@@ -164,7 +139,7 @@ export async function getTaskPickers(actor: { id: string; role: "ADMIN" | "HR" |
     prisma.team.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.user.findMany({
       orderBy: { name: "asc" },
-      select: { id: true, name: true, email: true, teamId: true, team: { select: { name: true } } }
+      select: { id: true, name: true, email: true, teamId: true }
     })
   ]);
 
@@ -254,7 +229,7 @@ export async function getTaskDashboard(actor: { id: string; email: string; role:
       priority: true,
       status: true,
       team: { select: { id: true, name: true } },
-      assignee: { select: { id: true, name: true, email: true, managerId: true } },
+      assignee: { select: { id: true, name: true, email: true } },
       delegator: { select: { id: true, name: true, email: true } },
       delegatedAt: true,
       dueDate: true,
@@ -266,6 +241,21 @@ export async function getTaskDashboard(actor: { id: string; email: string; role:
       updatedAt: true
     }
   });
+
+  const approvalByAssignee = new Map<string, boolean>();
+  if (isAdmin && tasks.length > 0) {
+    const settings = await getAppSettings();
+    const context = await buildApprovalHierarchyContext({
+      allowAncestor: Boolean(Number(settings.AllowAncestorApprovalTasks || 0)),
+      employeeIds: tasks.map((task) => task.assignee.id)
+    });
+    for (const task of tasks) {
+      const assigneeId = task.assignee.id;
+      if (!approvalByAssignee.has(assigneeId)) {
+        approvalByAssignee.set(assigneeId, canManagerApproveEmployee(actor.id, assigneeId, context));
+      }
+    }
+  }
 
   const items: TaskDashboardItem[] = [];
   for (const t of tasks) {
@@ -282,7 +272,7 @@ export async function getTaskDashboard(actor: { id: string; email: string; role:
       approvedLate = !approvedOnTime;
     }
 
-    const canApprove = isAdmin ? await canApproveTask(actor.id, t.assignee.id) : false;
+    const canApprove = isAdmin ? (approvalByAssignee.get(t.assignee.id) ?? false) : false;
 
     items.push({
       taskId: t.id,

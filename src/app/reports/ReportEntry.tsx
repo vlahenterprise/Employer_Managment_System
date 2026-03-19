@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { checkDailyReportAction, deleteDailyReportAction, saveDailyReportAction } from "./actions";
 import { getI18n, Lang } from "@/i18n";
 import { IconPlus, IconSave, IconTrash } from "@/components/icons";
@@ -48,7 +48,7 @@ export default function ReportEntry(props: {
     setActivities((prev) => prev.filter((_, idx) => idx !== i));
   }
 
-  function onDateChange(next: string) {
+  const onDateChange = useCallback((next: string) => {
     const trimmed = next.trim();
     setDateIso(trimmed);
     setExists(null);
@@ -69,13 +69,13 @@ export default function ReportEntry(props: {
       setMessage(res.exists ? t.reports.msgReportExists : "");
       setMessageType(res.exists ? "error" : null);
     });
-  }
+  }, [t.reports]);
 
   useEffect(() => {
     if (initialized) return;
     setInitialized(true);
     if (dateIso) onDateChange(dateIso);
-  }, [initialized, dateIso]);
+  }, [dateIso, initialized, onDateChange]);
 
   function errorMessage(error: string | undefined | null) {
     const code = String(error || "");

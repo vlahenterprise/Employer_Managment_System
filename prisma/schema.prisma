@@ -127,6 +127,7 @@ model OrgPosition {
   assignees OrgPositionAssignment[]
 
   @@index([parentId])
+  @@index([parentId, order])
   @@index([order])
   @@index([isActive])
 }
@@ -233,8 +234,11 @@ model DailyReport {
   @@unique([userId, dateIso])
   @@index([dateIso])
   @@index([employeeEmail])
+  @@index([employeeEmail, dateIso])
   @@index([teamName])
+  @@index([teamName, dateIso])
   @@index([position])
+  @@index([position, dateIso])
 }
 
 model DailyReportActivity {
@@ -283,6 +287,9 @@ model Task {
   @@index([priority])
   @@index([delegatedAt])
   @@index([dueDate])
+  @@index([assigneeId, status])
+  @@index([assigneeId, delegatedAt])
+  @@index([teamId, delegatedAt])
 }
 
 model TaskComment {
@@ -338,6 +345,8 @@ model Absence {
   @@index([type])
   @@index([dateFrom])
   @@index([dateTo])
+  @@index([employeeId, status, dateFrom, dateTo])
+  @@index([status, dateFrom, dateTo])
 }
 
 model AbsenceEvent {
@@ -390,6 +399,10 @@ model PerformanceEvaluation {
   @@index([employeeId])
   @@index([managerId])
   @@index([status])
+  @@index([employeeId, status])
+  @@index([employeeId, periodEnd])
+  @@index([managerId, periodEnd])
+  @@index([periodEnd])
 }
 
 model PerformanceGoal {

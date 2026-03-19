@@ -43,7 +43,7 @@ export default function OrgChart(props: {
     return base.filter(Boolean);
   }, [props.palette]);
 
-  const levels = useMemo(() => {
+  const { levels, depthById } = useMemo(() => {
     const depthById = new Map<string, number>();
     const visiting = new Set<string>();
 
@@ -69,12 +69,14 @@ export default function OrgChart(props: {
       levelMap.set(depth, list);
     }
 
-    return Array.from(levelMap.entries())
+    const levels = Array.from(levelMap.entries())
       .sort((a, b) => a[0] - b[0])
       .map(([depth, nodes]) => ({
         depth,
         nodes: nodes.sort((a, b) => a.title.localeCompare(b.title))
       }));
+
+    return { levels, depthById };
   }, [nodesById, props.nodes]);
 
   function renderNode(id: string) {
@@ -86,7 +88,7 @@ export default function OrgChart(props: {
           type="button"
           className={`org-node${selectedId === id ? " is-active" : ""}`}
           onClick={() => setSelectedId(id)}
-          style={{ ["--org-accent" as any]: palette[(levels.find((l) => l.nodes.some((n) => n.id === id))?.depth ?? 0) % palette.length] }}
+          style={{ ["--org-accent" as any]: palette[(depthById.get(id) ?? 0) % palette.length] }}
         >
           <div className="org-node-head">
             <div className="org-title">{node.title}</div>

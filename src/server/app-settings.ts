@@ -1,4 +1,4 @@
-import { prisma } from "./db";
+import { getAllSettingsMap } from "./settings";
 
 export const APP_TIMEZONE = "Europe/Belgrade";
 
@@ -53,9 +53,7 @@ export type AppSettings = {
 };
 
 export async function getAppSettings(): Promise<AppSettings> {
-  const rows = await prisma.setting.findMany({ select: { key: true, value: true } });
-  const map: Record<string, string> = {};
-  for (const row of rows) map[row.key] = row.value;
+  const map = await getAllSettingsMap();
 
   const title = map.AppTitle?.trim() || "VLAH ENTERPRISE EMPLOYER SYSTEM";
   const subtitle = map.AppSubtitle?.trim() || "";

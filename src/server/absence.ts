@@ -2,7 +2,7 @@ import "server-only";
 
 import { prisma } from "./db";
 import { APP_TIMEZONE, getAppSettings } from "./app-settings";
-import { buildOrgIndex, getAllowedEmployeesForManager, isAncestorManager, isDirectManager, loadOrgUsers } from "./org";
+import { buildApprovalHierarchyContext, canManagerApproveEmployee, getAllowedEmployeesForManager, loadOrgUsers } from "./org";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { normalizeIsoDate } from "./iso-date";
 
@@ -181,41 +181,16 @@ export async function submitAbsenceRequest(params: {
   return { ok: true as const, absenceId: absence.id, days, overlap: overlap.ok ? overlap : { ok: true as const, count: 0, names: [] } };
 }
 
-async function isUserOnApprovedLeave(userId: string) {
-  const iso = todayIsoInTz();
-  const from = fromZonedTime(`${iso}T00:00:00`, APP_TIMEZONE);
-  const to = fromZonedTime(`${iso}T23:59:59.999`, APP_TIMEZONE);
-  const hit = await prisma.absence.findFirst({
-    where: {
-      employeeId: userId,
-      status: "APPROVED",
-      dateFrom: { lte: to },
-      dateTo: { gte: from }
-    },
-    select: { id: true }
-  });
-  return Boolean(hit);
-}
-
 async function canApproveAbsence(actorId: string, employeeId: string) {
   if (!actorId || !employeeId) return false;
   if (actorId === employeeId) return false;
 
-  const orgUsers = await loadOrgUsers();
-  const { managerOf, byId } = buildOrgIndex(orgUsers);
-
-  if (isDirectManager(actorId, employeeId, managerOf)) return true;
-
   const settings = await getAppSettings();
-  const allowAncestor = Boolean(Number(settings.AllowAncestorApprovalAbsence || 0));
-  if (!allowAncestor) return false;
-
-  if (!isAncestorManager(actorId, employeeId, managerOf)) return false;
-
-  const directMgrId = managerOf.get(employeeId) ?? null;
-  if (!directMgrId) return false;
-  if (!byId.has(directMgrId)) return false;
-  return isUserOnApprovedLeave(directMgrId);
+  const context = await buildApprovalHierarchyContext({
+    allowAncestor: Boolean(Number(settings.AllowAncestorApprovalAbsence || 0)),
+    employeeIds: [employeeId]
+  });
+  return canManagerApproveEmployee(actorId, employeeId, context);
 }
 
 export async function getAbsenceCalendar(params: {
@@ -404,9 +379,15 @@ export async function getAbsenceApprovals(actor: { id: string; role: "ADMIN" | "
     }
   });
 
+  const settings = await getAppSettings();
+  const approvalContext = await buildApprovalHierarchyContext({
+    allowAncestor: Boolean(Number(settings.AllowAncestorApprovalAbsence || 0)),
+    employeeIds: rows.map((row) => row.employee.id)
+  });
+
   const items = [];
   for (const r of rows) {
-    const canApprove = await canApproveAbsence(actor.id, r.employee.id);
+    const canApprove = canManagerApproveEmployee(actor.id, r.employee.id, approvalContext);
     if (!canApprove) continue;
     items.push({
       absenceId: r.id,

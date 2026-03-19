@@ -1,5 +1,9 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
+import { fromZonedTime } from "date-fns-tz";
+import { APP_TIMEZONE } from "./app-settings";
+import { ORG_USERS_CACHE_TAG } from "./cache-tags";
 import { prisma } from "./db";
 
 export type OrgUser = {
@@ -12,18 +16,32 @@ export type OrgUser = {
   teamId: string | null;
 };
 
+export type ApprovalHierarchyContext = {
+  byId: Map<string, OrgUser>;
+  managerOf: Map<string, string | null>;
+  allowAncestor: boolean;
+  unavailableManagerIds: Set<string>;
+};
+
+const loadOrgUsersCached = unstable_cache(
+  async () =>
+    prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+        managerId: true,
+        teamId: true
+      }
+    }),
+  ["org-users:basic"],
+  { tags: [ORG_USERS_CACHE_TAG] }
+);
+
 export async function loadOrgUsers(): Promise<OrgUser[]> {
-  return prisma.user.findMany({
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      status: true,
-      managerId: true,
-      teamId: true
-    }
-  }) as any;
+  return (await loadOrgUsersCached()) as any;
 }
 
 export function buildOrgIndex(users: OrgUser[]) {
@@ -95,4 +113,64 @@ export function getAllowedEmployeesForManager(managerId: string, users: OrgUser[
   const set = getDescendants(managerId, children);
   set.add(managerId);
   return set;
+}
+
+async function loadApprovedLeaveUserIdsToday(userIds: string[]) {
+  if (userIds.length === 0) return new Set<string>();
+  const today = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: APP_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date());
+  const from = fromZonedTime(`${today}T00:00:00`, APP_TIMEZONE);
+  const to = fromZonedTime(`${today}T23:59:59.999`, APP_TIMEZONE);
+  const rows = await prisma.absence.findMany({
+    where: {
+      employeeId: { in: userIds },
+      status: "APPROVED",
+      dateFrom: { lte: to },
+      dateTo: { gte: from }
+    },
+    select: { employeeId: true }
+  });
+  return new Set(rows.map((row) => row.employeeId));
+}
+
+export async function buildApprovalHierarchyContext(params: {
+  allowAncestor: boolean;
+  employeeIds: Iterable<string>;
+}): Promise<ApprovalHierarchyContext> {
+  const orgUsers = await loadOrgUsers();
+  const { byId, managerOf } = buildOrgIndex(orgUsers);
+  const employeeIds = [...new Set([...params.employeeIds].filter(Boolean))];
+
+  const directManagerIds = new Set<string>();
+  if (params.allowAncestor) {
+    for (const employeeId of employeeIds) {
+      const directManagerId = managerOf.get(employeeId) ?? null;
+      if (directManagerId && byId.has(directManagerId)) directManagerIds.add(directManagerId);
+    }
+  }
+
+  return {
+    byId,
+    managerOf,
+    allowAncestor: params.allowAncestor,
+    unavailableManagerIds: params.allowAncestor ? await loadApprovedLeaveUserIdsToday([...directManagerIds]) : new Set<string>()
+  };
+}
+
+export function canManagerApproveEmployee(actorId: string, employeeId: string, context: ApprovalHierarchyContext) {
+  if (!actorId || !employeeId) return false;
+  if (actorId === employeeId) return false;
+
+  if (isDirectManager(actorId, employeeId, context.managerOf)) return true;
+  if (!context.allowAncestor) return false;
+  if (!isAncestorManager(actorId, employeeId, context.managerOf)) return false;
+
+  const directManagerId = context.managerOf.get(employeeId) ?? null;
+  if (!directManagerId) return false;
+  if (!context.byId.has(directManagerId)) return false;
+  return context.unavailableManagerIds.has(directManagerId);
 }

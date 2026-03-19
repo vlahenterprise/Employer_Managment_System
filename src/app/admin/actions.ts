@@ -4,10 +4,11 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/server/db";
 import { requireAdminUser } from "@/server/current-user";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { listBackupFiles, writeBackupZipToDisk } from "@/server/backup";
 import { APP_TIMEZONE } from "@/server/app-settings";
+import { ORG_STRUCTURE_CACHE_TAG, ORG_USERS_CACHE_TAG, SETTINGS_CACHE_TAG } from "@/server/cache-tags";
 import { importLegacyDataset } from "@/server/legacy-import";
 import fs from "node:fs/promises";
 
@@ -24,6 +25,18 @@ function redirectError(path: string, message: string): never {
 
 function redirectSuccess(path: string, message: string): never {
   redirect(`${path}?success=${encodeURIComponent(message)}`);
+}
+
+function revalidateSettingsData() {
+  revalidateTag(SETTINGS_CACHE_TAG);
+}
+
+function revalidateOrgUsersData() {
+  revalidateTag(ORG_USERS_CACHE_TAG);
+}
+
+function revalidateOrgStructureData() {
+  revalidateTag(ORG_STRUCTURE_CACHE_TAG);
 }
 
 const settingKeySchema = z
@@ -66,6 +79,7 @@ export async function createTeamAction(formData: FormData) {
   }
 
   revalidatePath("/admin/teams");
+  revalidateOrgUsersData();
   redirectSuccess("/admin/teams", "Tim je kreiran.");
 }
 
@@ -90,6 +104,7 @@ export async function deleteTeamAction(formData: FormData) {
   revalidatePath("/admin/teams");
   revalidatePath("/admin/users");
   revalidatePath("/admin/activity-types");
+  revalidateOrgUsersData();
   redirectSuccess("/admin/teams", "Tim je obrisan.");
 }
 
@@ -151,6 +166,8 @@ export async function createUserAction(formData: FormData) {
   }
 
   revalidatePath("/admin/users");
+  revalidateOrgUsersData();
+  revalidateOrgStructureData();
   redirectSuccess("/admin/users", "Korisnik je kreiran.");
 }
 
@@ -176,6 +193,8 @@ export async function deleteUserAction(formData: FormData) {
 
   revalidatePath("/admin/users");
   revalidatePath("/admin/teams");
+  revalidateOrgUsersData();
+  revalidateOrgStructureData();
   redirectSuccess("/admin/users", "Korisnik je obrisan.");
 }
 
@@ -230,6 +249,8 @@ export async function updateUserAction(formData: FormData) {
   }
 
   revalidatePath("/admin/users");
+  revalidateOrgUsersData();
+  revalidateOrgStructureData();
   redirectSuccess("/admin/users", "Izmene sačuvane.");
 }
 
@@ -284,6 +305,7 @@ export async function upsertSettingAction(formData: FormData) {
 
   revalidatePath("/admin/settings");
   revalidatePath("/");
+  revalidateSettingsData();
   redirectSuccess("/admin/settings", "Setting je sačuvan.");
 }
 
@@ -302,6 +324,7 @@ export async function deleteSettingAction(formData: FormData) {
 
   revalidatePath("/admin/settings");
   revalidatePath("/");
+  revalidateSettingsData();
   redirectSuccess("/admin/settings", "Setting je obrisan.");
 }
 
@@ -659,6 +682,9 @@ export async function importSettingsSheetAction(formData: FormData) {
   revalidatePath("/admin/activity-types");
   revalidatePath("/admin/settings");
   revalidatePath("/");
+  revalidateOrgUsersData();
+  revalidateOrgStructureData();
+  revalidateSettingsData();
 
   redirectSuccess(
     "/admin/import",
@@ -753,6 +779,7 @@ export async function upsertBackupSettingsAction(formData: FormData) {
   }
 
   revalidatePath("/admin/backup");
+  revalidateSettingsData();
   redirectSuccess("/admin/backup", "Backup settings su sačuvani.");
 }
 
@@ -795,6 +822,7 @@ export async function runBackupNowAction() {
       }
     }
     revalidatePath("/admin/backup");
+    revalidateSettingsData();
     redirectSuccess("/admin/backup", `Backup sačuvan: ${res.filename}`);
   } catch {
     redirectError("/admin/backup", "Backup nije uspeo.");

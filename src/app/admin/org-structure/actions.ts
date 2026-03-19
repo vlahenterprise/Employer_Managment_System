@@ -1,7 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { ORG_STRUCTURE_CACHE_TAG } from "@/server/cache-tags";
 import { prisma } from "@/server/db";
 import { requireAdminUser } from "@/server/current-user";
 
@@ -11,6 +12,10 @@ function redirectError(message: string): never {
 
 function redirectSuccess(message: string): never {
   redirect(`/admin/org-structure?success=${encodeURIComponent(message)}`);
+}
+
+function revalidateOrgStructureData() {
+  revalidateTag(ORG_STRUCTURE_CACHE_TAG);
 }
 
 export async function createOrgPositionAction(formData: FormData) {
@@ -31,6 +36,7 @@ export async function createOrgPositionAction(formData: FormData) {
 
   revalidatePath("/admin/org-structure");
   revalidatePath("/organization");
+  revalidateOrgStructureData();
   redirectSuccess("Pozicija je kreirana.");
 }
 
@@ -56,6 +62,7 @@ export async function updateOrgPositionAction(formData: FormData) {
 
   revalidatePath("/admin/org-structure");
   revalidatePath("/organization");
+  revalidateOrgStructureData();
   redirectSuccess("Pozicija je sačuvana.");
 }
 
@@ -69,6 +76,7 @@ export async function deleteOrgPositionAction(formData: FormData) {
 
   revalidatePath("/admin/org-structure");
   revalidatePath("/organization");
+  revalidateOrgStructureData();
   redirectSuccess("Pozicija je obrisana.");
 }
 
@@ -89,6 +97,7 @@ export async function addOrgLinkAction(formData: FormData) {
 
   revalidatePath("/admin/org-structure");
   revalidatePath("/organization");
+  revalidateOrgStructureData();
   redirectSuccess("Link je dodat.");
 }
 
@@ -102,6 +111,7 @@ export async function deleteOrgLinkAction(formData: FormData) {
 
   revalidatePath("/admin/org-structure");
   revalidatePath("/organization");
+  revalidateOrgStructureData();
   redirectSuccess("Link je obrisan.");
 }
 
@@ -118,6 +128,7 @@ export async function addOrgAssignmentAction(formData: FormData) {
 
   revalidatePath("/admin/org-structure");
   revalidatePath("/organization");
+  revalidateOrgStructureData();
   redirectSuccess("Zaposleni je dodat na poziciju.");
 }
 
@@ -131,5 +142,6 @@ export async function removeOrgAssignmentAction(formData: FormData) {
 
   revalidatePath("/admin/org-structure");
   revalidatePath("/organization");
+  revalidateOrgStructureData();
   redirectSuccess("Zaposleni je uklonjen sa pozicije.");
 }

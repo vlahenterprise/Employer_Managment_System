@@ -1,3 +1,5 @@
+import { unstable_cache } from "next/cache";
+import { SETTINGS_CACHE_TAG } from "./cache-tags";
 import { prisma } from "./db";
 
 export const THEME_SETTING_KEYS = [
@@ -21,6 +23,15 @@ export const THEME_SETTING_KEYS = [
 ] as const;
 
 export const BRANDING_SETTING_KEYS = ["AppTitle", "AppSubtitle", "Logo_link", "LogoVersion", "PoweredByText"] as const;
+
+const getAllSettingsRowsCached = unstable_cache(
+  async () =>
+    prisma.setting.findMany({
+      select: { key: true, value: true }
+    }),
+  ["settings:rows"],
+  { tags: [SETTINGS_CACHE_TAG] }
+);
 
 function safeHexColor(value: string | undefined | null) {
   if (!value) return null;
@@ -55,11 +66,16 @@ function hexToRgbTriplet(hexColor: string) {
 }
 
 export async function getSettingsMap(keys: readonly string[]) {
-  const rows = await prisma.setting.findMany({
-    where: { key: { in: [...keys] } },
-    select: { key: true, value: true }
-  });
+  const map = await getAllSettingsMap();
+  const selected: Record<string, string> = {};
+  for (const key of keys) {
+    if (map[key] != null) selected[key] = map[key];
+  }
+  return selected;
+}
 
+export async function getAllSettingsMap() {
+  const rows = await getAllSettingsRowsCached();
   const map: Record<string, string> = {};
   for (const row of rows) map[row.key] = row.value;
   return map;
