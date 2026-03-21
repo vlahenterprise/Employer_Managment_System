@@ -295,7 +295,31 @@ export default async function AbsencePage({
         </section>
 
         <section id="calendar" className="panel stack">
-          <h2 className="h2">{t.absence.calendarTitle}</h2>
+          <div className="section-head">
+            <div>
+              <h2 className="h2">
+                <LabelWithTooltip
+                  label={t.absence.calendarTitle}
+                  tooltip={
+                    lang === "sr"
+                      ? "Kalendar prikazuje odsustva po timu i periodu. Koristi filtere da vidiš samo odobrena, samo pending ili samo određeni tip odsustva."
+                      : "The calendar shows absences by team and period. Use the filters to focus on approved, pending, or a specific absence type."
+                  }
+                />
+              </h2>
+              <div className="muted small">
+                {lang === "sr"
+                  ? "Brzi pregled dostupnosti tima i overlap situacija u izabranom periodu."
+                  : "A quick view of team availability and overlap situations in the selected period."}
+              </div>
+            </div>
+            <div className="pills">
+              {cal.ok ? <span className="pill pill-status pill-status-progress">{cal.items.length}</span> : null}
+              <span className="pill pill-status pill-status-muted">
+                {fromIso} → {toIso}
+              </span>
+            </div>
+          </div>
           <form className="grid3" method="get" action="/absence">
             <label className="field">
               <span className="label">{t.absence.from}</span>
@@ -372,7 +396,28 @@ export default async function AbsencePage({
 
         {isAdmin ? (
           <section className="panel stack">
-            <h2 className="h2">{t.absence.approvalsTitle}</h2>
+            <div className="section-head">
+              <div>
+                <h2 className="h2">
+                  <LabelWithTooltip
+                    label={t.absence.approvalsTitle}
+                    tooltip={
+                      lang === "sr"
+                        ? "Ovde rešavaš sve zahteve koji čekaju odluku. Otvori zahtev, proveri period i ostavi komentar uz odobrenje ili odbijanje."
+                        : "This is where you resolve requests waiting for a decision. Open the request, review the period, and leave a comment with the approval or rejection."
+                    }
+                  />
+                </h2>
+                <div className="muted small">
+                  {lang === "sr"
+                    ? "Lista zahteva koji trenutno čekaju odluku administratora ili odgovornog odobravaoca."
+                    : "A queue of requests currently waiting for the administrator or approver decision."}
+                </div>
+              </div>
+              <div className="pills">
+                <span className="pill pill-status pill-status-review">{approvals.items.length}</span>
+              </div>
+            </div>
             <div className="list">
             {approvals.items.map((x) => (
                 <details key={x.absenceId} className="item stack">
@@ -422,8 +467,24 @@ export default async function AbsencePage({
 
         {isAdmin || isManager ? (
           <section className="panel stack">
-            <h2 className="h2">{t.absence.managerStatsTitle}</h2>
-            <div className="muted small">{t.absence.managerStatsHint(stats.year)}</div>
+            <div className="section-head">
+              <div>
+                <h2 className="h2">
+                  <LabelWithTooltip
+                    label={t.absence.managerStatsTitle}
+                    tooltip={
+                      lang === "sr"
+                        ? "Sažetak dostupnih dana i limita po zaposlenom, da bi menadžer ili admin imao jasan pregled kapaciteta tima."
+                        : "A per-employee summary of balances and limits so managers or admins can quickly understand team availability."
+                    }
+                  />
+                </h2>
+                <div className="muted small">{t.absence.managerStatsHint(stats.year)}</div>
+              </div>
+              <div className="pills">
+                <span className="pill pill-status pill-status-muted">{stats.items.length}</span>
+              </div>
+            </div>
             <div className="list">
               {stats.items.slice(0, 50).map((x: any) => (
                 <div key={x.email} className="item stack">

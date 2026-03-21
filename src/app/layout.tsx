@@ -5,6 +5,7 @@ import LangToggle from "@/components/LangToggle";
 import AppNavigation from "@/components/AppNavigation";
 import { getCurrentUser } from "@/server/current-user";
 import { getPrimaryNavigation } from "@/server/navigation";
+import { getBaseRole, hasAccessAdmin, hasHrAddon } from "@/server/rbac";
 import { Inter } from "next/font/google";
 
 const bodyFont = Inter({
@@ -31,6 +32,19 @@ export default async function RootLayout({
   const navItems = user
     ? getPrimaryNavigation({ role: user.role, hrAddon: user.hrAddon, adminAddon: user.adminAddon })
     : [];
+  const accessBadges = user
+    ? [
+        getBaseRole(user.role) === "MANAGER"
+          ? lang === "sr"
+            ? "Menadžer"
+            : "Manager"
+          : lang === "sr"
+            ? "Zaposleni"
+            : "User",
+        ...(hasHrAddon(user) ? [lang === "sr" ? "HR pristup" : "HR access"] : []),
+        ...(hasAccessAdmin(user) ? [lang === "sr" ? "Admin pristup" : "Admin access"] : [])
+      ]
+    : [];
   return (
     <html
       lang={lang}
@@ -47,7 +61,14 @@ export default async function RootLayout({
         ) : null}
         {branding.poweredByText ? <div className="app-powered">{branding.poweredByText}</div> : null}
         <div className="app-shell">
-          {user ? <AppNavigation items={navItems} title={branding.title} logoUrl={branding.logoUrl} /> : null}
+          {user ? (
+            <AppNavigation
+              items={navItems}
+              title={branding.title}
+              logoUrl={branding.logoUrl}
+              accessBadges={accessBadges}
+            />
+          ) : null}
           {children}
         </div>
       </body>

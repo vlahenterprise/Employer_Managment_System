@@ -25,7 +25,14 @@ export default function UserMenu({
   lang: Lang;
 }) {
   const t = getI18n(lang);
-  const access = getAccessSummary({ role: role as any, hrAddon, adminAddon }).join(" · ");
+  const access = getAccessSummary({ role: role as any, hrAddon, adminAddon });
+  const accessLabels = access.map((item) => {
+    if (item === "MANAGER") return lang === "sr" ? "Menadžer" : "Manager";
+    if (item === "USER") return lang === "sr" ? "Zaposleni" : "User";
+    if (item === "HR_ADDON") return lang === "sr" ? "HR pristup" : "HR access";
+    if (item === "ADMIN_ADDON") return lang === "sr" ? "Admin pristup" : "Admin access";
+    return item;
+  });
   return (
     <div className="user-menu">
       <div className="user-meta">
@@ -38,6 +45,13 @@ export default function UserMenu({
             <div className="user-sub">{email}</div>
           </div>
         </div>
+        <div className="user-access-pills">
+          {accessLabels.map((item) => (
+            <span key={item} className="pill pill-blue">
+              {item}
+            </span>
+          ))}
+        </div>
         <div className="user-details">
           {team ? (
             <span>
@@ -49,9 +63,7 @@ export default function UserMenu({
               {t.admin.users.position}: {position}
             </span>
           ) : null}
-          <span>
-            {t.admin.users.role}: {access}
-          </span>
+          <span>{t.admin.users.role}: {accessLabels.join(" · ")}</span>
         </div>
       </div>
 

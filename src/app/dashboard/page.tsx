@@ -4,15 +4,897 @@ import UserMenu from "./UserMenu";
 import { getBrandingSettings } from "@/server/settings";
 import { getRequestLang } from "@/i18n/server";
 import { getI18n } from "@/i18n";
-import { IconArrowRight, IconCalendar, IconCheckCircle, IconReport, IconSettings, IconSparkles, IconTasks, IconUsers } from "@/components/icons";
+import {
+  IconAlertTriangle,
+  IconArrowRight,
+  IconBriefcase,
+  IconCalendar,
+  IconCheckCircle,
+  IconClock,
+  IconInbox,
+  IconReport,
+  IconSettings,
+  IconSparkles,
+  IconTasks,
+  IconUsers
+} from "@/components/icons";
 import { getHomeDashboard } from "@/server/home";
 import { hasAccessAdmin, hasHrAddon, isManagerRole } from "@/server/rbac";
+import { LabelWithTooltip } from "@/components/Tooltip";
+
+type DashboardIcon = typeof IconTasks;
+type DashboardMode = "user" | "manager" | "hr" | "admin";
+
+type SummaryCard = {
+  value: string;
+  label: string;
+  detail: string;
+  icon: DashboardIcon;
+  tone?: "default" | "warning" | "success";
+};
+
+type FocusCard = {
+  value: string;
+  label: string;
+  description: string;
+  href: string;
+  cta: string;
+  icon: DashboardIcon;
+};
+
+type VisibilityRow = {
+  label: string;
+  value: string;
+  detail?: string;
+};
+
+type QuickAction = {
+  href: string;
+  label: string;
+  icon: DashboardIcon;
+};
+
+type ModuleItem = {
+  href: string;
+  title: string;
+  subtitle: string;
+  icon: DashboardIcon;
+  className: string;
+};
+
+function getDashboardCopy(lang: "sr" | "en") {
+  if (lang === "sr") {
+    return {
+      hero: {
+        userTitle: "Danas znaš tačno šta je važno.",
+        userText: "Jedan jasan pregled zadataka, dnevnog izveštaja, odsustava i stvari koje čekaju tebe.",
+        managerTitle: "Tim, odobrenja i blokeri na jednom mestu.",
+        managerText: "Fokus na stvari koje traže tvoju odluku, šta kasni i gde timu treba tvoja reakcija.",
+        hrTitle: "HR tok bez lutanja između više ekrana.",
+        hrText: "Otvoreni zahtevi, kandidati po fazama i onboarding koraci koji traže sledeći potez.",
+        adminTitle: "Podešavanja i pristupi pod kontrolom.",
+        adminText: "Kratak operativni pregled za sistemske izmene, pristupe i važna upozorenja."
+      },
+      quickActionsTitle: "Brze akcije",
+      focusTitle: "Današnji fokus",
+      focusTooltip:
+        "Ovo su najvažnije stvari za tvoju ulogu danas. Ideja je da odmah vidiš gde treba da uđeš i reaguješ.",
+      actionCenterTitle: "Akcioni centar",
+      actionCenterTooltip:
+        "Najbitnije stavke koje čekaju tvoju reakciju. Klik vodi pravo na tačan ekran ili zapis.",
+      visibilityTitle: "Brzi pregled",
+      visibilityTooltip:
+        "Kratak operativni pregled bez pretrpavanja analitikom — samo ono što ti pomaže u radu danas.",
+      workspaceTitle: "Glavni moduli",
+      workspaceText: "Osnovni tokovi rada koje koristiš svakodnevno.",
+      accessTitle: "Dodatni pristupi",
+      accessText: "Moduli koje vidiš jer imaš managerski, HR ili admin pristup.",
+      open: "Otvori",
+      noActions: "Trenutno nema hitnih stavki.",
+      viewInbox: "Idi na inbox",
+      summary: {
+        todayTasks: "Današnji zadaci",
+        overdue: "Kasni",
+        todayReport: "Današnji izveštaj",
+        needsAction: "Čeka tebe",
+        teamApprovals: "Čeka odobrenje",
+        teamOverdue: "Kasni u timu",
+        missingReports: "Fale izveštaji",
+        openHiring: "Otvorene pozicije",
+        hrReady: "Spremno za HR",
+        hrScreening: "HR screening",
+        hrRoundTwo: "Runda 2",
+        hrApproved: "Spremno za onboarding",
+        accessReady: "Admin pristup",
+        settingsReady: "Podešavanja",
+        reportDone: "Predato",
+        reportMissing: "Nedostaje",
+        reportMinutes: (minutes: string) => `Uneto: ${minutes}`,
+        reportHint: "Status današnjeg unosa",
+        actionHint: "Otvorene stvari koje traže reakciju",
+        adminHint: "Podešavanja i pristupi su aktivni",
+        settingsHint: "Sistemski rečnici i podrazumevane vrednosti"
+      },
+      focus: {
+        userTasks: "Završavanje zadataka",
+        userTasksText: "Ažuriraj rad koji je za danas ili kasni.",
+        userReports: "Dnevni izveštaj",
+        userReportsText: "Sačuvaj ili proveri današnji unos aktivnosti.",
+        userAbsence: "Plan odsustava",
+        userAbsenceText: "Proveri stanje dana i ko je iz tima odsutan.",
+        managerApprovals: "Tvoja odobrenja",
+        managerApprovalsText: "Task i absence stavke koje ne treba da čekaju.",
+        managerReports: "Disciplina izveštavanja",
+        managerReportsText: "Brzo vidi ko još nije predao izveštaj danas.",
+        managerHiring: "Aktivni hiring",
+        managerHiringText: "Otvorene pozicije i procesi koji traže odluku.",
+        hrRequests: "Ulaz u HR proces",
+        hrRequestsText: "Zahtevi koji su odobreni i spremni za obradu.",
+        hrCandidates: "Kandidati u toku",
+        hrCandidatesText: "Pomeri kandidate ka sledećoj fazi bez zastoja.",
+        hrOnboarding: "Onboarding pažnja",
+        hrOnboardingText: "Prati šta kasni i šta mora da krene.",
+        adminAccess: "Pristupi i uloge",
+        adminAccessText: "Drži dodele timova, menadžera i dodatnih pristupa ažurnim.",
+        adminSettings: "Sistemske vrednosti",
+        adminSettingsText: "Podešavanja, rečnici i podrazumevani linkovi na jednom mestu.",
+        adminInbox: "Sistemske reakcije",
+        adminInboxText: "Ako nešto traži odgovor, ovde to odmah vidiš."
+      },
+      visibility: {
+        absenceBalance: "Preostala odsustva",
+        absenceBalanceDetail: (annual: number, homeOffice: number) =>
+          `${annual} godišnji · ${homeOffice} home office`,
+        teamAway: "Ko je odsutan danas",
+        noneAway: "Niko nije odsutan",
+        onboarding: "Aktivan onboarding",
+        onboardingNone: "Nema aktivnog onboardinga",
+        teamPendingAbsences: "Zahtevi za odsustvo",
+        teamPerformance: "Performanse tima",
+        performanceDetail: (self: number, review: number, closed: number) =>
+          `Čeka self: ${self} · čeka review: ${review} · zatvoreno: ${closed}`,
+        missingReports: "Ko još nije predao izveštaj",
+        missingReportsNone: "Svi iz tima su predali",
+        hrPipeline: "Pipeline kandidata",
+        hrPipelineDetail: (screening: number, roundTwo: number, finalRound: number) =>
+          `Screening: ${screening} · runda 2: ${roundTwo} · finalna odluka: ${finalRound}`,
+        talentPool: "Talent pool",
+        talentPoolDetail: (count: number) => `${count} kandidata spremno za kasnije`,
+        adminHelp: "Admin alati",
+        adminHelpDetail: "Settings i Access ostaju mesto za konfiguraciju, ne za dnevni rad."
+      },
+      quick: {
+        inbox: "Inbox",
+        tasks: "Moji zadaci",
+        reports: "Dnevni izveštaji",
+        absence: "Odsustva",
+        management: "Management Panel",
+        hr: "HR System",
+        access: "Access",
+        settings: "Settings",
+        onboarding: "Onboarding"
+      }
+    };
+  }
+
+  return {
+    hero: {
+      userTitle: "Know exactly what matters today.",
+      userText: "One clear place for tasks, daily reporting, absence visibility, and items waiting on you.",
+      managerTitle: "Team, approvals, and blockers in one place.",
+      managerText: "Focus on decisions, late work, and where your team needs action from you.",
+      hrTitle: "HR workflow without bouncing between screens.",
+      hrText: "Approved requests, candidates by phase, and onboarding steps that need the next move.",
+      adminTitle: "Settings and access under control.",
+      adminText: "A short operational view for system changes, permissions, and anything that needs attention."
+    },
+    quickActionsTitle: "Quick actions",
+    focusTitle: "Today focus",
+    focusTooltip:
+      "These are the most important items for your role right now, so you can enter the right module immediately.",
+    actionCenterTitle: "Action center",
+    actionCenterTooltip:
+      "Most important items waiting on you. Each row opens the exact page or record you need.",
+    visibilityTitle: "At a glance",
+    visibilityTooltip:
+      "Short operational context without analytics noise — only the information that helps you act faster today.",
+    workspaceTitle: "Core workspace",
+    workspaceText: "Primary modules used in everyday operations.",
+    accessTitle: "Extended access",
+    accessText: "Additional modules unlocked by manager, HR, or admin access.",
+    open: "Open",
+    noActions: "No urgent items right now.",
+    viewInbox: "Open inbox",
+    summary: {
+      todayTasks: "Today tasks",
+      overdue: "Overdue",
+      todayReport: "Today report",
+      needsAction: "Needs action",
+      teamApprovals: "Waiting approval",
+      teamOverdue: "Team overdue",
+      missingReports: "Missing reports",
+      openHiring: "Open hiring",
+      hrReady: "Ready for HR",
+      hrScreening: "HR screening",
+      hrRoundTwo: "Round 2",
+      hrApproved: "Ready for onboarding",
+      accessReady: "Admin access",
+      settingsReady: "Settings",
+      reportDone: "Submitted",
+      reportMissing: "Missing",
+      reportMinutes: (minutes: string) => `Logged: ${minutes}`,
+      reportHint: "Status of today’s report",
+      actionHint: "Open items waiting on you",
+      adminHint: "Permissions and access are available",
+      settingsHint: "System defaults and dictionaries"
+    },
+    focus: {
+      userTasks: "Finish work",
+      userTasksText: "Update anything due today or already late.",
+      userReports: "Daily reporting",
+      userReportsText: "Save or review today’s activity entry.",
+      userAbsence: "Plan availability",
+      userAbsenceText: "Check remaining days and who from the team is away.",
+      managerApprovals: "Your approvals",
+      managerApprovalsText: "Task and absence items that should not wait.",
+      managerReports: "Reporting discipline",
+      managerReportsText: "See right away who still has not submitted today.",
+      managerHiring: "Active hiring",
+      managerHiringText: "Open positions and requests that need a decision.",
+      hrRequests: "HR intake",
+      hrRequestsText: "Approved requests that are ready for HR work.",
+      hrCandidates: "Candidates in motion",
+      hrCandidatesText: "Move candidates forward without losing momentum.",
+      hrOnboarding: "Onboarding attention",
+      hrOnboardingText: "See what is delayed and what needs to start next.",
+      adminAccess: "Roles and access",
+      adminAccessText: "Keep teams, managers, and extra access assignments aligned.",
+      adminSettings: "System defaults",
+      adminSettingsText: "Settings, dictionaries, and Drive defaults in one place.",
+      adminInbox: "System follow-up",
+      adminInboxText: "If something needs a response, you should see it here first."
+    },
+    visibility: {
+      absenceBalance: "Absence balance",
+      absenceBalanceDetail: (annual: number, homeOffice: number) => `${annual} annual · ${homeOffice} home office`,
+      teamAway: "Who is away today",
+      noneAway: "Nobody is away today",
+      onboarding: "Active onboarding",
+      onboardingNone: "No active onboarding",
+      teamPendingAbsences: "Pending absence requests",
+      teamPerformance: "Team performance",
+      performanceDetail: (self: number, review: number, closed: number) =>
+        `Waiting self: ${self} · waiting review: ${review} · closed: ${closed}`,
+      missingReports: "Who still missed reporting",
+      missingReportsNone: "Everyone on the team submitted",
+      hrPipeline: "Candidate pipeline",
+      hrPipelineDetail: (screening: number, roundTwo: number, finalRound: number) =>
+        `Screening: ${screening} · round 2: ${roundTwo} · final decision: ${finalRound}`,
+      talentPool: "Talent pool",
+      talentPoolDetail: (count: number) => `${count} candidates ready for future reuse`,
+      adminHelp: "Admin workspace",
+      adminHelpDetail: "Settings and Access stay focused on configuration, not daily HR work."
+    },
+    quick: {
+      inbox: "Inbox",
+      tasks: "My tasks",
+      reports: "Daily reports",
+      absence: "Absence",
+      management: "Management Panel",
+      hr: "HR System",
+      access: "Access",
+      settings: "Settings",
+      onboarding: "Onboarding"
+    }
+  };
+}
+
+function formatMinutes(totalMinutes: number) {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (!hours) return `${minutes}m`;
+  if (!minutes) return `${hours}h`;
+  return `${hours}h ${minutes}m`;
+}
+
+function getTeamPerformanceCount(
+  rows: Array<{ status: string; _count: { _all: number } }>,
+  status: string
+) {
+  return rows.find((item) => item.status === status)?._count._all ?? 0;
+}
+
+function formatOnboardingStatus(status: string | null | undefined, lang: "sr" | "en") {
+  if (!status) return lang === "sr" ? "Nema aktivnog onboardinga" : "No active onboarding";
+  const map = {
+    PLANNED: lang === "sr" ? "Planiran" : "Planned",
+    ACTIVE: lang === "sr" ? "Aktivan" : "Active",
+    WAITING_EMPLOYEE_ACTIONS: lang === "sr" ? "Čeka zaposlenog" : "Waiting employee",
+    WAITING_MANAGER_ACTIONS: lang === "sr" ? "Čeka menadžera" : "Waiting manager",
+    WAITING_HR_ACTIONS: lang === "sr" ? "Čeka HR" : "Waiting HR",
+    COMPLETED: lang === "sr" ? "Završen" : "Completed"
+  } as const;
+  return map[status as keyof typeof map] ?? status;
+}
+
+function getHeroContent(
+  mode: DashboardMode,
+  copy: ReturnType<typeof getDashboardCopy>
+) {
+  if (mode === "manager") {
+    return { title: copy.hero.managerTitle, text: copy.hero.managerText };
+  }
+  if (mode === "hr") {
+    return { title: copy.hero.hrTitle, text: copy.hero.hrText };
+  }
+  if (mode === "admin") {
+    return { title: copy.hero.adminTitle, text: copy.hero.adminText };
+  }
+  return { title: copy.hero.userTitle, text: copy.hero.userText };
+}
+
+function getSummaryCards({
+  lang,
+  copy,
+  home
+}: {
+  lang: "sr" | "en";
+  copy: ReturnType<typeof getDashboardCopy>;
+  home: Awaited<ReturnType<typeof getHomeDashboard>>;
+}): SummaryCard[] {
+  if (home.mode === "manager") {
+    return [
+      {
+        value: String(home.summary.inbox.totals.needsMyAction),
+        label: copy.summary.needsAction,
+        detail: copy.summary.actionHint,
+        icon: IconCheckCircle
+      },
+      {
+        value: String(home.summary.teamOverdueTasks),
+        label: copy.summary.teamOverdue,
+        detail: lang === "sr" ? "Zadaci u timu koji kasne." : "Late tasks across your team.",
+        icon: IconAlertTriangle,
+        tone: home.summary.teamOverdueTasks > 0 ? "warning" : "default"
+      },
+      {
+        value: String(home.summary.missingReports.length),
+        label: copy.summary.missingReports,
+        detail: lang === "sr" ? "Ko još nije predao današnji izveštaj." : "Who still has not submitted today.",
+        icon: IconReport,
+        tone: home.summary.missingReports.length > 0 ? "warning" : "default"
+      },
+      {
+        value: String(home.summary.teamOpenHiring),
+        label: copy.summary.openHiring,
+        detail: lang === "sr" ? "Aktivni zahtevi i otvorene pozicije." : "Active requests and open roles.",
+        icon: IconBriefcase,
+        tone: home.summary.teamOpenHiring > 0 ? "success" : "default"
+      }
+    ];
+  }
+
+  if (home.mode === "hr") {
+    return [
+      {
+        value: String(home.summary.hrApprovedRequests),
+        label: copy.summary.hrReady,
+        detail: lang === "sr" ? "Zahtevi koje HR sada treba da obradi." : "Requests HR can start processing now.",
+        icon: IconBriefcase
+      },
+      {
+        value: String(home.summary.hrScreening),
+        label: copy.summary.hrScreening,
+        detail: lang === "sr" ? "Kandidati u prvom HR krugu." : "Candidates currently in HR screening.",
+        icon: IconUsers
+      },
+      {
+        value: String(home.summary.hrRoundTwo),
+        label: copy.summary.hrRoundTwo,
+        detail: lang === "sr" ? "Kandidati koji čekaju round 2." : "Candidates waiting round 2 action.",
+        icon: IconClock
+      },
+      {
+        value: String(home.summary.hrApprovedForHire),
+        label: copy.summary.hrApproved,
+        detail: lang === "sr" ? "Spremni da pređu u onboarding." : "Approved and ready for onboarding.",
+        icon: IconCheckCircle,
+        tone: home.summary.hrApprovedForHire > 0 ? "success" : "default"
+      }
+    ];
+  }
+
+  if (home.mode === "admin") {
+    return [
+      {
+        value: String(home.summary.inbox.totals.needsMyAction),
+        label: copy.summary.needsAction,
+        detail: copy.summary.actionHint,
+        icon: IconInbox
+      },
+      {
+        value: lang === "sr" ? "AKTIVNO" : "LIVE",
+        label: copy.summary.accessReady,
+        detail: copy.summary.adminHint,
+        icon: IconUsers,
+        tone: "success"
+      },
+      {
+        value: lang === "sr" ? "SPREMNO" : "READY",
+        label: copy.summary.settingsReady,
+        detail: copy.summary.settingsHint,
+        icon: IconSettings
+      },
+      {
+        value: home.summary.todayReport ? copy.summary.reportDone : copy.summary.reportMissing,
+        label: copy.summary.todayReport,
+        detail: home.summary.todayReport
+          ? copy.summary.reportMinutes(formatMinutes(home.summary.todayReport.totalMinutes))
+          : copy.summary.reportHint,
+        icon: IconReport,
+        tone: home.summary.todayReport ? "success" : "warning"
+      }
+    ];
+  }
+
+  return [
+    {
+      value: String(home.summary.todayTaskCount),
+      label: copy.summary.todayTasks,
+      detail: lang === "sr" ? "Aktivni zadaci koji su na tebi danas." : "Active tasks that matter today.",
+      icon: IconTasks
+    },
+    {
+      value: String(home.summary.overdueTaskCount),
+      label: copy.summary.overdue,
+      detail: lang === "sr" ? "Zadaci kojima treba povratak danas." : "Items that need attention first today.",
+      icon: IconAlertTriangle,
+      tone: home.summary.overdueTaskCount > 0 ? "warning" : "default"
+    },
+    {
+      value: home.summary.todayReport ? copy.summary.reportDone : copy.summary.reportMissing,
+      label: copy.summary.todayReport,
+      detail: home.summary.todayReport
+        ? copy.summary.reportMinutes(formatMinutes(home.summary.todayReport.totalMinutes))
+        : copy.summary.reportHint,
+      icon: IconReport,
+      tone: home.summary.todayReport ? "success" : "warning"
+    },
+    {
+      value: String(home.summary.inbox.totals.needsMyAction),
+      label: copy.summary.needsAction,
+      detail: copy.summary.actionHint,
+      icon: IconInbox
+    }
+  ];
+}
+
+function getFocusCards({
+  lang,
+  copy,
+  home,
+  hasAdminAccess
+}: {
+  lang: "sr" | "en";
+  copy: ReturnType<typeof getDashboardCopy>;
+  home: Awaited<ReturnType<typeof getHomeDashboard>>;
+  hasAdminAccess: boolean;
+}): FocusCard[] {
+  if (home.mode === "manager") {
+    return [
+      {
+        value: String(home.summary.inbox.totals.needsMyAction),
+        label: copy.focus.managerApprovals,
+        description: copy.focus.managerApprovalsText,
+        href: "/management",
+        cta: copy.open,
+        icon: IconCheckCircle
+      },
+      {
+        value: String(home.summary.missingReports.length),
+        label: copy.focus.managerReports,
+        description: copy.focus.managerReportsText,
+        href: "/reports/manager",
+        cta: copy.open,
+        icon: IconReport
+      },
+      {
+        value: String(home.summary.teamOpenHiring),
+        label: copy.focus.managerHiring,
+        description: copy.focus.managerHiringText,
+        href: "/management",
+        cta: copy.open,
+        icon: IconBriefcase
+      }
+    ];
+  }
+
+  if (home.mode === "hr") {
+    return [
+      {
+        value: String(home.summary.hrApprovedRequests),
+        label: copy.focus.hrRequests,
+        description: copy.focus.hrRequestsText,
+        href: "/hr",
+        cta: copy.open,
+        icon: IconBriefcase
+      },
+      {
+        value: String(home.summary.hrScreening + home.summary.hrRoundTwo + home.summary.hrFinalRound),
+        label: copy.focus.hrCandidates,
+        description: copy.focus.hrCandidatesText,
+        href: "/candidates",
+        cta: copy.open,
+        icon: IconUsers
+      },
+      {
+        value: String(home.summary.hrOverdueOnboarding),
+        label: copy.focus.hrOnboarding,
+        description: copy.focus.hrOnboardingText,
+        href: "/onboarding",
+        cta: copy.open,
+        icon: IconSparkles
+      }
+    ];
+  }
+
+  if (home.mode === "admin") {
+    return [
+      {
+        value: hasAdminAccess ? (lang === "sr" ? "SPREMNO" : "READY") : "—",
+        label: copy.focus.adminAccess,
+        description: copy.focus.adminAccessText,
+        href: "/access",
+        cta: copy.open,
+        icon: IconUsers
+      },
+      {
+        value: hasAdminAccess ? (lang === "sr" ? "AKTIVNO" : "LIVE") : "—",
+        label: copy.focus.adminSettings,
+        description: copy.focus.adminSettingsText,
+        href: "/admin/settings",
+        cta: copy.open,
+        icon: IconSettings
+      },
+      {
+        value: String(home.summary.inbox.totals.needsMyAction),
+        label: copy.focus.adminInbox,
+        description: copy.focus.adminInboxText,
+        href: "/inbox",
+        cta: copy.open,
+        icon: IconInbox
+      }
+    ];
+  }
+
+  return [
+    {
+      value: String(home.summary.todayTaskCount),
+      label: copy.focus.userTasks,
+      description: copy.focus.userTasksText,
+      href: "/tasks",
+      cta: copy.open,
+      icon: IconTasks
+    },
+    {
+      value: home.summary.todayReport ? copy.summary.reportDone : copy.summary.reportMissing,
+      label: copy.focus.userReports,
+      description: copy.focus.userReportsText,
+      href: "/reports",
+      cta: copy.open,
+      icon: IconReport
+    },
+    {
+      value: String(home.summary.teamAbsencesToday.length),
+      label: copy.focus.userAbsence,
+      description: copy.focus.userAbsenceText,
+      href: "/absence",
+      cta: copy.open,
+      icon: IconCalendar
+    }
+  ];
+}
+
+function getVisibilityRows({
+  lang,
+  copy,
+  home,
+  hasHrAccess,
+  hasAdminAccess
+}: {
+  lang: "sr" | "en";
+  copy: ReturnType<typeof getDashboardCopy>;
+  home: Awaited<ReturnType<typeof getHomeDashboard>>;
+  hasHrAccess: boolean;
+  hasAdminAccess: boolean;
+}): VisibilityRow[] {
+  const awayNames = home.summary.teamAbsencesToday.map((item) => item.employee.name).filter(Boolean);
+  const missingReportNames = home.summary.missingReports.map((item) => item.name).filter(Boolean);
+  const performanceWaitingSelf = getTeamPerformanceCount(home.summary.teamPerformance, "OPEN");
+  const performanceWaitingReview = getTeamPerformanceCount(home.summary.teamPerformance, "SELF_SUBMITTED");
+  const performanceClosed = getTeamPerformanceCount(home.summary.teamPerformance, "CLOSED");
+
+  if (home.mode === "manager") {
+    return [
+      {
+        label: copy.visibility.teamAway,
+        value: awayNames.length ? awayNames.slice(0, 3).join(", ") : copy.visibility.noneAway,
+        detail: awayNames.length > 3 ? `+${awayNames.length - 3}` : undefined
+      },
+      {
+        label: copy.visibility.teamPendingAbsences,
+        value: String(home.summary.teamPendingAbsences),
+        detail: lang === "sr" ? "Zahtevi koji čekaju odluku." : "Requests waiting for a decision."
+      },
+      {
+        label: copy.visibility.missingReports,
+        value: missingReportNames.length ? missingReportNames.slice(0, 3).join(", ") : copy.visibility.missingReportsNone,
+        detail: missingReportNames.length > 3 ? `+${missingReportNames.length - 3}` : undefined
+      },
+      {
+        label: copy.visibility.teamPerformance,
+        value: lang === "sr" ? "Status kvartala" : "Quarter status",
+        detail: copy.visibility.performanceDetail(performanceWaitingSelf, performanceWaitingReview, performanceClosed)
+      }
+    ];
+  }
+
+  if (home.mode === "hr") {
+    return [
+      {
+        label: copy.visibility.hrPipeline,
+        value: String(home.summary.hrScreening + home.summary.hrRoundTwo + home.summary.hrFinalRound),
+        detail: copy.visibility.hrPipelineDetail(
+          home.summary.hrScreening,
+          home.summary.hrRoundTwo,
+          home.summary.hrFinalRound
+        )
+      },
+      {
+        label: copy.visibility.onboarding,
+        value: formatOnboardingStatus(home.summary.activeOnboarding?.status, lang),
+        detail: home.summary.activeOnboarding?.employee?.name || home.summary.activeOnboarding?.candidate?.fullName || undefined
+      },
+      {
+        label: copy.visibility.talentPool,
+        value: String(home.summary.talentPoolCount),
+        detail: copy.visibility.talentPoolDetail(home.summary.talentPoolCount)
+      },
+      {
+        label: lang === "sr" ? "Onboarding koji kasni" : "Overdue onboarding",
+        value: String(home.summary.hrOverdueOnboarding),
+        detail: lang === "sr" ? "Stavke koje traže HR reakciju." : "Items that require HR follow-up."
+      }
+    ];
+  }
+
+  if (home.mode === "admin") {
+    return [
+      {
+        label: copy.visibility.adminHelp,
+        value: hasAdminAccess ? (lang === "sr" ? "Access + Settings" : "Access + Settings") : "—",
+        detail: copy.visibility.adminHelpDetail
+      },
+      {
+        label: copy.visibility.onboarding,
+        value: formatOnboardingStatus(home.summary.activeOnboarding?.status, lang),
+        detail: home.summary.activeOnboarding?.employee?.name || home.summary.activeOnboarding?.candidate?.fullName || undefined
+      },
+      {
+        label: copy.visibility.teamAway,
+        value: awayNames.length ? awayNames.slice(0, 3).join(", ") : copy.visibility.noneAway
+      },
+      {
+        label: copy.summary.needsAction,
+        value: String(home.summary.inbox.totals.needsMyAction),
+        detail: lang === "sr" ? "Najbolji ulaz je kroz inbox." : "The inbox is the best entry point."
+      }
+    ];
+  }
+
+  const rows: VisibilityRow[] = [
+    {
+      label: copy.visibility.absenceBalance,
+      value: copy.visibility.absenceBalanceDetail(
+        home.summary.remaining.annualRemaining,
+        home.summary.remaining.homeOfficeRemaining
+      )
+    },
+    {
+      label: copy.visibility.teamAway,
+      value: awayNames.length ? awayNames.slice(0, 3).join(", ") : copy.visibility.noneAway,
+      detail: awayNames.length > 3 ? `+${awayNames.length - 3}` : undefined
+    },
+    {
+      label: copy.visibility.onboarding,
+      value: formatOnboardingStatus(home.summary.activeOnboarding?.status, lang),
+      detail: home.summary.activeOnboarding?.employee?.name || home.summary.activeOnboarding?.candidate?.fullName || copy.visibility.onboardingNone
+    },
+    {
+      label: copy.summary.needsAction,
+      value: String(home.summary.inbox.totals.needsMyAction),
+      detail: lang === "sr" ? "Sve što te čeka vidiš i u inbox-u." : "Everything waiting on you is also available in the inbox."
+    }
+  ];
+
+  if (hasHrAccess) {
+    rows.push({
+      label: copy.visibility.hrPipeline,
+      value: String(home.summary.hrApprovedRequests),
+      detail: copy.visibility.hrPipelineDetail(home.summary.hrScreening, home.summary.hrRoundTwo, home.summary.hrFinalRound)
+    });
+  }
+
+  if (hasAdminAccess) {
+    rows.push({
+      label: copy.visibility.adminHelp,
+      value: lang === "sr" ? "Podešavanja dostupna" : "Settings available",
+      detail: copy.visibility.adminHelpDetail
+    });
+  }
+
+  return rows.slice(0, 5);
+}
+
+function getQuickActions({
+  copy,
+  hasManagementPanel,
+  hasHrAccess,
+  hasAdminAccess
+}: {
+  copy: ReturnType<typeof getDashboardCopy>;
+  hasManagementPanel: boolean;
+  hasHrAccess: boolean;
+  hasAdminAccess: boolean;
+}) {
+  const actions: QuickAction[] = [];
+  const push = (action: QuickAction) => {
+    if (actions.some((item) => item.href === action.href)) return;
+    actions.push(action);
+  };
+
+  if (hasManagementPanel) {
+    push({ href: "/management", label: copy.quick.management, icon: IconBriefcase });
+  }
+
+  if (hasHrAccess) {
+    push({ href: "/hr", label: copy.quick.hr, icon: IconBriefcase });
+  }
+
+  if (hasAdminAccess) {
+    push({ href: "/access", label: copy.quick.access, icon: IconUsers });
+  }
+
+  push({ href: "/tasks", label: copy.quick.tasks, icon: IconTasks });
+  push({ href: hasManagementPanel ? "/reports/manager" : "/reports", label: copy.quick.reports, icon: IconReport });
+  push({ href: "/absence", label: copy.quick.absence, icon: IconCalendar });
+  push({ href: "/inbox", label: copy.quick.inbox, icon: IconInbox });
+  push({ href: "/onboarding", label: copy.quick.onboarding, icon: IconSparkles });
+  push({ href: "/admin/settings", label: copy.quick.settings, icon: IconSettings });
+
+  return actions.slice(0, 4);
+}
+
+function getModuleSections({
+  lang,
+  hasManagementPanel,
+  hasHrAccess,
+  hasAdminAccess,
+  t
+}: {
+  lang: "sr" | "en";
+  hasManagementPanel: boolean;
+  hasHrAccess: boolean;
+  hasAdminAccess: boolean;
+  t: ReturnType<typeof getI18n>;
+}) {
+  const workspace: ModuleItem[] = [
+    {
+      href: hasManagementPanel ? "/reports/manager" : "/reports",
+      title: hasManagementPanel ? t.dashboard.reportingManager : t.dashboard.dailyReport,
+      subtitle: hasManagementPanel ? t.dashboard.reportingManagerDesc : t.dashboard.dailyReportDesc,
+      icon: IconReport,
+      className: "module-primary"
+    },
+    {
+      href: "/tasks",
+      title: t.dashboard.tasks,
+      subtitle: t.dashboard.tasksDesc,
+      icon: IconTasks,
+      className: "module-tasks"
+    },
+    {
+      href: "/absence",
+      title: t.dashboard.absence,
+      subtitle: t.dashboard.absenceDesc,
+      icon: IconCalendar,
+      className: "module-absence"
+    },
+    {
+      href: "/performance",
+      title: t.dashboard.performance,
+      subtitle: t.dashboard.performanceDesc,
+      icon: IconSparkles,
+      className: "module-performance"
+    },
+    {
+      href: "/organization",
+      title: t.dashboard.orgChart,
+      subtitle: t.dashboard.orgChartDesc,
+      icon: IconUsers,
+      className: "module-admin"
+    }
+  ];
+
+  const accessTools: ModuleItem[] = [];
+
+  if (hasManagementPanel) {
+    accessTools.push({
+      href: "/management",
+      title: "Management Panel",
+      subtitle:
+        lang === "sr"
+          ? "Odobrenja, otvoreni hiring zahtevi i timski fokus na jednom mestu."
+          : "Approvals, hiring requests, and team focus in one place.",
+      icon: IconBriefcase,
+      className: "module-admin"
+    });
+  }
+
+  if (hasHrAccess) {
+    accessTools.push({
+      href: "/hr",
+      title: "HR System",
+      subtitle:
+        lang === "sr"
+          ? "Otvorene pozicije, kandidati i sledeći HR koraci bez pretrpavanja."
+          : "Open positions, candidates, and next HR actions without extra noise.",
+      icon: IconUsers,
+      className: "module-admin"
+    });
+  }
+
+  if (hasAdminAccess) {
+    accessTools.push(
+      {
+        href: "/access",
+        title: "Access",
+        subtitle:
+          lang === "sr"
+            ? "Uloge, timovi, menadžeri i dodatni pristupi."
+            : "Roles, teams, managers, and extra access layers.",
+        icon: IconUsers,
+        className: "module-admin"
+      },
+      {
+        href: "/admin/settings",
+        title: "Settings",
+        subtitle:
+          lang === "sr"
+            ? "Sistemske vrednosti, rečnici i podrazumevani linkovi."
+            : "System values, dictionaries, and default links.",
+        icon: IconSettings,
+        className: "module-admin"
+      }
+    );
+  }
+
+  return { workspace, accessTools };
+}
+
+function getToneLabel(tone: "review" | "warning" | "info" | "success", lang: "sr" | "en") {
+  if (tone === "review") return lang === "sr" ? "Akcija" : "Action";
+  if (tone === "warning") return lang === "sr" ? "Važno" : "Important";
+  if (tone === "success") return lang === "sr" ? "Novo" : "Update";
+  return lang === "sr" ? "Info" : "Info";
+}
 
 export default async function DashboardPage() {
   const user = await requireActiveUser();
   const branding = await getBrandingSettings();
   const lang = getRequestLang();
   const t = getI18n(lang);
+  const copy = getDashboardCopy(lang);
   const home = await getHomeDashboard({
     id: user.id,
     email: user.email,
@@ -25,6 +907,12 @@ export default async function DashboardPage() {
   const hasManagementPanel = isManagerRole(user.role);
   const hasAdminAccess = hasAccessAdmin(user);
   const inboxPreview = home.summary.inbox.needsMyAction.slice(0, 4);
+  const hero = getHeroContent(home.mode as DashboardMode, copy);
+  const summaryCards = getSummaryCards({ lang, copy, home });
+  const focusCards = getFocusCards({ lang, copy, home, hasAdminAccess });
+  const visibilityRows = getVisibilityRows({ lang, copy, home, hasHrAccess, hasAdminAccess });
+  const quickActions = getQuickActions({ copy, hasManagementPanel, hasHrAccess, hasAdminAccess });
+  const modules = getModuleSections({ lang, hasManagementPanel, hasHrAccess, hasAdminAccess, t });
 
   return (
     <main className="page">
@@ -42,9 +930,11 @@ export default async function DashboardPage() {
               </div>
             </div>
 
-            <div>
-              <h2 className="h2">{t.dashboard.title}</h2>
-              <p className="muted">{t.dashboard.chooseModule}</p>
+            <div className="dashboard-intro stack">
+              <div>
+                <h2 className="h2">{t.dashboard.title}</h2>
+                <p className="muted">{hero.text}</p>
+              </div>
             </div>
           </div>
 
@@ -60,231 +950,201 @@ export default async function DashboardPage() {
           />
         </div>
 
-        <section className="panel stack">
+        <section className="panel stack dashboard-hero">
+          <div className="dashboard-hero-main">
+            <div className="stack">
+              <div className="pills">
+                <span className="pill pill-blue">{hero.title}</span>
+                {hasManagementPanel ? <span className="pill">{lang === "sr" ? "Timski pogled" : "Team view"}</span> : null}
+                {hasHrAccess ? <span className="pill">{lang === "sr" ? "HR pristup" : "HR access"}</span> : null}
+                {hasAdminAccess ? <span className="pill">{lang === "sr" ? "Admin pristup" : "Admin access"}</span> : null}
+              </div>
+              <div>
+                <h2 className="h2">{hero.title}</h2>
+                <p className="muted">{hero.text}</p>
+              </div>
+            </div>
+
+            <div className="dashboard-quick-actions">
+              <div className="small muted">{copy.quickActionsTitle}</div>
+              <div className="inline">
+                {quickActions.map((action) => {
+                  const Icon = action.icon;
+                  return (
+                    <Link key={action.href} className="button button-secondary dashboard-quick-action" href={action.href}>
+                      <Icon size={16} /> {action.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
           <div className="grid4 dashboard-summary-grid">
-            <div className="item item-compact kpi-card">
-              <div className="kpi-icon"><IconTasks size={18} /></div>
-              <div>
-                <div className="kpi-value">{home.summary.todayTaskCount}</div>
-                <div className="kpi-label">Today tasks</div>
-              </div>
-            </div>
-            <div className="item item-compact kpi-card">
-              <div className="kpi-icon"><IconCalendar size={18} /></div>
-              <div>
-                <div className="kpi-value">{home.summary.overdueTaskCount}</div>
-                <div className="kpi-label">Overdue</div>
-              </div>
-            </div>
-            <div className="item item-compact kpi-card">
-              <div className="kpi-icon"><IconReport size={18} /></div>
-              <div>
-                <div className="kpi-value">{home.summary.todayReport ? "Done" : "Missing"}</div>
-                <div className="kpi-label">Today report</div>
-              </div>
-            </div>
-            <div className="item item-compact kpi-card">
-              <div className="kpi-icon"><IconCheckCircle size={18} /></div>
-              <div>
-                <div className="kpi-value">{home.summary.inbox.totals.needsMyAction}</div>
-                <div className="kpi-label">Needs my action</div>
-              </div>
-            </div>
+            {summaryCards.map((card) => {
+              const Icon = card.icon;
+              return (
+                <div
+                  key={card.label}
+                  className={`item item-compact kpi-card${card.tone === "warning" ? " dashboard-kpi-warning" : ""}${
+                    card.tone === "success" ? " dashboard-kpi-success" : ""
+                  }`}
+                >
+                  <div className="kpi-icon">
+                    <Icon size={18} />
+                  </div>
+                  <div>
+                    <div className="kpi-value">{card.value}</div>
+                    <div className="kpi-label">{card.label}</div>
+                    <div className="dashboard-kpi-detail">{card.detail}</div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
 
         <div className="grid2 dashboard-home-grid">
           <section className="panel stack">
-            <div className="item-top">
-              <h2 className="h2">Action Center</h2>
-              <Link className="button button-secondary" href="/inbox">
-                Inbox <IconArrowRight size={18} />
-              </Link>
+            <div className="dashboard-section-head">
+              <h2 className="h2">
+                <LabelWithTooltip label={copy.focusTitle} tooltip={copy.focusTooltip} />
+              </h2>
             </div>
-            <div className="list">
-              {inboxPreview.map((item) => (
-                <div key={item.id} className="item item-compact">
-                  <div>
-                    <div className="item-title">{item.title}</div>
-                    <div className="muted small">{item.description}</div>
-                  </div>
-                  <Link className="button button-secondary" href={item.href}>
-                    Open
-                  </Link>
-                </div>
-              ))}
-              {inboxPreview.length === 0 ? <div className="muted small">No urgent actions right now.</div> : null}
+            <div className="grid3 dashboard-focus-grid">
+              {focusCards.map((card) => {
+                const Icon = card.icon;
+                return (
+                  <article key={card.label} className="item stack dashboard-focus-card">
+                    <div className="dashboard-focus-top">
+                      <span className="dashboard-focus-icon">
+                        <Icon size={18} />
+                      </span>
+                      <span className="dashboard-focus-value">{card.value}</span>
+                    </div>
+                    <div className="dashboard-focus-label">{card.label}</div>
+                    <p className="muted small">{card.description}</p>
+                    <Link className="button button-secondary" href={card.href}>
+                      {card.cta}
+                    </Link>
+                  </article>
+                );
+              })}
             </div>
           </section>
 
           <section className="panel stack">
-            <h2 className="h2">Quick visibility</h2>
-            <div className="detail-list">
-              <div><strong>Absence summary:</strong> {home.summary.remaining.annualRemaining} annual · {home.summary.remaining.homeOfficeRemaining} home office</div>
-              <div><strong>Team absent today:</strong> {home.summary.teamAbsencesToday.length}</div>
-              <div><strong>Active onboarding:</strong> {home.summary.activeOnboarding?.status || "—"}</div>
-              {hasManagementPanel ? <div><strong>Open hiring requests:</strong> {home.summary.teamOpenHiring}</div> : null}
-              {hasManagementPanel ? <div><strong>Missing team reports today:</strong> {home.summary.missingReports.length}</div> : null}
-              {hasHrAccess ? <div><strong>Approved hiring requests ready for HR:</strong> {home.summary.hrApprovedRequests}</div> : null}
-              {hasHrAccess ? <div><strong>Candidates waiting round 2 / final round:</strong> {home.summary.hrRoundTwo} / {home.summary.hrFinalRound}</div> : null}
-              {hasAdminAccess ? <div><strong>Admin shortcuts:</strong> Settings and Access are available in the nav.</div> : null}
+            <div className="dashboard-section-head">
+              <h2 className="h2">
+                <LabelWithTooltip label={copy.actionCenterTitle} tooltip={copy.actionCenterTooltip} />
+              </h2>
+              <Link className="button button-secondary" href="/inbox">
+                {copy.viewInbox} <IconArrowRight size={18} />
+              </Link>
+            </div>
+            <div className="dashboard-action-list">
+              {inboxPreview.map((item) => (
+                <div key={item.id} className="item dashboard-action-row">
+                  <div className="dashboard-action-copy">
+                    <div className="dashboard-action-top">
+                      <span
+                        className={`pill dashboard-tone-pill dashboard-tone-${item.tone}`}
+                      >
+                        {getToneLabel(item.tone, lang)}
+                      </span>
+                      {item.meta ? <span className="muted small">{item.meta}</span> : null}
+                    </div>
+                    <div className="item-title">{item.title}</div>
+                    <div className="muted small">{item.description}</div>
+                  </div>
+                  <Link className="button button-secondary" href={item.href}>
+                    {copy.open}
+                  </Link>
+                </div>
+              ))}
+              {inboxPreview.length === 0 ? <div className="dashboard-empty muted small">{copy.noActions}</div> : null}
             </div>
           </section>
         </div>
 
-        <div className="module-grid" role="list">
-          <Link className="module-tile module-primary" href={hasManagementPanel ? "/reports/manager" : "/reports"} role="listitem">
-            <span className="module-icon" aria-hidden="true">
-              <IconReport size={24} />
-            </span>
-            <span className="module-body">
-              <span className="module-title">{hasManagementPanel ? t.dashboard.reportingManager : t.dashboard.dailyReport}</span>
-              <span className="module-subtitle">{hasManagementPanel ? t.dashboard.reportingManagerDesc : t.dashboard.dailyReportDesc}</span>
-            </span>
-            <span className="module-cta" aria-hidden="true">
-              <IconArrowRight size={18} />
-            </span>
-          </Link>
+        <div className="grid2 dashboard-home-grid">
+          <section className="panel stack">
+            <div className="dashboard-section-head">
+              <h2 className="h2">
+                <LabelWithTooltip label={copy.visibilityTitle} tooltip={copy.visibilityTooltip} />
+              </h2>
+            </div>
+            <div className="dashboard-visibility-list">
+              {visibilityRows.map((row) => (
+                <div key={row.label} className="item dashboard-visibility-row">
+                  <div>
+                    <div className="item-title">{row.label}</div>
+                    {row.detail ? <div className="muted small">{row.detail}</div> : null}
+                  </div>
+                  <div className="dashboard-visibility-value">{row.value}</div>
+                </div>
+              ))}
+            </div>
+          </section>
 
-          <Link className="module-tile module-tasks" href="/tasks" role="listitem">
-            <span className="module-icon" aria-hidden="true">
-              <IconTasks size={24} />
-            </span>
-            <span className="module-body">
-              <span className="module-title">{t.dashboard.tasks}</span>
-              <span className="module-subtitle">{t.dashboard.tasksDesc}</span>
-            </span>
-            <span className="module-cta" aria-hidden="true">
-              <IconArrowRight size={18} />
-            </span>
-          </Link>
-
-          <Link className="module-tile module-absence" href="/absence" role="listitem">
-            <span className="module-icon" aria-hidden="true">
-              <IconCalendar size={24} />
-            </span>
-            <span className="module-body">
-              <span className="module-title">{t.dashboard.absence}</span>
-              <span className="module-subtitle">{t.dashboard.absenceDesc}</span>
-            </span>
-            <span className="module-cta" aria-hidden="true">
-              <IconArrowRight size={18} />
-            </span>
-          </Link>
-
-          <Link className="module-tile module-performance" href="/performance" role="listitem">
-            <span className="module-icon" aria-hidden="true">
-              <IconSparkles size={24} />
-            </span>
-            <span className="module-body">
-              <span className="module-title">{t.dashboard.performance}</span>
-              <span className="module-subtitle">{t.dashboard.performanceDesc}</span>
-            </span>
-            <span className="module-cta" aria-hidden="true">
-              <IconArrowRight size={18} />
-            </span>
-          </Link>
-
-          <Link className="module-tile module-admin" href="/organization" role="listitem">
-            <span className="module-icon" aria-hidden="true">
-              <IconUsers size={24} />
-            </span>
-            <span className="module-body">
-              <span className="module-title">{t.dashboard.orgChart}</span>
-              <span className="module-subtitle">{t.dashboard.orgChartDesc}</span>
-            </span>
-            <span className="module-cta" aria-hidden="true">
-              <IconArrowRight size={18} />
-            </span>
-          </Link>
-
-          {hasHrAccess ? (
-            <Link className="module-tile module-admin" href="/hr" role="listitem">
-              <span className="module-icon" aria-hidden="true">
-                <IconUsers size={24} />
-              </span>
-              <span className="module-body">
-                <span className="module-title">HR System</span>
-                <span className="module-subtitle">
-                  {lang === "sr"
-                    ? "Otvorene pozicije, kandidati, CV baza i HR tok."
-                    : "Open positions, candidates, CV base and HR workflow."}
-                </span>
-              </span>
-              <span className="module-cta" aria-hidden="true">
-                <IconArrowRight size={18} />
-              </span>
-            </Link>
-          ) : null}
-
-          {hasManagementPanel ? (
-            <Link className="module-tile module-admin" href="/management" role="listitem">
-              <span className="module-icon" aria-hidden="true">
-                <IconTasks size={24} />
-              </span>
-              <span className="module-body">
-                <span className="module-title">Management Panel</span>
-                <span className="module-subtitle">
-                  {lang === "sr"
-                    ? "Metrike tima, odobrenja i pregled aktivnih procesa."
-                    : "Team metrics, approvals and active workflow overview."}
-                </span>
-              </span>
-              <span className="module-cta" aria-hidden="true">
-                <IconArrowRight size={18} />
-              </span>
-            </Link>
-          ) : null}
-
-          {hasManagementPanel ? (
-            <Link className="module-tile module-admin" href="/reports/manager" role="listitem">
-              <span className="module-icon" aria-hidden="true">
-                <IconUsers size={24} />
-              </span>
-              <span className="module-body">
-                <span className="module-title">{t.dashboard.reportingManager}</span>
-                <span className="module-subtitle">{t.dashboard.reportingManagerDesc}</span>
-              </span>
-              <span className="module-cta" aria-hidden="true">
-                <IconArrowRight size={18} />
-              </span>
-            </Link>
-          ) : null}
-
-          {hasAdminAccess ? (
-            <Link className="module-tile module-admin" href="/access" role="listitem">
-              <span className="module-icon" aria-hidden="true">
-                <IconSettings size={24} />
-              </span>
-              <span className="module-body">
-                <span className="module-title">{t.dashboard.adminPanel}</span>
-                <span className="module-subtitle">{t.dashboard.adminPanelDesc}</span>
-              </span>
-              <span className="module-cta" aria-hidden="true">
-                <IconArrowRight size={18} />
-              </span>
-            </Link>
-          ) : null}
-
-          {hasAdminAccess ? (
-            <Link className="module-tile module-admin" href="/admin/settings" role="listitem">
-              <span className="module-icon" aria-hidden="true">
-                <IconSettings size={24} />
-              </span>
-              <span className="module-body">
-                <span className="module-title">Settings</span>
-                <span className="module-subtitle">
-                  {lang === "sr"
-                    ? "Sistemska podešavanja, rečnici i podrazumevane vrednosti."
-                    : "System settings, dictionaries, and default values."}
-                </span>
-              </span>
-              <span className="module-cta" aria-hidden="true">
-                <IconArrowRight size={18} />
-              </span>
-            </Link>
-          ) : null}
+          <section className="panel stack">
+            <div className="dashboard-section-head">
+              <div>
+                <h2 className="h2">{copy.workspaceTitle}</h2>
+                <p className="muted small">{copy.workspaceText}</p>
+              </div>
+            </div>
+            <div className="module-grid" role="list">
+              {modules.workspace.map((module) => {
+                const Icon = module.icon;
+                return (
+                  <Link key={module.href} className={`module-tile ${module.className}`} href={module.href} role="listitem">
+                    <span className="module-icon" aria-hidden="true">
+                      <Icon size={24} />
+                    </span>
+                    <span className="module-body">
+                      <span className="module-title">{module.title}</span>
+                      <span className="module-subtitle">{module.subtitle}</span>
+                    </span>
+                    <span className="module-cta" aria-hidden="true">
+                      <IconArrowRight size={18} />
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
         </div>
+
+        {modules.accessTools.length ? (
+          <section className="panel stack">
+            <div className="dashboard-section-head">
+              <div>
+                <h2 className="h2">{copy.accessTitle}</h2>
+                <p className="muted small">{copy.accessText}</p>
+              </div>
+            </div>
+            <div className="module-grid" role="list">
+              {modules.accessTools.map((module) => {
+                const Icon = module.icon;
+                return (
+                  <Link key={module.href} className={`module-tile ${module.className}`} href={module.href} role="listitem">
+                    <span className="module-icon" aria-hidden="true">
+                      <Icon size={24} />
+                    </span>
+                    <span className="module-body">
+                      <span className="module-title">{module.title}</span>
+                      <span className="module-subtitle">{module.subtitle}</span>
+                    </span>
+                    <span className="module-cta" aria-hidden="true">
+                      <IconArrowRight size={18} />
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
       </div>
     </main>
   );

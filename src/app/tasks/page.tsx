@@ -12,6 +12,7 @@ import { formatInTimeZone } from "@/server/time";
 import { APP_TIMEZONE } from "@/server/app-settings";
 import { IconAlertTriangle, IconArrowLeft, IconBolt, IconCheckCircle, IconClock, IconPdf, IconSparkles, IconTasks } from "@/components/icons";
 import { isManagerRole } from "@/server/rbac";
+import { LabelWithTooltip } from "@/components/Tooltip";
 
 function resolveQuickRange(quickRaw: string | undefined, currentFrom: string, currentTo: string) {
   const quick = Number.parseInt(String(quickRaw || ""), 10);
@@ -122,6 +123,25 @@ export default async function TasksPage({
   if (dash.filters.teamId) exportParams.set("teamId", dash.filters.teamId);
   if (dash.filters.employeeId) exportParams.set("employeeId", dash.filters.employeeId);
   const exportHref = `/api/tasks/dashboard-pdf?${exportParams.toString()}`;
+  const help = lang === "sr"
+    ? {
+        filters: "Podesi period i opseg tako da odmah vidiš gde kasni posao i gde je potreban review.",
+        kpi: "Ovo su glavne operativne metrike za izabrani period — dovoljno kratko da se brzo pročita, dovoljno jasno za odluku.",
+        process: "Proces pokazuje gde zadaci trenutno stoje: otvoreno, u radu, na odobrenju, odobreno ili vraćeno.",
+        managerStats: "Po zaposlenom dobijaš brz pregled opterećenja i mesta gde treba da reaguješ kao menadžer.",
+        create: "Forma za brzo delegiranje novog zadatka bez otvaranja dodatnih koraka.",
+        approvals: "Sve stavke koje čekaju tvoju odluku — cilj je da review bude jasan i brz.",
+        list: "Detaljna lista ostaje centralno mesto za rad na zadacima, komentare i istoriju."
+      }
+    : {
+        filters: "Set period and scope so you can quickly see what is late, blocked, or waiting for review.",
+        kpi: "These are the main operational task metrics for the selected period — short enough to scan, clear enough to decide.",
+        process: "Process flow shows where tasks currently sit: open, in progress, for approval, approved, or returned.",
+        managerStats: "Per employee you get a quick view of workload and where you need to step in as manager.",
+        create: "Use this form to delegate a new task quickly without opening extra workflow steps.",
+        approvals: "Everything waiting for your decision lives here, so review stays focused and fast.",
+        list: "The detailed list remains the main place for work, comments, and task history."
+      };
 
   return (
     <main className="page">
@@ -166,7 +186,11 @@ export default async function TasksPage({
         {error ? <div className="error">{error}</div> : null}
 
         <section className="panel stack">
-          <h2 className="h2">{t.tasks.filters}</h2>
+          <div className="section-head">
+            <h2 className="h2">
+              <LabelWithTooltip label={t.tasks.filters} tooltip={help.filters} />
+            </h2>
+          </div>
           <form className="grid3" method="get" action="/tasks">
             <label className="field">
               <span className="label">{t.tasks.from}</span>
@@ -232,7 +256,11 @@ export default async function TasksPage({
         </section>
 
         <section className="panel stack">
-          <h2 className="h2">{t.tasks.kpi}</h2>
+          <div className="section-head">
+            <h2 className="h2">
+              <LabelWithTooltip label={t.tasks.kpi} tooltip={help.kpi} />
+            </h2>
+          </div>
           <div className="grid3">
             <div className="item item-compact kpi-card">
               <div className="kpi-icon">
@@ -292,7 +320,9 @@ export default async function TasksPage({
         <section className="panel stack">
           <div className="section-head">
             <div>
-              <h2 className="h2">{t.tasks.processTitle}</h2>
+              <h2 className="h2">
+                <LabelWithTooltip label={t.tasks.processTitle} tooltip={help.process} />
+              </h2>
               <div className="muted small">{t.tasks.processHint}</div>
             </div>
             <span className="pill">{dash.totals.totalTasks}</span>
@@ -313,8 +343,15 @@ export default async function TasksPage({
 
         {canManage ? (
           <section className="panel stack">
-            <h2 className="h2">{t.tasks.managerStatsTitle}</h2>
-            <div className="muted small">{t.tasks.managerStatsHint}</div>
+            <div className="section-head">
+              <div>
+                <h2 className="h2">
+                  <LabelWithTooltip label={t.tasks.managerStatsTitle} tooltip={help.managerStats} />
+                </h2>
+                <div className="muted small">{t.tasks.managerStatsHint}</div>
+              </div>
+              <span className="pill">{dash.byEmployee.length}</span>
+            </div>
             <div className="list">
               {dash.byEmployee.map((row) => (
                 <div key={row.id} className="item item-compact">
@@ -359,7 +396,11 @@ export default async function TasksPage({
 
         {canManage ? (
           <section className="panel stack">
-            <h2 className="h2">{t.tasks.createTitle}</h2>
+            <div className="section-head">
+              <h2 className="h2">
+                <LabelWithTooltip label={t.tasks.createTitle} tooltip={help.create} />
+              </h2>
+            </div>
             <form className="stack" action={createTaskAction}>
               <div className="grid2">
                 <label className="field">
@@ -427,8 +468,15 @@ export default async function TasksPage({
 
         {canManage ? (
           <section className="panel stack">
-            <h2 className="h2">{t.tasks.approvals}</h2>
-            <div className="muted small">{t.tasks.approvalsHint}</div>
+            <div className="section-head">
+              <div>
+                <h2 className="h2">
+                  <LabelWithTooltip label={t.tasks.approvals} tooltip={help.approvals} />
+                </h2>
+                <div className="muted small">{t.tasks.approvalsHint}</div>
+              </div>
+              <span className="pill">{dash.approvals.filter((x) => x.canApprove).length}</span>
+            </div>
             <div className="list">
               {dash.approvals.filter((x) => x.canApprove).map((task) => (
                 <details key={task.taskId} className="item stack">
@@ -484,7 +532,12 @@ export default async function TasksPage({
         ) : null}
 
         <section className="panel stack">
-          <h2 className="h2">{t.tasks.listTitle}</h2>
+          <div className="section-head">
+            <h2 className="h2">
+              <LabelWithTooltip label={t.tasks.listTitle} tooltip={help.list} />
+            </h2>
+            <span className="pill">{dash.tasks.length}</span>
+          </div>
           <div className="list">
             {dash.tasks.slice(0, 200).map((task) => (
               <details key={task.taskId} className={`item stack ${task.criticalOverdue ? "item-critical" : task.overdue ? "item-overdue" : ""}`}>

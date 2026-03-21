@@ -913,7 +913,28 @@ export default async function HrProcessPage({
         </section>
 
         <section className="panel stack">
-          <h2 className="h2">{c.audit}</h2>
+          <div className="section-head">
+            <div>
+              <h2 className="h2">
+                <LabelWithTooltip
+                  label={c.audit}
+                  tooltip={
+                    lang === "sr"
+                      ? "Audit prikazuje ključne promene po procesu: ko je ostavio komentar, promenio status ili doneo odluku i kada se to desilo."
+                      : "The audit trail shows the key process changes: who commented, changed status, or made a decision, and when it happened."
+                  }
+                />
+              </h2>
+              <div className="muted small">
+                {lang === "sr"
+                  ? "Koristan pregled za vraćanje konteksta bez ulaska u svaku pojedinačnu rundu."
+                  : "A helpful context view so you can understand the history without opening every round separately."}
+              </div>
+            </div>
+            <div className="pills">
+              <span className="pill pill-status pill-status-muted">{process.auditLogs.length}</span>
+            </div>
+          </div>
           <div className="list">
             {process.auditLogs.map((log) => (
               <div key={log.id} className="item stack">

@@ -48,6 +48,28 @@ export function IconArrowRight(props: IconProps) {
   );
 }
 
+export function IconHome(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path
+        d="M4 11.5 12 4l8 7.5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6.5 10.5V20h11v-9.5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M10 20v-5h4v5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 export function IconPdf(props: IconProps) {
   return (
     <Svg {...props}>
@@ -200,6 +222,41 @@ export function IconUsers(props: IconProps) {
         strokeLinecap="round"
         opacity="0.85"
       />
+    </Svg>
+  );
+}
+
+export function IconInbox(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path
+        d="M4 5h16l-1.6 12.4A2 2 0 0 1 16.4 19H7.6a2 2 0 0 1-1.98-1.6L4 5Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M4.7 14h4.3l1.5 2h3l1.5-2h4.3"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function IconBriefcase(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path
+        d="M4 8h16a2 2 0 0 1 2 2v7a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3v-7a2 2 0 0 1 2-2Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M2 12h20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }

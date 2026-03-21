@@ -26,6 +26,7 @@ function copy(lang: "sr" | "en") {
       openPositions: "Otvorene pozicije",
       pendingReviews: "Čeka pregled menadžera",
       finalApprovals: "Čeka finalno odobrenje",
+      pendingApprovalsTitle: "Čeka superior approval",
       openTasks: "Otvoreni taskovi",
       overdue: "Overdue taskovi",
       evaluations: "Aktivne evaluacije",
@@ -38,10 +39,26 @@ function copy(lang: "sr" | "en") {
       startHiringText: "Menadžer otvara zahtev, nadređeni daje jedno odobrenje, a HR preuzima proces tek nakon toga.",
       requestFormTitle: "Korak 1 — Novi hiring request",
       requestFormText: "Unesi samo osnovne poslovne podatke. Kandidati i screening se vode kasnije, kada HR preuzme odobren zahtev.",
+      teamLabel: "Tim",
+      positionLabel: "Pozicija",
+      requestTypeLabel: "Zamena / nova pozicija",
+      priorityLabel: "Prioritet",
+      desiredStartDateLabel: "Željeni datum početka",
+      headcountLabel: "Broj izvršilaca",
+      reasonLabel: "Razlog",
+      managerCommentLabel: "Komentar menadžera",
+      createRequest: "Kreiraj zahtev",
+      replacementPlaceholder: "Zamena / nova pozicija",
       noData: "Nema podataka za prikaz.",
       openDetail: "Otvori detalj",
       markRead: "Označi kao pročitano",
-      unread: "Nepročitano"
+      unread: "Nepročitano",
+      read: "Pročitano",
+      notificationsHelp: "Ovde vidiš šta je novo u hiring toku za tvoj tim i šta traži reakciju sa tvoje strane.",
+      activeProcessesHelp: "Aktivni procesi su već u radu. Ovde brzo vidiš status, prioritet i koliko kandidata je već vezano za svaku poziciju.",
+      superiorApprovalsHelp: "Ovo su zahtevi koje su otvorili tvoji direktni menadžeri i koji čekaju tvoje jedno odobrenje pre nego što HR krene dalje.",
+      reviewQueueHelp: "Kandidati koji su prošli HR screening i čekaju tvoj pregled za sledeći korak.",
+      finalQueueHelp: "Kandidati koji su stigli do završne odluke i čekaju tvoje finalno odobrenje ili odbijanje."
     };
   }
 
@@ -52,6 +69,7 @@ function copy(lang: "sr" | "en") {
     openPositions: "Open positions",
     pendingReviews: "Waiting manager review",
     finalApprovals: "Waiting final approval",
+    pendingApprovalsTitle: "Pending superior approvals",
     openTasks: "Open tasks",
     overdue: "Overdue tasks",
     evaluations: "Active evaluations",
@@ -64,10 +82,26 @@ function copy(lang: "sr" | "en") {
     startHiringText: "The manager opens the request, the superior gives one approval, and HR enters only after that approval is done.",
     requestFormTitle: "Step 1 — New hiring request",
     requestFormText: "Enter only the core business request. Candidates and screening are handled later, once HR takes over the approved request.",
+    teamLabel: "Team",
+    positionLabel: "Position",
+    requestTypeLabel: "Replacement / new position",
+    priorityLabel: "Priority",
+    desiredStartDateLabel: "Desired start date",
+    headcountLabel: "Headcount",
+    reasonLabel: "Reason",
+    managerCommentLabel: "Manager comment",
+    createRequest: "Create request",
+    replacementPlaceholder: "Replacement / New position",
     noData: "No data to show.",
     openDetail: "Open detail",
     markRead: "Mark as read",
-    unread: "Unread"
+    unread: "Unread",
+    read: "Read",
+    notificationsHelp: "This is your hiring activity feed: what changed, what is new, and what needs your reaction.",
+    activeProcessesHelp: "Active processes are already in motion. Use this list to quickly see status, priority, and how many candidates are attached to each opening.",
+    superiorApprovalsHelp: "These are requests opened by your direct managers and waiting for your one approval before HR can continue.",
+    reviewQueueHelp: "Candidates who passed HR screening and are now waiting for your manager review.",
+    finalQueueHelp: "Candidates that reached the final decision stage and now need your final approval or rejection."
   };
 }
 
@@ -205,7 +239,7 @@ export default async function ManagementPage() {
               <label className="field">
                 <span className="label">
                   <LabelWithTooltip
-                    label="Team"
+                    label={c.teamLabel}
                     tooltip={
                       lang === "sr"
                         ? "Izaberi tim za koji se otvara pozicija. Ovo određuje ko će videti proces i ko je odgovoran u daljim koracima."
@@ -224,7 +258,7 @@ export default async function ManagementPage() {
               <label className="field">
                 <span className="label">
                   <LabelWithTooltip
-                    label="Position"
+                    label={c.positionLabel}
                     tooltip={
                       lang === "sr"
                         ? "Naziv pozicije treba da bude jasan i isti kao interni naziv koji ćete koristiti kasnije u onboardingu i profilu zaposlenog."
@@ -237,7 +271,7 @@ export default async function ManagementPage() {
               <label className="field">
                 <span className="label">
                   <LabelWithTooltip
-                    label="Replacement / new position"
+                    label={c.requestTypeLabel}
                     tooltip={
                       lang === "sr"
                         ? "Upiši da li je u pitanju zamena ili nova pozicija, da bi superior i HR odmah razumeli kontekst zahteva."
@@ -245,12 +279,12 @@ export default async function ManagementPage() {
                     }
                   />
                 </span>
-                <input className="input" name="requestType" type="text" placeholder="Replacement / New position" />
+                <input className="input" name="requestType" type="text" placeholder={c.replacementPlaceholder} />
               </label>
               <label className="field">
                 <span className="label">
                   <LabelWithTooltip
-                    label="Priority"
+                    label={c.priorityLabel}
                     tooltip={
                       lang === "sr"
                         ? "Prioritet služi za redosled obrade. Nemoj ga koristiti za opis hitnosti ako razlog već to objašnjava."
@@ -268,7 +302,7 @@ export default async function ManagementPage() {
               <label className="field">
                 <span className="label">
                   <LabelWithTooltip
-                    label="Desired start date"
+                    label={c.desiredStartDateLabel}
                     tooltip={
                       lang === "sr"
                         ? "Ovo je ciljani datum početka rada, ne datum objave oglasa."
@@ -281,7 +315,7 @@ export default async function ManagementPage() {
               <label className="field">
                 <span className="label">
                   <LabelWithTooltip
-                    label="Headcount"
+                    label={c.headcountLabel}
                     tooltip={
                       lang === "sr"
                         ? "Broj izvršilaca koje treba otvoriti kroz isti zahtev."
@@ -294,7 +328,7 @@ export default async function ManagementPage() {
               <label className="field">
                 <span className="label">
                   <LabelWithTooltip
-                    label="Reason"
+                    label={c.reasonLabel}
                     tooltip={
                       lang === "sr"
                         ? "U nekoliko rečenica objasni poslovni razlog: rast, zamena, opterećenje tima, novi projekat ili sličan razlog."
@@ -307,7 +341,7 @@ export default async function ManagementPage() {
               <label className="field">
                 <span className="label">
                   <LabelWithTooltip
-                    label="Manager comment"
+                    label={c.managerCommentLabel}
                     tooltip={
                       lang === "sr"
                         ? "Dodatni kontekst za HR ili superiora: bitni rokovi, očekivanja ili detalji koje treba znati pre odobrenja."
@@ -319,13 +353,25 @@ export default async function ManagementPage() {
               </label>
               <div className="field field-actions">
                 <span className="label"> </span>
-                <button className="button" type="submit">Create request</button>
+                <button className="button" type="submit">{c.createRequest}</button>
               </div>
             </form>
           </section>
 
           <section className="panel stack">
-            <h2 className="h2">{c.notifications}</h2>
+            <div className="section-head">
+              <div>
+                <h2 className="h2">
+                  <LabelWithTooltip label={c.notifications} tooltip={c.notificationsHelp} />
+                </h2>
+                <div className="muted small">{c.notificationsHelp}</div>
+              </div>
+              <div className="pills">
+                <span className="pill pill-status pill-status-review">
+                  {panel.notifications.filter((notification) => !notification.isRead).length} {c.unread}
+                </span>
+              </div>
+            </div>
             <div className="list">
               {panel.notifications.map((notification) => (
                 <div key={notification.id} className="item stack">
@@ -335,7 +381,7 @@ export default async function ManagementPage() {
                       <div className="muted small">{notification.body || c.noData}</div>
                     </div>
                     <span className={notification.isRead ? "pill pill-status pill-status-muted" : "pill pill-status pill-status-review"}>
-                      {notification.isRead ? "Read" : c.unread}
+                      {notification.isRead ? c.read : c.unread}
                     </span>
                   </div>
                   <div className="inline">
@@ -361,7 +407,17 @@ export default async function ManagementPage() {
           </section>
 
           <section className="panel stack">
-            <h2 className="h2">{c.activeProcesses}</h2>
+            <div className="section-head">
+              <div>
+                <h2 className="h2">
+                  <LabelWithTooltip label={c.activeProcesses} tooltip={c.activeProcessesHelp} />
+                </h2>
+                <div className="muted small">{c.activeProcessesHelp}</div>
+              </div>
+              <div className="pills">
+                <span className="pill pill-status pill-status-progress">{panel.processes.length}</span>
+              </div>
+            </div>
             <div className="list">
               {panel.processes.map((process) => (
                 <div key={process.id} className="item item-compact">
@@ -386,7 +442,17 @@ export default async function ManagementPage() {
 
         <div className="grid2 hr-main-grid">
           <section className="panel stack">
-            <h2 className="h2">Pending superior approvals</h2>
+            <div className="section-head">
+              <div>
+                <h2 className="h2">
+                  <LabelWithTooltip label={c.pendingApprovalsTitle} tooltip={c.superiorApprovalsHelp} />
+                </h2>
+                <div className="muted small">{c.superiorApprovalsHelp}</div>
+              </div>
+              <div className="pills">
+                <span className="pill pill-status pill-status-review">{panel.pendingSuperiorApprovals.length}</span>
+              </div>
+            </div>
             <div className="list">
               {panel.pendingSuperiorApprovals.map((process) => (
                 <div key={process.id} className="item item-compact">
@@ -406,7 +472,17 @@ export default async function ManagementPage() {
           </section>
 
           <section className="panel stack">
-            <h2 className="h2">{c.reviewQueue}</h2>
+            <div className="section-head">
+              <div>
+                <h2 className="h2">
+                  <LabelWithTooltip label={c.reviewQueue} tooltip={c.reviewQueueHelp} />
+                </h2>
+                <div className="muted small">{c.reviewQueueHelp}</div>
+              </div>
+              <div className="pills">
+                <span className="pill pill-status pill-status-review">{panel.pendingReview.length}</span>
+              </div>
+            </div>
             <div className="list">
               {panel.pendingReview.map((item) => (
                 <div key={item.id} className="item item-compact">
@@ -424,7 +500,17 @@ export default async function ManagementPage() {
           </section>
 
           <section className="panel stack">
-            <h2 className="h2">{c.finalQueue}</h2>
+            <div className="section-head">
+              <div>
+                <h2 className="h2">
+                  <LabelWithTooltip label={c.finalQueue} tooltip={c.finalQueueHelp} />
+                </h2>
+                <div className="muted small">{c.finalQueueHelp}</div>
+              </div>
+              <div className="pills">
+                <span className="pill pill-status pill-status-approved">{panel.finalApprovals.length}</span>
+              </div>
+            </div>
             <div className="list">
               {panel.finalApprovals.map((item) => (
                 <div key={item.id} className="item item-compact">

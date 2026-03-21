@@ -107,6 +107,7 @@ export default async function PerformancePage({
 
   const myOpen = my.items.filter((e) => e.status === "OPEN" || e.status === "SELF_SUBMITTED").length;
   const myClosed = my.items.filter((e) => e.status === "CLOSED").length;
+  const myWaitingSelf = my.items.filter((e) => e.status === "OPEN").length;
   const teamOpen = team.items.filter((e: any) => e.status === "OPEN" || e.status === "SELF_SUBMITTED").length;
   const teamClosed = team.items.filter((e: any) => e.status === "CLOSED").length;
   const teamNeedsReview = team.items.filter((e: any) => e.needsReview).length;
@@ -305,6 +306,32 @@ export default async function PerformancePage({
 
         {message && messageType ? <div className={messageType === "success" ? "success" : "error"}>{message}</div> : null}
 
+        {myWaitingSelf > 0 || teamNeedsReview > 0 || teamCritical > 0 ? (
+          <div className={`notice ${teamCritical > 0 || teamNeedsReview > 0 ? "notice-warning" : "notice-neutral"}`}>
+            <div className="notice-icon">{teamCritical > 0 || teamNeedsReview > 0 ? <IconAlertTriangle size={18} /> : <IconClock size={18} />}</div>
+            <div className="stack" style={{ gap: 6 }}>
+              <div className="notice-title">{lang === "sr" ? "Akcije u ciklusu" : "Cycle actions"}</div>
+              <div className="muted small">
+                {lang === "sr"
+                  ? [
+                      myWaitingSelf > 0 ? `Ti imaš ${myWaitingSelf} evaluacija koje čekaju self-assessment.` : null,
+                      teamNeedsReview > 0 ? `Tim ima ${teamNeedsReview} evaluacija koje čekaju manager review.` : null,
+                      teamCritical > 0 ? `${teamCritical} evaluacija je označeno kao kritično.` : null
+                    ]
+                      .filter(Boolean)
+                      .join(" ")
+                  : [
+                      myWaitingSelf > 0 ? `You have ${myWaitingSelf} evaluations waiting for self-assessment.` : null,
+                      teamNeedsReview > 0 ? `Your team has ${teamNeedsReview} evaluations waiting for manager review.` : null,
+                      teamCritical > 0 ? `${teamCritical} evaluations are marked as critical.` : null
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <section className="panel stack">
           <h2 className="h2">
             <LabelWithTooltip
@@ -405,6 +432,10 @@ export default async function PerformancePage({
                 </h2>
                 <div className="muted small">{t.performance.analyticsHint}</div>
               </div>
+              <div className="pills">
+                <span className="pill pill-status pill-status-progress">{teamAnalytics.quarterStats.length}</span>
+                <span className="pill pill-status pill-status-muted">{teamAnalytics.employees.length}</span>
+              </div>
             </div>
 
             <div className="grid2">
@@ -499,17 +530,24 @@ export default async function PerformancePage({
 
         {canCreate ? (
           <section className="panel stack">
-            <h2 className="h2">
-              <LabelWithTooltip
-                label={t.performance.createTitle}
-                tooltip={
-                  lang === "sr"
-                    ? "Ovde menadžer otvara novu kvartalnu evaluaciju i po želji odmah dodaje početne ciljeve."
-                    : "Managers open a new quarterly evaluation here and can optionally add the starting goals immediately."
-                }
-              />
-            </h2>
-            <div className="muted small">{t.performance.createHint}</div>
+            <div className="section-head">
+              <div>
+                <h2 className="h2">
+                  <LabelWithTooltip
+                    label={t.performance.createTitle}
+                    tooltip={
+                      lang === "sr"
+                        ? "Ovde menadžer otvara novu kvartalnu evaluaciju i po želji odmah dodaje početne ciljeve."
+                        : "Managers open a new quarterly evaluation here and can optionally add the starting goals immediately."
+                    }
+                  />
+                </h2>
+                <div className="muted small">{t.performance.createHint}</div>
+              </div>
+              <div className="pills">
+                <span className="pill pill-status pill-status-muted">{Math.max(createOptions.filter((e: any) => e.id !== user.id).length, 0)}</span>
+              </div>
+            </div>
             <form className="stack" action={createEvaluationAction}>
               <label className="field">
                 <span className="label">{t.performance.employee}</span>
@@ -561,17 +599,25 @@ export default async function PerformancePage({
         ) : null}
 
         <section className="panel stack">
-          <h2 className="h2">
-            <LabelWithTooltip
-              label={t.performance.myTitle}
-              tooltip={
-                lang === "sr"
-                  ? "Tvoj pregled ciljeva, self-assessment-a i finalnog rezultata kada ciklus bude zatvoren."
-                  : "Your view of goals, self-assessment, and the final result once the cycle is closed."
-              }
-            />
-          </h2>
-          <div className="muted small">{t.performance.myHint}</div>
+          <div className="section-head">
+            <div>
+              <h2 className="h2">
+                <LabelWithTooltip
+                  label={t.performance.myTitle}
+                  tooltip={
+                    lang === "sr"
+                      ? "Tvoj pregled ciljeva, self-assessment-a i finalnog rezultata kada ciklus bude zatvoren."
+                      : "Your view of goals, self-assessment, and the final result once the cycle is closed."
+                  }
+                />
+              </h2>
+              <div className="muted small">{t.performance.myHint}</div>
+            </div>
+            <div className="pills">
+              <span className="pill pill-status pill-status-progress">{my.items.length}</span>
+              {myWaitingSelf > 0 ? <span className="pill pill-status pill-status-review">{myWaitingSelf}</span> : null}
+            </div>
+          </div>
           <div className="list">
             {my.items.map((e) => {
               const progress = evalProgress(e);
@@ -606,17 +652,26 @@ export default async function PerformancePage({
 
         {canViewTeam ? (
           <section className="panel stack">
-            <h2 className="h2">
-              <LabelWithTooltip
-                label={t.performance.teamTitle}
-                tooltip={
-                  lang === "sr"
-                    ? "Pregled direktnih podređenih i stanja njihovih kvartalnih evaluacija."
-                    : "A view of direct reports and the status of their quarterly evaluations."
-                }
-              />
-            </h2>
-            <div className="muted small">{t.performance.teamHint}</div>
+            <div className="section-head">
+              <div>
+                <h2 className="h2">
+                  <LabelWithTooltip
+                    label={t.performance.teamTitle}
+                    tooltip={
+                      lang === "sr"
+                        ? "Pregled direktnih podređenih i stanja njihovih kvartalnih evaluacija."
+                        : "A view of direct reports and the status of their quarterly evaluations."
+                    }
+                  />
+                </h2>
+                <div className="muted small">{t.performance.teamHint}</div>
+              </div>
+              <div className="pills">
+                <span className="pill pill-status pill-status-progress">{filteredTeam.length}</span>
+                {teamNeedsReview > 0 ? <span className="pill pill-status pill-status-review">{teamNeedsReview}</span> : null}
+                {teamCritical > 0 ? <span className="pill pill-danger">{teamCritical}</span> : null}
+              </div>
+            </div>
             <div className="inline">
               <Link className={teamFilter === "ALL" ? "button" : "button button-secondary"} href="/performance?teamFilter=ALL">
                 {t.performance.filters.all}

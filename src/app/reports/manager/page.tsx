@@ -15,6 +15,7 @@ import { formatInTimeZone } from "@/server/time";
 import { getScopedEmployeeIds, isManagerRole } from "@/server/rbac";
 import { loadOrgUsers } from "@/server/org";
 import UserMenu from "../../dashboard/UserMenu";
+import { LabelWithTooltip } from "@/components/Tooltip";
 
 function fmtMin(minutes: number) {
   const min = Math.max(0, Math.floor(Number(minutes || 0)));
@@ -106,6 +107,23 @@ export default async function ReportsManagerPage({
   if (filters.position) exportParams.set("position", filters.position);
   if (filters.employeeEmail) exportParams.set("employeeEmail", filters.employeeEmail);
   const exportHref = `/api/reports/dashboard-pdf?${exportParams.toString()}`;
+  const help = lang === "sr"
+    ? {
+        filters: "Suzi pregled po periodu, timu, poziciji i zaposlenom da lakše vidiš gde odlazi vreme.",
+        kpi: "Ovo je brz rezime ukupnog rada u izabranom opsegu — bez potrebe da odmah ulaziš u detalje.",
+        topMost: "Najveći ulagači vremena otkrivaju gde je fokus tima u ovom periodu.",
+        topLeast: "Najmanje vreme pokazuje aktivnosti koje se retko rade ili ostaju po strani.",
+        allTypes: "Šira raspodela vremena preko svih tipova aktivnosti za celokupan pregled.",
+        grid: "Detaljni prikaz po zaposlenom i danu kada želiš da uđeš na konkretan zapis."
+      }
+    : {
+        filters: "Narrow the view by period, team, position, and employee so you can see where time really goes.",
+        kpi: "This is the fast summary of work in the selected range before you go into details.",
+        topMost: "Highest time allocation reveals where the team is focusing most in this period.",
+        topLeast: "Lowest time shows activities that are rare or keep slipping into the background.",
+        allTypes: "Wider time distribution across all activity types for a complete overview.",
+        grid: "Detailed view by employee and day when you need the exact record."
+      };
 
   function pageHref(page: number) {
     const params = new URLSearchParams();
@@ -125,46 +143,54 @@ export default async function ReportsManagerPage({
   return (
     <main className="page">
       <div className="card stack">
-        <div className="header">
-          <div className="brand">
-            {branding.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
-            ) : null}
-            <div>
-              <h1 className="brand-title">{t.reports.managerTitle}</h1>
-              <p className="muted">{t.reports.managerSubtitle}</p>
+        <div className="page-topbar">
+          <div className="page-topbar-main">
+            <div className="header">
+              <div className="brand">
+                {branding.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
+                ) : null}
+                <div>
+                  <h1 className="brand-title">{t.reports.managerTitle}</h1>
+                  <p className="muted">{t.reports.managerSubtitle}</p>
+                </div>
+              </div>
+              <div className="inline">
+                <Link className="button button-secondary" href="/dashboard">
+                  <IconArrowLeft size={18} /> {t.common.backToDashboard}
+                </Link>
+                <Link className="button button-secondary" href="/reports">
+                  <IconReport size={18} /> {t.reports.entryTitle}
+                </Link>
+                <a className="button" href={exportHref} target="_blank" rel="noreferrer">
+                  <IconPdf size={18} /> {t.reports.exportPdf}
+                </a>
+              </div>
             </div>
           </div>
-          <div className="inline">
-            <Link className="button button-secondary" href="/dashboard">
-              <IconArrowLeft size={18} /> {t.common.backToDashboard}
-            </Link>
-            <Link className="button button-secondary" href="/reports">
-              <IconReport size={18} /> {t.reports.entryTitle}
-            </Link>
-            <a className="button" href={exportHref} target="_blank" rel="noreferrer">
-              <IconPdf size={18} /> {t.reports.exportPdf}
-            </a>
-          </div>
-        </div>
 
-        <UserMenu
-          name={user.name}
-          email={user.email}
-          role={user.role}
-          hrAddon={user.hrAddon}
-          adminAddon={user.adminAddon}
-          position={user.position}
-          team={user.team?.name ?? null}
-          lang={lang}
-        />
+          <UserMenu
+            name={user.name}
+            email={user.email}
+            role={user.role}
+            hrAddon={user.hrAddon}
+            adminAddon={user.adminAddon}
+            position={user.position}
+            team={user.team?.name ?? null}
+            lang={lang}
+          />
+        </div>
 
         {success ? <div className="success">{success}</div> : null}
         {error ? <div className="error">{error}</div> : null}
 
         <section className="panel stack">
-          <h2 className="h2">{t.reports.filters}</h2>
+          <div className="section-head">
+            <h2 className="h2">
+              <LabelWithTooltip label={t.reports.filters} tooltip={help.filters} />
+            </h2>
+          </div>
           <form className="grid3" method="get" action="/reports/manager">
             <label className="field">
               <span className="label">{t.reports.from}</span>
@@ -234,7 +260,11 @@ export default async function ReportsManagerPage({
         </section>
 
         <section className="panel stack">
-          <h2 className="h2">{t.reports.kpi}</h2>
+          <div className="section-head">
+            <h2 className="h2">
+              <LabelWithTooltip label={t.reports.kpi} tooltip={help.kpi} />
+            </h2>
+          </div>
           <div className="grid3">
             <div className="item item-compact kpi-card">
               <div className="kpi-icon">
@@ -294,7 +324,11 @@ export default async function ReportsManagerPage({
 
         <section className="grid2">
           <div className="panel stack">
-            <h2 className="h2">{t.reports.topMost}</h2>
+            <div className="section-head">
+              <h2 className="h2">
+                <LabelWithTooltip label={t.reports.topMost} tooltip={help.topMost} />
+              </h2>
+            </div>
             <div className="rank-list">
               {dash.topMost.map((x, i) => {
                 const pct = Math.round((Number(x.minutes || 0) / topMostMax) * 100);
@@ -316,7 +350,11 @@ export default async function ReportsManagerPage({
           </div>
 
           <div className="panel stack">
-            <h2 className="h2">{t.reports.topLeast}</h2>
+            <div className="section-head">
+              <h2 className="h2">
+                <LabelWithTooltip label={t.reports.topLeast} tooltip={help.topLeast} />
+              </h2>
+            </div>
             <div className="rank-list">
               {dash.topLeast.map((x, i) => {
                 const pct = Math.round((Number(x.minutes || 0) / topLeastMax) * 100);
@@ -339,7 +377,11 @@ export default async function ReportsManagerPage({
         </section>
 
         <section className="panel stack">
-          <h2 className="h2">{t.reports.allTypes}</h2>
+          <div className="section-head">
+            <h2 className="h2">
+              <LabelWithTooltip label={t.reports.allTypes} tooltip={help.allTypes} />
+            </h2>
+          </div>
           <div className="rank-list">
             {dash.chart.slice(0, 25).map((x, i) => {
               const pct = Math.round((Number(x.minutes || 0) / allMax) * 100);
@@ -361,7 +403,11 @@ export default async function ReportsManagerPage({
         </section>
 
         <section className="panel stack">
-          <h2 className="h2">{t.reports.gridTitle}</h2>
+          <div className="section-head">
+            <h2 className="h2">
+              <LabelWithTooltip label={t.reports.gridTitle} tooltip={help.grid} />
+            </h2>
+          </div>
           <div className="inline" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div className="muted small">{t.reports.gridDesc}</div>
             <div className="muted small">
