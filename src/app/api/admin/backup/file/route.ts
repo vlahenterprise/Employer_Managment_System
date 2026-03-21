@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 import { readBackupFile } from "@/server/backup";
+import { hasAdminAddon } from "@/server/rbac";
 
 export const runtime = "nodejs";
 
@@ -12,9 +13,9 @@ export async function GET(req: Request) {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { role: true, status: true }
+    select: { role: true, status: true, adminAddon: true }
   });
-  if (!user || user.status !== "ACTIVE" || user.role !== "ADMIN") {
+  if (!user || user.status !== "ACTIVE" || !hasAdminAddon(user)) {
     return new Response("Forbidden", { status: 403 });
   }
 

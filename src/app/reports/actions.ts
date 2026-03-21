@@ -6,6 +6,7 @@ import { requireActiveUser } from "@/server/current-user";
 import { checkDailyReportExists, deleteDailyReport, saveDailyReport } from "@/server/reports";
 import { getRequestLang } from "@/i18n/server";
 import { getI18n } from "@/i18n";
+import { isManagerRole } from "@/server/rbac";
 
 export async function checkDailyReportAction(dateIso: string) {
   const user = await requireActiveUser();
@@ -61,7 +62,7 @@ export async function deleteDailyReportRedirectAction(formData: FormData) {
   const res = await deleteDailyReport({
     actor: { id: user.id, email: user.email, role: user.role },
     dateIso,
-    targetEmail: user.role === "ADMIN" ? (targetEmail || null) : null
+    targetEmail: isManagerRole(user.role) ? (targetEmail || null) : null
   });
 
   if (!res.ok) redirectError("/reports/manager", t.reports.msgCannotDelete);

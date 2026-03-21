@@ -5,6 +5,7 @@ import { createUserAction, deleteUserAction, setUserPasswordAction, updateUserAc
 import { getRequestLang } from "@/i18n/server";
 import { getI18n } from "@/i18n";
 import { IconArrowLeft } from "@/components/icons";
+import { getAccessSummary } from "@/server/rbac";
 
 export default async function AdminUsersPage({
   searchParams
@@ -27,7 +28,11 @@ export default async function AdminUsersPage({
         role: true,
         status: true,
         hrAddon: true,
+        adminAddon: true,
         carryOverAnnualLeave: true,
+        employmentDate: true,
+        jobDescriptionUrl: true,
+        workInstructionsUrl: true,
         teamId: true,
         managerId: true,
         passwordHash: true,
@@ -123,8 +128,6 @@ export default async function AdminUsersPage({
               <label className="field">
                 <span className="label">{t.admin.users.role}</span>
                 <select className="input" name="role" defaultValue="USER">
-                  <option value="ADMIN">ADMIN</option>
-                  <option value="HR">HR</option>
                   <option value="MANAGER">MANAGER</option>
                   <option value="USER">USER</option>
                 </select>
@@ -135,6 +138,14 @@ export default async function AdminUsersPage({
                 <label className="inline" style={{ alignItems: "center" }}>
                   <input name="hrAddon" type="checkbox" value="1" />
                   <span className="muted small">Dodatni pristup za HR System</span>
+                </label>
+              </label>
+
+              <label className="field">
+                <span className="label">Admin add-on</span>
+                <label className="inline" style={{ alignItems: "center" }}>
+                  <input name="adminAddon" type="checkbox" value="1" />
+                  <span className="muted small">Dodatni pristup za Settings i Access</span>
                 </label>
               </label>
 
@@ -174,6 +185,21 @@ export default async function AdminUsersPage({
                   ))}
                 </select>
               </label>
+
+              <label className="field">
+                <span className="label">Employment date</span>
+                <input className="input" name="employmentDate" type="date" />
+              </label>
+
+              <label className="field">
+                <span className="label">Job description Drive URL</span>
+                <input className="input" name="jobDescriptionUrl" type="url" placeholder="https://drive.google.com/..." />
+              </label>
+
+              <label className="field">
+                <span className="label">Work instructions Drive URL</span>
+                <input className="input" name="workInstructionsUrl" type="url" placeholder="https://drive.google.com/..." />
+              </label>
             </div>
 
             <button className="button" type="submit">
@@ -207,6 +233,14 @@ export default async function AdminUsersPage({
                       <span className={`pill ${user.hrAddon ? "pill-blue" : "pill-gray"}`}>
                         {user.hrAddon ? "HR add-on" : "No HR add-on"}
                       </span>
+                      <span className={`pill ${user.adminAddon ? "pill-blue" : "pill-gray"}`}>
+                        {user.adminAddon ? "Admin add-on" : "No admin add-on"}
+                      </span>
+                      {getAccessSummary(user as any).map((entry) => (
+                        <span key={`${user.id}-${entry}`} className="pill pill-status pill-status-review">
+                          {entry}
+                        </span>
+                      ))}
                       <span className={`pill ${user.hasPassword ? "pill-blue" : "pill-gray"}`}>
                         {user.hasPassword ? t.admin.users.passwordSet : t.admin.users.passwordMissing}
                       </span>
@@ -242,8 +276,6 @@ export default async function AdminUsersPage({
                   <label className="field">
                     <span className="label">{t.admin.users.role}</span>
                     <select className="input" name="role" defaultValue={user.role}>
-                      <option value="ADMIN">ADMIN</option>
-                      <option value="HR">HR</option>
                       <option value="MANAGER">MANAGER</option>
                       <option value="USER">USER</option>
                     </select>
@@ -254,6 +286,14 @@ export default async function AdminUsersPage({
                     <label className="inline" style={{ alignItems: "center" }}>
                       <input name="hrAddon" type="checkbox" value="1" defaultChecked={user.hrAddon} />
                       <span className="muted small">Pristup HR System modulu bez promene osnovne role</span>
+                    </label>
+                  </label>
+
+                  <label className="field">
+                    <span className="label">Admin add-on</span>
+                    <label className="inline" style={{ alignItems: "center" }}>
+                      <input name="adminAddon" type="checkbox" value="1" defaultChecked={user.adminAddon} />
+                      <span className="muted small">Pristup Settings i Access modulima bez promene osnovne role</span>
                     </label>
                   </label>
 
@@ -300,6 +340,38 @@ export default async function AdminUsersPage({
                           </option>
                         ))}
                     </select>
+                  </label>
+
+                  <label className="field">
+                    <span className="label">Employment date</span>
+                    <input
+                      className="input"
+                      name="employmentDate"
+                      type="date"
+                      defaultValue={user.employmentDate ? new Date(user.employmentDate).toISOString().slice(0, 10) : ""}
+                    />
+                  </label>
+
+                  <label className="field">
+                    <span className="label">Job description Drive URL</span>
+                    <input
+                      className="input"
+                      name="jobDescriptionUrl"
+                      type="url"
+                      defaultValue={user.jobDescriptionUrl ?? ""}
+                      placeholder="https://drive.google.com/..."
+                    />
+                  </label>
+
+                  <label className="field">
+                    <span className="label">Work instructions Drive URL</span>
+                    <input
+                      className="input"
+                      name="workInstructionsUrl"
+                      type="url"
+                      defaultValue={user.workInstructionsUrl ?? ""}
+                      placeholder="https://drive.google.com/..."
+                    />
                   </label>
 
                   <div className="field field-actions">

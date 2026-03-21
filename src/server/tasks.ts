@@ -3,9 +3,9 @@ import "server-only";
 import { prisma } from "./db";
 import { APP_TIMEZONE, getAppSettings } from "./app-settings";
 import { buildApprovalHierarchyContext, canManagerApproveEmployee, loadOrgUsers } from "./org";
-import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
+import { formatInTimeZone, fromZonedTime } from "@/server/time";
 import { normalizeIsoDate } from "./iso-date";
-import { getScopedEmployeeIds, isAdminRole } from "./rbac";
+import { getScopedEmployeeIds, isAdminRole, isManagerRole } from "./rbac";
 import { idSchema, isoDateSchema, requiredTextSchema } from "./validation";
 
 function normalizeEmail(value: string) {
@@ -131,7 +131,7 @@ export type TaskDashboard = {
 };
 
 export async function getTaskPickers(actor: { id: string; role: "ADMIN" | "HR" | "MANAGER" | "USER" }) {
-  const canManage = actor.role !== "USER";
+  const canManage = isManagerRole(actor.role);
   const orgUsers = await loadOrgUsers();
   const allowedIds = canManage ? getScopedEmployeeIds({ id: actor.id, role: actor.role }, orgUsers) : null;
 
@@ -166,7 +166,7 @@ export async function getTaskPickers(actor: { id: string; role: "ADMIN" | "HR" |
 }
 
 export async function getTaskDashboard(actor: { id: string; email: string; role: "ADMIN" | "HR" | "MANAGER" | "USER" }, filtersRaw: TaskFilters): Promise<TaskDashboard> {
-  const canManage = actor.role !== "USER";
+  const canManage = isManagerRole(actor.role);
   const isAdmin = isAdminRole(actor.role);
   const f = { ...filtersRaw };
 
@@ -253,7 +253,7 @@ export async function getTaskDashboard(actor: { id: string; email: string; role:
       approvedLate = !approvedOnTime;
     }
 
-    const canApprove = isAdmin;
+    const canApprove = await canApproveTask(actor, t.assignee.id);
 
     items.push({
       taskId: t.id,
@@ -386,7 +386,7 @@ export async function getTaskDashboard(actor: { id: string; email: string; role:
     { label: "Approved after deadline", value: totals.approvedLate }
   ].filter((x) => x.value > 0);
 
-  const approvals = isAdmin ? items.filter((t) => t.status === "FOR_APPROVAL") : [];
+  const approvals = items.filter((t) => t.status === "FOR_APPROVAL" && t.canApprove);
 
   return { ok: true, filters: f, totals, chartStatus, chartApproved, chartTri, byEmployee, tasks: items, approvals };
 }
@@ -395,7 +395,7 @@ export async function createTask(params: {
   actor: { id: string; role: "ADMIN" | "HR" | "MANAGER" | "USER"; email: string; name: string };
   payload: { title: string; description: string; priority: "LOW" | "MED" | "HIGH" | "CRIT"; teamId: string | null; assigneeId: string; dueIso: string };
 }) {
-  if (params.actor.role !== "ADMIN") return { ok: false as const, error: "NO_ACCESS" };
+  if (!isManagerRole(params.actor.role)) return { ok: false as const, error: "NO_ACCESS" };
 
   const titleParsed = requiredTextSchema(200, "MISSING_TITLE").safeParse(params.payload.title);
   if (!titleParsed.success) return { ok: false as const, error: titleParsed.error.issues[0]?.message || "MISSING_TITLE" };
@@ -468,7 +468,7 @@ export async function submitTaskForApproval(params: {
   });
   if (!task) return { ok: false as const, error: "TASK_NOT_FOUND" };
 
-  if (params.actor.role !== "ADMIN" && task.assigneeId !== params.actor.id) {
+  if (task.assigneeId !== params.actor.id) {
     return { ok: false as const, error: "NO_ACCESS" };
   }
 
@@ -503,7 +503,6 @@ export async function approveTaskAction(params: {
   taskId: string;
   comment?: string | null;
 }) {
-  if (params.actor.role !== "ADMIN") return { ok: false as const, error: "NO_ACCESS" };
   const taskId = String(params.taskId || "").trim();
   if (!idSchema.safeParse(taskId).success) return { ok: false as const, error: "TASK_NOT_FOUND" };
 
@@ -546,7 +545,6 @@ export async function returnTaskAction(params: {
   taskId: string;
   comment?: string | null;
 }) {
-  if (params.actor.role !== "ADMIN") return { ok: false as const, error: "NO_ACCESS" };
   const taskId = String(params.taskId || "").trim();
   if (!idSchema.safeParse(taskId).success) return { ok: false as const, error: "TASK_NOT_FOUND" };
 
@@ -590,7 +588,6 @@ export async function cancelTaskAction(params: {
   taskId: string;
   comment?: string | null;
 }) {
-  if (params.actor.role !== "ADMIN") return { ok: false as const, error: "NO_ACCESS" };
   const taskId = String(params.taskId || "").trim();
   if (!idSchema.safeParse(taskId).success) return { ok: false as const, error: "TASK_NOT_FOUND" };
 

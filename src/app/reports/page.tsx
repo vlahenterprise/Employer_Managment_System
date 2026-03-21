@@ -8,6 +8,7 @@ import UserMenu from "../dashboard/UserMenu";
 import { getRequestLang } from "@/i18n/server";
 import { getI18n } from "@/i18n";
 import { IconArrowLeft, IconUsers } from "@/components/icons";
+import { isManagerRole } from "@/server/rbac";
 
 export default async function ReportsPage() {
   const user = await requireActiveUser();
@@ -38,7 +39,7 @@ export default async function ReportsPage() {
                 <Link className="button button-secondary" href="/dashboard">
                   <IconArrowLeft size={18} /> {t.common.backToDashboard}
                 </Link>
-                {user.role === "ADMIN" || user.role === "HR" ? (
+                {isManagerRole(user.role) ? (
                   <Link className="button button-secondary" href="/reports/manager">
                     <IconUsers size={18} /> {t.reports.managerTitle}
                   </Link>
@@ -51,6 +52,8 @@ export default async function ReportsPage() {
             name={user.name}
             email={user.email}
             role={user.role}
+            hrAddon={user.hrAddon}
+            adminAddon={user.adminAddon}
             position={user.position}
             team={user.team?.name ?? null}
             lang={lang}

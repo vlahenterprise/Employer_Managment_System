@@ -3,9 +3,9 @@ import "server-only";
 import { prisma } from "./db";
 import { APP_TIMEZONE, getAppSettings } from "./app-settings";
 import { buildApprovalHierarchyContext, canManagerApproveEmployee, loadOrgUsers } from "./org";
-import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
+import { formatInTimeZone, fromZonedTime } from "@/server/time";
 import { normalizeIsoDate } from "./iso-date";
-import { getScopedEmployeeIds, isAdminRole } from "./rbac";
+import { getScopedEmployeeIds, isAdminRole, isManagerRole } from "./rbac";
 import { idSchema, isoDateSchema } from "./validation";
 
 function utcDateFromIso(iso: string) {
@@ -364,10 +364,13 @@ export async function getAbsenceRemaining(actor: { id: string }) {
 }
 
 export async function getAbsenceApprovals(actor: { id: string; role: "ADMIN" | "HR" | "MANAGER" | "USER" }) {
-  if (!isAdminRole(actor.role)) return { ok: true as const, items: [] as Array<any> };
+  if (!isManagerRole(actor.role)) return { ok: true as const, items: [] as Array<any> };
+
+  const orgUsers = await loadOrgUsers();
+  const scopedIds = [...getScopedEmployeeIds({ id: actor.id, role: actor.role }, orgUsers)].filter((id) => id !== actor.id);
 
   const rows = await prisma.absence.findMany({
-    where: { status: "PENDING" },
+    where: { status: "PENDING", employeeId: { in: scopedIds } },
     orderBy: [{ createdAt: "desc" }],
     select: {
       id: true,
@@ -403,7 +406,7 @@ export async function approveAbsence(params: {
   comment?: string | null;
   status: "APPROVED" | "REJECTED";
 }) {
-  if (!isAdminRole(params.actor.role)) return { ok: false as const, error: "NO_ACCESS" };
+  if (!isManagerRole(params.actor.role)) return { ok: false as const, error: "NO_ACCESS" };
   const absenceIdParsed = idSchema.safeParse(params.absenceId);
   if (!absenceIdParsed.success) return { ok: false as const, error: "ABSENCE_NOT_FOUND" };
   const absenceId = absenceIdParsed.data;
@@ -460,7 +463,7 @@ export async function cancelAbsence(params: {
   if (row.status === "CANCELLED") return { ok: true as const };
 
   const isSelf = row.employeeId === params.actor.id;
-  const can = isAdminRole(params.actor.role) ? await canApproveAbsence(params.actor, row.employeeId) : false;
+  const can = isManagerRole(params.actor.role) ? await canApproveAbsence(params.actor, row.employeeId) : false;
   if (!isSelf && !can) return { ok: false as const, error: "NO_ACCESS" };
 
   const comment = String(params.comment || "").trim();

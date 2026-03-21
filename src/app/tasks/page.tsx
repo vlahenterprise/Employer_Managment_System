@@ -8,9 +8,10 @@ import { getTaskDashboard, getTaskPickers, normalizeTaskFilters } from "@/server
 import { createTaskAction, submitForApprovalAction, approveTaskFormAction, returnTaskFormAction, cancelTaskFormAction } from "./actions";
 import TaskCharts from "./task-charts";
 import { startOfMonth, subDays } from "date-fns";
-import { formatInTimeZone } from "date-fns-tz";
+import { formatInTimeZone } from "@/server/time";
 import { APP_TIMEZONE } from "@/server/app-settings";
 import { IconAlertTriangle, IconArrowLeft, IconBolt, IconCheckCircle, IconClock, IconPdf, IconSparkles, IconTasks } from "@/components/icons";
+import { isManagerRole } from "@/server/rbac";
 
 function resolveQuickRange(quickRaw: string | undefined, currentFrom: string, currentTo: string) {
   const quick = Number.parseInt(String(quickRaw || ""), 10);
@@ -38,8 +39,7 @@ export default async function TasksPage({
   const lang = getRequestLang();
   const t = getI18n(lang);
 
-  const isAdmin = user.role === "ADMIN";
-  const canManage = user.role === "ADMIN" || user.role === "HR" || user.role === "MANAGER";
+  const canManage = isManagerRole(user.role);
 
   const success = searchParams.success ? decodeURIComponent(searchParams.success) : null;
   const error = searchParams.error ? decodeURIComponent(searchParams.error) : null;
@@ -154,6 +154,8 @@ export default async function TasksPage({
             name={user.name}
             email={user.email}
             role={user.role}
+            hrAddon={user.hrAddon}
+            adminAddon={user.adminAddon}
             position={user.position}
             team={user.team?.name ?? null}
             lang={lang}
@@ -355,7 +357,7 @@ export default async function TasksPage({
           </section>
         ) : null}
 
-        {isAdmin ? (
+        {canManage ? (
           <section className="panel stack">
             <h2 className="h2">{t.tasks.createTitle}</h2>
             <form className="stack" action={createTaskAction}>
@@ -423,7 +425,7 @@ export default async function TasksPage({
           </section>
         ) : null}
 
-        {isAdmin ? (
+        {canManage ? (
           <section className="panel stack">
             <h2 className="h2">{t.tasks.approvals}</h2>
             <div className="muted small">{t.tasks.approvalsHint}</div>
@@ -519,7 +521,7 @@ export default async function TasksPage({
                   </div>
 
                   <div className="stack">
-                    {task.status !== "APPROVED" && task.status !== "FOR_APPROVAL" && !isAdmin ? (
+                    {task.status !== "APPROVED" && task.status !== "FOR_APPROVAL" && task.assignee.id === user.id ? (
                       <form className="stack" action={submitForApprovalAction}>
                         <input type="hidden" name="taskId" value={task.taskId} />
                         <label className="field">
@@ -532,7 +534,7 @@ export default async function TasksPage({
                       </form>
                     ) : null}
 
-                    {isAdmin && task.canApprove ? (
+                    {task.canApprove ? (
                       <div className="stack">
                         <form className="stack" action={approveTaskFormAction}>
                           <input type="hidden" name="taskId" value={task.taskId} />

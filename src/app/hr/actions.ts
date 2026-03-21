@@ -13,6 +13,7 @@ import {
   hrScreenCandidate,
   managerReviewHrCandidate,
   markHrNotificationRead,
+  reviewHiringRequest,
   scheduleHrInterview,
   secondRoundHrDecision,
   updateHrProcessMeta
@@ -36,6 +37,7 @@ function actorPayload(user: Awaited<ReturnType<typeof requireActiveUser>>) {
     name: user.name,
     role: user.role,
     hrAddon: user.hrAddon,
+    adminAddon: user.adminAddon,
     teamId: user.teamId,
     managerId: user.managerId
   } as const;
@@ -55,11 +57,12 @@ export async function createHrProcessAction(formData: FormData) {
     actor: actorPayload(user),
     teamId: String(formData.get("teamId") ?? "").trim() || null,
     positionTitle: String(formData.get("positionTitle") ?? "").trim(),
+    requestType: String(formData.get("requestType") ?? "").trim() || null,
     requestedHeadcount: Number(String(formData.get("requestedHeadcount") ?? "1")),
     priority: (HR_PRIORITIES.has(priorityRaw) ? priorityRaw : "MED") as any,
     reason: String(formData.get("reason") ?? "").trim(),
     note: String(formData.get("note") ?? "").trim() || null,
-    managerId: String(formData.get("managerId") ?? "").trim() || null
+    desiredStartDate: String(formData.get("desiredStartDate") ?? "").trim() || null
   });
   if (!res.ok) redirectError("/hr", res.error);
   revalidateHrViews(res.processId);
@@ -87,6 +90,7 @@ export async function updateHrProcessMetaAction(formData: FormData) {
 export async function addCandidateToProcessAction(formData: FormData) {
   const user = await requireActiveUser();
   const processId = String(formData.get("processId") ?? "").trim();
+  const cvDriveUrl = String(formData.get("cvDriveUrl") ?? "").trim() || null;
   const cvFile = formData.get("cvFile");
   let cvFileName: string | null = null;
   let cvMimeType: string | null = null;
@@ -116,6 +120,7 @@ export async function addCandidateToProcessAction(formData: FormData) {
     hrComment: String(formData.get("hrComment") ?? "").trim() || null,
     firstRoundComment: String(formData.get("firstRoundComment") ?? "").trim() || null,
     screeningResult: String(formData.get("screeningResult") ?? "").trim() || null,
+    cvDriveUrl,
     cvFileName,
     cvMimeType,
     cvData
@@ -210,6 +215,21 @@ export async function finalApprovalAction(formData: FormData) {
   if (!res.ok) redirectError(`/hr/${processId}`, res.error);
   revalidateHrViews(processId);
   redirectSuccess(`/hr/${processId}`, "FINAL_DECISION_SAVED");
+}
+
+export async function reviewHiringRequestAction(formData: FormData) {
+  const user = await requireActiveUser();
+  const processId = String(formData.get("processId") ?? "").trim();
+  const decision = String(formData.get("decision") ?? "APPROVE").trim().toUpperCase();
+  const res = await reviewHiringRequest({
+    actor: actorPayload(user),
+    processId,
+    decision: decision === "REJECT" ? "REJECT" : "APPROVE",
+    comment: String(formData.get("comment") ?? "").trim() || null
+  });
+  if (!res.ok) redirectError(`/hr/${processId}`, res.error);
+  revalidateHrViews(processId);
+  redirectSuccess(`/hr/${processId}`, decision === "REJECT" ? "REQUEST_REJECTED" : "REQUEST_APPROVED");
 }
 
 export async function archiveCandidateAction(formData: FormData) {

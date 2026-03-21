@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { requireActiveUser } from "@/server/current-user";
 import { prisma } from "@/server/db";
 import { buildOrgIndex, isAncestorManager, loadOrgUsers } from "@/server/org";
+import { hasHrAddon } from "@/server/rbac";
 
 function sanitizeFilename(value: string) {
   return value.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
@@ -40,7 +41,7 @@ export async function GET(_req: NextRequest, { params }: { params: { candidateId
     return new Response("CV not found", { status: 404 });
   }
 
-  let canView = actor.role === "ADMIN" || actor.role === "HR" || Boolean(actor.hrAddon);
+  let canView = hasHrAddon(actor);
   if (!canView) {
     const orgUsers = await loadOrgUsers();
     const { managerOf } = buildOrgIndex(orgUsers);

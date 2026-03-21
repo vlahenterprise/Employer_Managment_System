@@ -8,11 +8,12 @@ import { getI18n } from "@/i18n";
 import { approveAbsenceAction, cancelAbsenceAction, submitAbsenceAction } from "./actions";
 import { getAbsenceApprovals, getAbsenceCalendar, getAbsenceManagerStats, getAbsenceRemaining, getMyAbsenceRequests } from "@/server/absence";
 import { endOfMonth, startOfMonth } from "date-fns";
-import { formatInTimeZone } from "date-fns-tz";
+import { formatInTimeZone } from "@/server/time";
 import { APP_TIMEZONE } from "@/server/app-settings";
 import { IconArrowLeft, IconCalendar, IconPdf } from "@/components/icons";
 import AbsenceCalendarView from "./AbsenceCalendarView";
 import AbsenceRequestForm from "./AbsenceRequestForm";
+import { isLegacyAdminRole, isManagerRole } from "@/server/rbac";
 
 function defaultMonthRange() {
   const now = new Date();
@@ -91,8 +92,8 @@ export default async function AbsencePage({
     return "pill";
   }
 
-  const isAdmin = user.role === "ADMIN";
-  const isManager = user.role === "MANAGER";
+  const isManager = isManagerRole(user.role);
+  const isAdmin = isLegacyAdminRole(user.role);
 
   const rangeDefault = defaultMonthRange();
   const fromIso = String(searchParams.fromIso || rangeDefault.fromIso).trim();
@@ -108,7 +109,7 @@ export default async function AbsencePage({
   const [remaining, myReq, approvals, stats, teams, cal] = await Promise.all([
     getAbsenceRemaining({ id: user.id }),
     getMyAbsenceRequests({ id: user.id }),
-    isAdmin ? getAbsenceApprovals({ id: user.id, role: user.role }) : Promise.resolve({ ok: true as const, items: [] as any[] }),
+    isManager ? getAbsenceApprovals({ id: user.id, role: user.role }) : Promise.resolve({ ok: true as const, items: [] as any[] }),
     isAdmin || isManager
       ? getAbsenceManagerStats({ id: user.id, role: user.role })
       : Promise.resolve({ ok: true as const, year: new Date().getFullYear(), items: [] as any[] }),
@@ -171,6 +172,8 @@ export default async function AbsencePage({
             name={user.name}
             email={user.email}
             role={user.role}
+            hrAddon={user.hrAddon}
+            adminAddon={user.adminAddon}
             position={user.position}
             team={user.team?.name ?? null}
             lang={lang}

@@ -16,6 +16,7 @@ import {
   IconReport,
   IconUsers
 } from "@/components/icons";
+import { isManagerRole } from "@/server/rbac";
 
 function copy(lang: "sr" | "en") {
   if (lang === "sr") {
@@ -205,7 +206,6 @@ export default async function HrPage({
 
   const success = searchParams.success ? decodeURIComponent(searchParams.success) : null;
   const error = searchParams.error ? decodeURIComponent(searchParams.error) : null;
-  const managerOptions = dashboard.users.filter((member) => member.role === "MANAGER" || member.role === "ADMIN");
   const now = new Date();
   const quarter = Math.floor(now.getMonth() / 3);
   const quarterStart = new Date(Date.UTC(now.getUTCFullYear(), quarter * 3, 1));
@@ -227,6 +227,7 @@ export default async function HrPage({
     sourceMap.set(key, (sourceMap.get(key) || 0) + 1);
   }
   const sourceRows = [...sourceMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const managerOptions = dashboard.users.filter((member) => isManagerRole(member.role));
 
   return (
     <main className="page">
@@ -255,6 +256,8 @@ export default async function HrPage({
             name={user.name}
             email={user.email}
             role={user.role}
+            hrAddon={user.hrAddon}
+            adminAddon={user.adminAddon}
             position={user.position}
             team={user.team?.name ?? null}
             lang={lang}
@@ -453,13 +456,14 @@ export default async function HrPage({
         </div>
 
         <div className="grid2 hr-main-grid">
-          <section className="panel stack">
-            <h2 className="h2">{c.openProcess}</h2>
-            <form className="stack" action={createHrProcessAction}>
+          {isManagerRole(user.role) ? (
+            <section className="panel stack">
+              <h2 className="h2">{c.openProcess}</h2>
+              <form className="stack" action={createHrProcessAction}>
               <div className="grid2">
                 <label className="field">
                   <span className="label">{c.team}</span>
-                  <select className="input" name="teamId" defaultValue={dashboard.filters.teamId || ""}>
+                  <select className="input" name="teamId" defaultValue={dashboard.filters.teamId || user.teamId || ""}>
                     <option value="">{c.all}</option>
                     {dashboard.teams.map((team) => (
                       <option key={team.id} value={team.id}>
@@ -469,15 +473,8 @@ export default async function HrPage({
                   </select>
                 </label>
                 <label className="field">
-                  <span className="label">{c.manager}</span>
-                  <select className="input" name="managerId" defaultValue="">
-                    <option value="">{c.all}</option>
-                    {managerOptions.map((manager) => (
-                      <option key={manager.id} value={manager.id}>
-                        {manager.name}
-                      </option>
-                    ))}
-                  </select>
+                  <span className="label">Replacement / new position</span>
+                  <input className="input" name="requestType" type="text" placeholder="Replacement / New position" />
                 </label>
               </div>
               <div className="grid3">
@@ -498,6 +495,10 @@ export default async function HrPage({
                     <option value="CRITICAL">CRITICAL</option>
                   </select>
                 </label>
+                <label className="field">
+                  <span className="label">Desired start date</span>
+                  <input className="input" name="desiredStartDate" type="date" />
+                </label>
               </div>
               <label className="field">
                 <span className="label">{c.reason}</span>
@@ -511,7 +512,8 @@ export default async function HrPage({
                 <IconPlus size={18} /> {c.createProcess}
               </button>
             </form>
-          </section>
+            </section>
+          ) : null}
 
           <section className="panel stack">
             <h2 className="h2">{c.candidateBase}</h2>

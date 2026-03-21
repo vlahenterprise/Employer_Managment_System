@@ -4,6 +4,7 @@ export type ScopedActor = {
   id: string;
   role: UserRole;
   hrAddon?: boolean;
+  adminAddon?: boolean;
 };
 
 export type ScopedOrgUser = {
@@ -11,28 +12,63 @@ export type ScopedOrgUser = {
   managerId: string | null;
 };
 
-export function isAdminRole(role: UserRole) {
+export function getBaseRole(role: UserRole) {
+  return role === "MANAGER" || role === "ADMIN" ? "MANAGER" : "USER";
+}
+
+export function isLegacyAdminRole(role: UserRole) {
   return role === "ADMIN";
 }
 
-export function isHrRole(role: UserRole) {
-  return role === "HR";
+export function isAdminRole(role: UserRole) {
+  return isLegacyAdminRole(role);
 }
 
 export function isManagerRole(role: UserRole) {
-  return role === "MANAGER";
+  return getBaseRole(role) === "MANAGER";
+}
+
+export function isUserRole(role: UserRole) {
+  return getBaseRole(role) === "USER";
+}
+
+export function hasHrAddon(actor: Pick<ScopedActor, "role" | "hrAddon">) {
+  return Boolean(actor.hrAddon) || actor.role === "HR";
+}
+
+export function hasAdminAddon(actor: Pick<ScopedActor, "role" | "adminAddon">) {
+  return Boolean(actor.adminAddon) || actor.role === "ADMIN";
 }
 
 export function hasHrSystemAccess(actor: Pick<ScopedActor, "role" | "hrAddon">) {
-  return isAdminRole(actor.role) || isHrRole(actor.role) || Boolean(actor.hrAddon);
+  return hasHrAddon(actor);
+}
+
+export function hasAccessAdmin(actor: Pick<ScopedActor, "role" | "adminAddon">) {
+  return hasAdminAddon(actor);
 }
 
 export function hasManagementPanelAccess(actor: Pick<ScopedActor, "role">) {
-  return isAdminRole(actor.role) || isManagerRole(actor.role);
+  return isManagerRole(actor.role);
 }
 
-export function canViewAllEmployeeData(actor: Pick<ScopedActor, "role">) {
-  return isAdminRole(actor.role) || isHrRole(actor.role);
+export function canManageTeamScope(actor: Pick<ScopedActor, "role">) {
+  return isManagerRole(actor.role);
+}
+
+export function hasHiringAccess(actor: Pick<ScopedActor, "role" | "hrAddon">) {
+  return isManagerRole(actor.role) || hasHrAddon(actor);
+}
+
+export function canViewAllProfiles(actor: Pick<ScopedActor, "role" | "hrAddon" | "adminAddon">) {
+  return hasHrAddon(actor) || hasAdminAddon(actor);
+}
+
+export function getAccessSummary(actor: Pick<ScopedActor, "role" | "hrAddon" | "adminAddon">) {
+  const parts = [getBaseRole(actor.role)];
+  if (hasHrAddon(actor)) parts.push("HR_ADDON");
+  if (hasAdminAddon(actor)) parts.push("ADMIN_ADDON");
+  return parts;
 }
 
 function getDescendants(managerId: string, users: ScopedOrgUser[]) {
@@ -59,11 +95,21 @@ function getDescendants(managerId: string, users: ScopedOrgUser[]) {
 }
 
 export function getScopedEmployeeIds(actor: Pick<ScopedActor, "id" | "role">, users: ScopedOrgUser[]) {
-  if (canViewAllEmployeeData(actor)) return new Set(users.map((user) => user.id));
   if (isManagerRole(actor.role)) {
     const scoped = getDescendants(actor.id, users);
     scoped.add(actor.id);
     return scoped;
   }
   return new Set([actor.id]);
+}
+
+export function canViewEmployeeProfile(
+  actor: Pick<ScopedActor, "id" | "role" | "hrAddon" | "adminAddon">,
+  targetUserId: string,
+  users: ScopedOrgUser[]
+) {
+  if (!targetUserId) return false;
+  if (actor.id === targetUserId) return true;
+  if (canViewAllProfiles(actor)) return true;
+  return getScopedEmployeeIds(actor, users).has(targetUserId);
 }

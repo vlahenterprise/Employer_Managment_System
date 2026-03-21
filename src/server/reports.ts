@@ -3,6 +3,8 @@ import { APP_TIMEZONE, getAppSettings } from "./app-settings";
 import { getISOWeek, parseISO } from "date-fns";
 import { normalizeIsoDate } from "./iso-date";
 import { buildPaginationMeta, normalizePagination, type PaginationInput } from "./pagination";
+import { getScopedEmployeeIds, hasHrAddon, isManagerRole } from "./rbac";
+import { loadOrgUsers } from "./org";
 
 function todayIsoInTz(timeZone: string) {
   return new Intl.DateTimeFormat("sv-SE", {
@@ -49,12 +51,17 @@ export async function deleteDailyReport(params: {
   if (!iso) return { ok: false as const, error: "INVALID_DATE" };
 
   let userId = actor.id;
-  if (actor.role === "ADMIN" && params.targetEmail) {
+  if (isManagerRole(actor.role) && params.targetEmail) {
     const target = await prisma.user.findUnique({
       where: { email: params.targetEmail.toLowerCase().trim() },
       select: { id: true }
     });
     if (!target) return { ok: false as const, error: "USER_NOT_FOUND" };
+    if (target.id !== actor.id) {
+      const orgUsers = await loadOrgUsers();
+      const scopedIds = getScopedEmployeeIds(actor, orgUsers);
+      if (!scopedIds.has(target.id)) return { ok: false as const, error: "NO_ACCESS" };
+    }
     userId = target.id;
   }
 
@@ -212,7 +219,7 @@ export function normalizeReportsFilters(filters: ReportsFiltersInput) {
 }
 
 export async function getReportsGrid(params: {
-  actor: { email: string; role: "ADMIN" | "HR" | "MANAGER" | "USER" };
+  actor: { id: string; email: string; role: "ADMIN" | "HR" | "MANAGER" | "USER"; hrAddon?: boolean };
   filters: ReportsFiltersInput;
   pagination?: PaginationInput;
 }) {
@@ -226,12 +233,26 @@ export async function getReportsGrid(params: {
     dateIso: { gte: f.fromIso, lte: f.toIso }
   };
 
-  if (params.actor.role !== "ADMIN" && params.actor.role !== "HR") {
-    where.employeeEmail = params.actor.email.toLowerCase().trim();
-  } else {
+  if (hasHrAddon(params.actor)) {
     if (f.employeeEmail) where.employeeEmail = f.employeeEmail;
     if (f.teamName) where.teamName = f.teamName;
     if (f.position) where.position = f.position;
+  } else if (isManagerRole(params.actor.role)) {
+    const orgUsers = await loadOrgUsers();
+    const scopedIds = [...getScopedEmployeeIds({ id: params.actor.id, role: params.actor.role }, orgUsers)];
+    const scopedUsers = await prisma.user.findMany({
+      where: { id: { in: scopedIds } },
+      select: { email: true }
+    });
+    const allowedEmails = scopedUsers.map((user) => user.email.toLowerCase());
+    if (f.employeeEmail && !allowedEmails.includes(f.employeeEmail)) {
+      return { ok: true as const, filters: f, rows: [], meta: buildPaginationMeta(0, pagination) };
+    }
+    where.employeeEmail = f.employeeEmail || { in: allowedEmails };
+    if (f.teamName) where.teamName = f.teamName;
+    if (f.position) where.position = f.position;
+  } else {
+    where.employeeEmail = params.actor.email.toLowerCase().trim();
   }
 
   const [total, rows] = await Promise.all([
@@ -272,7 +293,7 @@ export async function getReportsGrid(params: {
 }
 
 export async function getReportsDashboard(params: {
-  actor: { email: string; role: "ADMIN" | "HR" | "MANAGER" | "USER" };
+  actor: { id: string; email: string; role: "ADMIN" | "HR" | "MANAGER" | "USER"; hrAddon?: boolean };
   filters: ReportsFiltersInput;
 }) {
   const f = normalizeReportsFilters(params.filters);
@@ -291,12 +312,33 @@ export async function getReportsDashboard(params: {
     dateIso: { gte: f.fromIso, lte: f.toIso }
   };
 
-  if (params.actor.role !== "ADMIN" && params.actor.role !== "HR") {
-    reportWhere.employeeEmail = params.actor.email.toLowerCase().trim();
-  } else {
+  if (hasHrAddon(params.actor)) {
     if (f.employeeEmail) reportWhere.employeeEmail = f.employeeEmail;
     if (f.teamName) reportWhere.teamName = f.teamName;
     if (f.position) reportWhere.position = f.position;
+  } else if (isManagerRole(params.actor.role)) {
+    const orgUsers = await loadOrgUsers();
+    const scopedIds = [...getScopedEmployeeIds({ id: params.actor.id, role: params.actor.role }, orgUsers)];
+    const scopedUsers = await prisma.user.findMany({
+      where: { id: { in: scopedIds } },
+      select: { email: true }
+    });
+    const allowedEmails = scopedUsers.map((user) => user.email.toLowerCase());
+    if (f.employeeEmail && !allowedEmails.includes(f.employeeEmail)) {
+      return {
+        ok: true as const,
+        filters: f,
+        totals: { totalMinutes: 0, totalHours: 0, daysCount: 0, activitiesCount: 0, distinctTypes: 0 },
+        topMost: [],
+        topLeast: [],
+        chart: []
+      };
+    }
+    reportWhere.employeeEmail = f.employeeEmail || { in: allowedEmails };
+    if (f.teamName) reportWhere.teamName = f.teamName;
+    if (f.position) reportWhere.position = f.position;
+  } else {
+    reportWhere.employeeEmail = params.actor.email.toLowerCase().trim();
   }
 
   const [distinctDays, activityAgg, byType] = await Promise.all([

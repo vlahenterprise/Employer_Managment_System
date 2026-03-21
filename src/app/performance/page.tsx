@@ -8,7 +8,7 @@ import { createEvaluationAction } from "./actions";
 import { getPerformanceDirectReports, getPerformanceManageableEmployees, getPerformanceMyEvaluations, getPerformanceTeamEvaluations } from "@/server/performance";
 import PerformanceCharts from "./performance-charts";
 import { APP_TIMEZONE, getAppSettings } from "@/server/app-settings";
-import { formatInTimeZone } from "date-fns-tz";
+import { formatInTimeZone } from "@/server/time";
 import {
   IconAlertTriangle,
   IconArrowLeft,
@@ -18,6 +18,7 @@ import {
   IconClock,
   IconUsers
 } from "@/components/icons";
+import { isManagerRole } from "@/server/rbac";
 
 function isoToDate(iso: string) {
   const m = String(iso || "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -83,9 +84,9 @@ export default async function PerformancePage({
   const lang = getRequestLang();
   const t = getI18n(lang);
 
-  const canViewTeam = user.role === "MANAGER" || user.role === "ADMIN" || user.role === "HR";
+  const canViewTeam = isManagerRole(user.role);
   const isManager = canViewTeam;
-  const canCreate = user.role === "MANAGER" || user.role === "ADMIN";
+  const canCreate = isManagerRole(user.role);
   const teamFilter = String(searchParams.teamFilter || "OPEN").trim().toUpperCase();
 
   const success = searchParams.success ? decodeURIComponent(searchParams.success) : null;
@@ -97,7 +98,7 @@ export default async function PerformancePage({
     getPerformanceMyEvaluations({ id: user.id }),
     getPerformanceTeamEvaluations({ id: user.id, role: user.role }),
     canViewTeam ? getPerformanceManageableEmployees({ id: user.id, role: user.role }) : Promise.resolve({ ok: true as const, items: [] as any[] }),
-    user.role === "MANAGER" ? getPerformanceDirectReports({ id: user.id }) : Promise.resolve({ ok: true as const, items: [] as any[] })
+    isManagerRole(user.role) ? getPerformanceDirectReports({ id: user.id }) : Promise.resolve({ ok: true as const, items: [] as any[] })
   ]);
   const settings = await getAppSettings();
   const todayIso = formatInTimeZone(new Date(), APP_TIMEZONE, "yyyy-MM-dd");
@@ -251,7 +252,7 @@ export default async function PerformancePage({
       })()
     : null;
 
-  const createOptions = user.role === "MANAGER" ? directReports.items : manageable.items;
+  const createOptions = isManagerRole(user.role) ? directReports.items : manageable.items;
 
   const evalProgress = (e: any) => {
     if (!e?.periodStart || !e?.periodEnd) return null;
@@ -293,6 +294,8 @@ export default async function PerformancePage({
             name={user.name}
             email={user.email}
             role={user.role}
+            hrAddon={user.hrAddon}
+            adminAddon={user.adminAddon}
             position={user.position}
             team={user.team?.name ?? null}
             lang={lang}

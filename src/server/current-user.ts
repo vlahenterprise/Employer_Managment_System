@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { cache } from "react";
 import { prisma } from "./db";
 import { authOptions } from "./auth";
+import { hasAdminAddon } from "./rbac";
 
 const getUserById = cache((userId: string) =>
   prisma.user.findUnique({
@@ -14,8 +15,15 @@ const getUserById = cache((userId: string) =>
       position: true,
       role: true,
       hrAddon: true,
+      adminAddon: true,
       status: true,
       carryOverAnnualLeave: true,
+      annualLeaveDays: true,
+      homeOfficeDays: true,
+      slavaDays: true,
+      employmentDate: true,
+      jobDescriptionUrl: true,
+      workInstructionsUrl: true,
       teamId: true,
       managerId: true,
       createdAt: true,
@@ -41,6 +49,6 @@ export async function requireActiveUser() {
 
 export async function requireAdminUser() {
   const user = await requireActiveUser();
-  if (user.role !== "ADMIN") redirect("/dashboard");
+  if (!hasAdminAddon(user)) redirect("/dashboard");
   return user;
 }

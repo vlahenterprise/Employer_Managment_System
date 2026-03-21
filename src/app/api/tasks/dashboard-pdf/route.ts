@@ -7,6 +7,7 @@ import { getTaskDashboard, normalizeTaskFilters } from "@/server/tasks";
 import { getRequestLang } from "@/i18n/server";
 import { getI18n } from "@/i18n";
 import { renderPdfResponse } from "@/server/pdf";
+import { isManagerRole } from "@/server/rbac";
 
 export const runtime = "nodejs";
 
@@ -171,7 +172,7 @@ export async function GET(req: Request) {
   const t = getI18n(lang);
 
   const targetLabelParts: string[] = [];
-  if (actor.role !== "ADMIN" && actor.role !== "HR") {
+  if (!isManagerRole(actor.role)) {
     targetLabelParts.push(actor.name || actor.email);
   } else if (filters.employeeId) {
     const target = await prisma.user.findUnique({

@@ -6,7 +6,7 @@ import { APP_TIMEZONE, getAppSettings } from "@/server/app-settings";
 import { getPerformanceEvaluationDetail } from "@/server/performance";
 import { getRequestLang } from "@/i18n/server";
 import { getI18n } from "@/i18n";
-import { formatInTimeZone } from "date-fns-tz";
+import { formatInTimeZone } from "@/server/time";
 import { renderPdfResponse } from "@/server/pdf";
 
 export const runtime = "nodejs";

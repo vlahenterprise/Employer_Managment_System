@@ -3,11 +3,14 @@
 import { signOut } from "next-auth/react";
 import { getI18n, Lang } from "@/i18n";
 import { IconLogout, IconUser } from "@/components/icons";
+import { getAccessSummary } from "@/server/rbac";
 
 export default function UserMenu({
   name,
   email,
   role,
+  hrAddon,
+  adminAddon,
   position,
   team,
   lang
@@ -15,11 +18,14 @@ export default function UserMenu({
   name: string;
   email: string;
   role: string;
+  hrAddon?: boolean;
+  adminAddon?: boolean;
   position?: string | null;
   team?: string | null;
   lang: Lang;
 }) {
   const t = getI18n(lang);
+  const access = getAccessSummary({ role: role as any, hrAddon, adminAddon }).join(" · ");
   return (
     <div className="user-menu">
       <div className="user-meta">
@@ -44,7 +50,7 @@ export default function UserMenu({
             </span>
           ) : null}
           <span>
-            {t.admin.users.role}: {role}
+            {t.admin.users.role}: {access}
           </span>
         </div>
       </div>

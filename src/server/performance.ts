@@ -3,8 +3,9 @@ import "server-only";
 import bcrypt from "bcryptjs";
 import { prisma } from "./db";
 import { APP_TIMEZONE, getAppSettings } from "./app-settings";
-import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
+import { formatInTimeZone, fromZonedTime } from "@/server/time";
 import { getAllowedEmployeesForManager, loadOrgUsers } from "./org";
+import { isManagerRole } from "./rbac";
 
 function utcDateFromIso(iso: string) {
   const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -63,8 +64,7 @@ function selfWindow(periodEndIso: string, startDays: number, deadlineDays: numbe
 }
 
 async function canManageEvaluation(actor: { id: string; role: "ADMIN" | "HR" | "MANAGER" | "USER" }, evaluation: { employeeId: string; managerId: string }) {
-  if (actor.role === "ADMIN") return true;
-  if (actor.role === "HR") return false;
+  if (!isManagerRole(actor.role)) return false;
   return actor.id === evaluation.managerId;
 }
 
@@ -79,7 +79,7 @@ export async function createPerformanceEvaluation(params: {
   employeeId: string;
   goals?: Array<{ title: string; description?: string | null; weight: number }>;
 }) {
-  if (params.actor.role !== "ADMIN" && params.actor.role !== "MANAGER") return { ok: false as const, error: "NO_ACCESS" };
+  if (!isManagerRole(params.actor.role)) return { ok: false as const, error: "NO_ACCESS" };
   const employeeId = String(params.employeeId || "").trim();
   if (!employeeId) return { ok: false as const, error: "MISSING_EMPLOYEE" };
   if (employeeId === params.actor.id) return { ok: false as const, error: "SELF_NOT_ALLOWED" };
@@ -90,7 +90,7 @@ export async function createPerformanceEvaluation(params: {
   });
   if (!employee || employee.status !== "ACTIVE") return { ok: false as const, error: "EMPLOYEE_NOT_FOUND" };
 
-  if (params.actor.role === "MANAGER" && employee.managerId !== params.actor.id) {
+  if (employee.managerId !== params.actor.id) {
     return { ok: false as const, error: "NO_ACCESS" };
   }
 
@@ -209,7 +209,7 @@ export async function getPerformanceMyEvaluations(actor: { id: string }) {
 }
 
 export async function getPerformanceTeamEvaluations(actor: { id: string; role: "ADMIN" | "HR" | "MANAGER" | "USER" }) {
-  if (actor.role === "USER") return { ok: true as const, items: [] as any[] };
+  if (!isManagerRole(actor.role)) return { ok: true as const, items: [] as any[] };
 
   const settings = await getAppSettings();
   const startDays = Math.max(1, Math.floor(Number(settings.PerformanceSelfReviewStartDays || 20)));
@@ -218,10 +218,7 @@ export async function getPerformanceTeamEvaluations(actor: { id: string; role: "
   const todayIso = todayIsoInTz();
 
   const orgUsers = await loadOrgUsers();
-  const allowed =
-    actor.role === "ADMIN" || actor.role === "HR"
-      ? new Set(orgUsers.map((u) => u.id))
-      : getAllowedEmployeesForManager(actor.id, orgUsers);
+  const allowed = getAllowedEmployeesForManager(actor.id, orgUsers);
   const rows = await prisma.performanceEvaluation.findMany({
     where: { employeeId: { in: [...allowed] } },
     orderBy: [{ periodEnd: "desc" }, { createdAt: "desc" }],
@@ -258,13 +255,10 @@ export async function getPerformanceDirectReports(actor: { id: string }) {
 }
 
 export async function getPerformanceManageableEmployees(actor: { id: string; role: "ADMIN" | "HR" | "MANAGER" | "USER" }) {
-  if (actor.role === "USER") return { ok: true as const, items: [] as any[] };
+  if (!isManagerRole(actor.role)) return { ok: true as const, items: [] as any[] };
 
   const orgUsers = await loadOrgUsers();
-  const allowed =
-    actor.role === "ADMIN" || actor.role === "HR"
-      ? new Set(orgUsers.map((u) => u.id))
-      : getAllowedEmployeesForManager(actor.id, orgUsers);
+  const allowed = getAllowedEmployeesForManager(actor.id, orgUsers);
 
   const where: { status: "ACTIVE"; id?: { in: string[] } } = { status: "ACTIVE" };
   where.id = { in: [...allowed] };
@@ -326,7 +320,7 @@ export async function getPerformanceEvaluationDetail(actor: { id: string; role: 
 
   const isEmployee = e.employeeId === actor.id;
   const canManage = await canManageEvaluation(actor, { employeeId: e.employeeId, managerId: e.managerId });
-  const canView = isEmployee || canManage || actor.role === "HR";
+  const canView = isEmployee || canManage;
   if (!canView) return { ok: false as const, error: "NO_ACCESS" };
 
   const settings = await getAppSettings();

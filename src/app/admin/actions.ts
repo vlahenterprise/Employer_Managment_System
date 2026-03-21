@@ -12,7 +12,7 @@ import { ORG_STRUCTURE_CACHE_TAG, ORG_USERS_CACHE_TAG, SETTINGS_CACHE_TAG } from
 import { importLegacyDataset } from "@/server/legacy-import";
 import { logError, logInfo } from "@/server/log";
 
-const roleSchema = z.enum(["ADMIN", "HR", "MANAGER", "USER"]);
+const roleSchema = z.enum(["MANAGER", "USER"]);
 const statusSchema = z.enum(["ACTIVE", "INACTIVE"]);
 
 function normalizeEmail(email: string) {
@@ -121,6 +121,10 @@ export async function createUserAction(formData: FormData) {
   const managerIdRaw = String(formData.get("managerId") ?? "");
   const passwordRaw = String(formData.get("password") ?? "");
   const hrAddon = formData.get("hrAddon") != null;
+  const adminAddon = formData.get("adminAddon") != null;
+  const employmentDateRaw = String(formData.get("employmentDate") ?? "");
+  const jobDescriptionUrlRaw = String(formData.get("jobDescriptionUrl") ?? "");
+  const workInstructionsUrlRaw = String(formData.get("workInstructionsUrl") ?? "");
 
   const parsedRole = roleSchema.safeParse(roleRaw);
   if (!parsedRole.success) redirectError("/admin/users", "Neispravna uloga (role).");
@@ -133,6 +137,9 @@ export async function createUserAction(formData: FormData) {
   const teamId = teamIdRaw.trim() || null;
   const managerId = managerIdRaw.trim() || null;
   const password = passwordRaw.trim() || null;
+  const employmentDate = employmentDateRaw.trim() ? new Date(`${employmentDateRaw.trim()}T00:00:00`) : null;
+  const jobDescriptionUrl = jobDescriptionUrlRaw.trim() || null;
+  const workInstructionsUrl = workInstructionsUrlRaw.trim() || null;
 
   const baseSchema = z.object({
     email: z.string().email(),
@@ -156,8 +163,12 @@ export async function createUserAction(formData: FormData) {
         position,
         role: parsedRole.data,
         hrAddon,
+        adminAddon,
         status: parsedStatus.data,
         carryOverAnnualLeave: ok.data.carryOverAnnualLeave,
+        employmentDate: employmentDate && !Number.isNaN(employmentDate.getTime()) ? employmentDate : null,
+        jobDescriptionUrl,
+        workInstructionsUrl,
         teamId,
         managerId,
         passwordHash
@@ -214,6 +225,10 @@ export async function updateUserAction(formData: FormData) {
   const teamIdRaw = String(formData.get("teamId") ?? "");
   const managerIdRaw = String(formData.get("managerId") ?? "");
   const hrAddon = formData.get("hrAddon") != null;
+  const adminAddon = formData.get("adminAddon") != null;
+  const employmentDateRaw = String(formData.get("employmentDate") ?? "");
+  const jobDescriptionUrlRaw = String(formData.get("jobDescriptionUrl") ?? "");
+  const workInstructionsUrlRaw = String(formData.get("workInstructionsUrl") ?? "");
 
   const parsedRole = roleSchema.safeParse(roleRaw);
   if (!parsedRole.success) redirectError("/admin/users", "Neispravna uloga (role).");
@@ -225,6 +240,9 @@ export async function updateUserAction(formData: FormData) {
   const position = positionRaw.trim() || null;
   const teamId = teamIdRaw.trim() || null;
   const managerId = managerIdRaw.trim() || null;
+  const employmentDate = employmentDateRaw.trim() ? new Date(`${employmentDateRaw.trim()}T00:00:00`) : null;
+  const jobDescriptionUrl = jobDescriptionUrlRaw.trim() || null;
+  const workInstructionsUrl = workInstructionsUrlRaw.trim() || null;
   const carryOverAnnualLeaveParsed = z.coerce.number().int().min(0).safeParse(carryOverAnnualLeaveRaw);
   if (!carryOverAnnualLeaveParsed.success) {
     redirectError("/admin/users", "CarryOverAnnualLeave mora biti broj (0 ili više).");
@@ -242,8 +260,12 @@ export async function updateUserAction(formData: FormData) {
         position,
         role: parsedRole.data,
         hrAddon,
+        adminAddon,
         status: parsedStatus.data,
         carryOverAnnualLeave: carryOverAnnualLeaveParsed.data,
+        employmentDate: employmentDate && !Number.isNaN(employmentDate.getTime()) ? employmentDate : null,
+        jobDescriptionUrl,
+        workInstructionsUrl,
         teamId,
         managerId
       }

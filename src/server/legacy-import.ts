@@ -3,7 +3,7 @@ import "server-only";
 import { prisma } from "./db";
 import { normalizeIsoDate } from "./iso-date";
 import { APP_TIMEZONE } from "./app-settings";
-import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
+import { formatInTimeZone, fromZonedTime } from "@/server/time";
 import { getISOWeek, parseISO } from "date-fns";
 import { z } from "zod";
 import crypto from "node:crypto";

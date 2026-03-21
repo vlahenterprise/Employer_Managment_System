@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getScopedEmployeeIds, hasHrSystemAccess, hasManagementPanelAccess, type ScopedOrgUser } from "../src/server/rbac";
+import {
+  canViewAllProfiles,
+  getScopedEmployeeIds,
+  hasHrSystemAccess,
+  hasManagementPanelAccess,
+  type ScopedOrgUser
+} from "../src/server/rbac";
 
 const orgUsers: ScopedOrgUser[] = [
   { id: "admin", managerId: null },
@@ -11,9 +17,11 @@ const orgUsers: ScopedOrgUser[] = [
   { id: "userB", managerId: "manager" }
 ];
 
-test("admin and hr can see all scoped employees", () => {
-  assert.equal(getScopedEmployeeIds({ id: "admin", role: "ADMIN" }, orgUsers).size, orgUsers.length);
-  assert.equal(getScopedEmployeeIds({ id: "hr", role: "HR" }, orgUsers).size, orgUsers.length);
+test("profile-wide visibility stays with explicit add-ons", () => {
+  assert.equal(canViewAllProfiles({ role: "USER", adminAddon: true, hrAddon: false }), true);
+  assert.equal(canViewAllProfiles({ role: "USER", adminAddon: false, hrAddon: true }), true);
+  assert.equal(canViewAllProfiles({ role: "USER", adminAddon: false, hrAddon: false }), false);
+  assert.equal(getScopedEmployeeIds({ id: "hr", role: "HR" }, orgUsers).size, 1);
 });
 
 test("manager scope includes descendants and self", () => {

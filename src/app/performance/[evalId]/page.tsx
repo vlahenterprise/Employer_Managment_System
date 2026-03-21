@@ -19,7 +19,7 @@ import {
   unlockEvalAction
 } from "../actions";
 import { APP_TIMEZONE, getAppSettings } from "@/server/app-settings";
-import { formatInTimeZone } from "date-fns-tz";
+import { formatInTimeZone } from "@/server/time";
 
 function mapMsg(t: ReturnType<typeof getI18n>, code: string | null, isSuccess: boolean) {
   const c = String(code || "");
@@ -250,6 +250,8 @@ export default async function PerformanceEvalPage({
             name={user.name}
             email={user.email}
             role={user.role}
+            hrAddon={user.hrAddon}
+            adminAddon={user.adminAddon}
             position={user.position}
             team={user.team?.name ?? null}
             lang={lang}

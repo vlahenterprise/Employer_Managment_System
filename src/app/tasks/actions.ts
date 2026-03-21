@@ -6,6 +6,7 @@ import { requireActiveUser } from "@/server/current-user";
 import { approveTaskAction, cancelTaskAction, createTask, returnTaskAction, submitTaskForApproval } from "@/server/tasks";
 import { z } from "zod";
 import { normalizeIsoDate } from "@/server/iso-date";
+import { isManagerRole } from "@/server/rbac";
 
 function redirectError(path: string, message: string): never {
   redirect(`${path}?error=${encodeURIComponent(message)}`);
@@ -19,7 +20,7 @@ const prioritySchema = z.enum(["LOW", "MED", "HIGH", "CRIT"]);
 
 export async function createTaskAction(formData: FormData) {
   const user = await requireActiveUser();
-  if (user.role !== "ADMIN") redirectError("/tasks", "NO_ACCESS");
+  if (!isManagerRole(user.role)) redirectError("/tasks", "NO_ACCESS");
 
   const title = String(formData.get("title") ?? "");
   const description = String(formData.get("description") ?? "");

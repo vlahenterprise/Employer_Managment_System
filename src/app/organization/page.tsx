@@ -7,6 +7,7 @@ import OrgChart from "./OrgChart";
 import { getRequestLang } from "@/i18n/server";
 import { getI18n } from "@/i18n";
 import { IconArrowLeft } from "@/components/icons";
+import { hasAccessAdmin } from "@/server/rbac";
 
 export default async function OrganizationPage() {
   const user = await requireActiveUser();
@@ -46,6 +47,8 @@ export default async function OrganizationPage() {
             name={user.name}
             email={user.email}
             role={user.role}
+            hrAddon={user.hrAddon}
+            adminAddon={user.adminAddon}
             position={user.position}
             team={user.team?.name ?? null}
             lang={lang}
@@ -56,7 +59,7 @@ export default async function OrganizationPage() {
           <OrgChart
             nodes={nodes}
             palette={palette}
-            canEdit={user.role === "ADMIN"}
+            canEdit={hasAccessAdmin(user)}
             labels={{
               people: t.org.people,
               links: t.org.links,

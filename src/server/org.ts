@@ -1,7 +1,7 @@
 import "server-only";
 
 import { unstable_cache } from "next/cache";
-import { fromZonedTime } from "date-fns-tz";
+import { fromZonedTime } from "@/server/time";
 import { APP_TIMEZONE } from "./app-settings";
 import { ORG_USERS_CACHE_TAG } from "./cache-tags";
 import { prisma } from "./db";

@@ -5,10 +5,12 @@ import { prisma } from "./db";
 import { buildOrgIndex, loadOrgUsers } from "./org";
 import {
   getScopedEmployeeIds,
-  hasHrSystemAccess as actorHasHrSystemAccess,
-  hasManagementPanelAccess as actorHasManagementPanelAccess
+  hasHrAddon as actorHasHrAddon,
+  hasManagementPanelAccess as actorHasManagementPanelAccess,
+  isManagerRole
 } from "./rbac";
 import { logInfo } from "./log";
+import { ensureOnboardingForApprovedCandidate } from "./onboarding";
 
 type HrActor = {
   id: string;
@@ -16,6 +18,7 @@ type HrActor = {
   name: string;
   role: UserRole;
   hrAddon?: boolean;
+  adminAddon?: boolean;
   teamId?: string | null;
   managerId?: string | null;
 };
@@ -63,7 +66,7 @@ function dedupe<T>(items: T[]) {
 }
 
 function hasActorHrAddon(actor: Pick<HrActor, "role" | "hrAddon">) {
-  return actorHasHrSystemAccess(actor);
+  return actorHasHrAddon(actor);
 }
 
 function hasManagementPanel(actor: Pick<HrActor, "role">) {
@@ -91,7 +94,7 @@ function isVisibleThroughManagerChain(actorId: string, managerId: string | null 
 function pickPrimaryManager(teamId: string | null | undefined, users: Awaited<ReturnType<typeof loadOrgUsers>>) {
   if (!teamId) return null;
   const teamManagers = users.filter(
-    (user) => user.status === "ACTIVE" && user.teamId === teamId && (user.role === "MANAGER" || user.role === "ADMIN")
+    (user) => user.status === "ACTIVE" && user.teamId === teamId && isManagerRole(user.role)
   );
   if (teamManagers.length === 0) return null;
   const ids = new Set(teamManagers.map((user) => user.id));
@@ -190,6 +193,7 @@ async function getCandidateProfileTx(
     phone?: string | null;
     linkedIn?: string | null;
     source?: string | null;
+    cvDriveUrl?: string | null;
     createdById?: string | null;
     cvFileName?: string | null;
     cvMimeType?: string | null;
@@ -207,6 +211,7 @@ async function getCandidateProfileTx(
         phone: normalizePhone(input.phone) || existing.phone,
         linkedIn: cleanText(input.linkedIn) || existing.linkedIn,
         source: cleanText(input.source) || existing.source,
+        cvDriveUrl: cleanText(input.cvDriveUrl) || existing.cvDriveUrl,
         latestCvFileName: input.cvFileName || existing.latestCvFileName,
         latestCvMimeType: input.cvMimeType || existing.latestCvMimeType,
         latestCvData: input.cvData || existing.latestCvData
@@ -238,6 +243,7 @@ async function getCandidateProfileTx(
         phone: phone || existing.phone,
         linkedIn: cleanText(input.linkedIn) || existing.linkedIn,
         source: cleanText(input.source) || existing.source,
+        cvDriveUrl: cleanText(input.cvDriveUrl) || existing.cvDriveUrl,
         latestCvFileName: input.cvFileName || existing.latestCvFileName,
         latestCvMimeType: input.cvMimeType || existing.latestCvMimeType,
         latestCvData: input.cvData || existing.latestCvData
@@ -252,6 +258,7 @@ async function getCandidateProfileTx(
       phone: phone || null,
       linkedIn: cleanText(input.linkedIn) || null,
       source: cleanText(input.source) || null,
+      cvDriveUrl: cleanText(input.cvDriveUrl) || null,
       createdById: input.createdById || null,
       latestCvFileName: input.cvFileName || null,
       latestCvMimeType: input.cvMimeType || null,
@@ -261,7 +268,7 @@ async function getCandidateProfileTx(
 }
 
 export function hasHrSystemAccess(actor: Pick<HrActor, "role" | "hrAddon">) {
-  return actorHasHrSystemAccess(actor);
+  return hasActorHrAddon(actor);
 }
 
 export function hasManagementPanelAccess(actor: Pick<HrActor, "role">) {
@@ -343,6 +350,9 @@ export async function getHrDashboard(actor: HrActor, rawFilters: ProcessFilterIn
         email: true,
         phone: true,
         source: true,
+        cvDriveUrl: true,
+        talentPoolTag: true,
+        lastContactAt: true,
         latestCvFileName: true,
         updatedAt: true,
         applications: {
@@ -408,11 +418,15 @@ export async function getHrProcessDetail(actor: HrActor, processId: string) {
       reason: true,
       note: true,
       status: true,
+      requestType: true,
       adChannel: true,
       adPublishedAt: true,
       openedAt: true,
       closedAt: true,
       cancelledAt: true,
+      desiredStartDate: true,
+      superiorComment: true,
+      superiorDecidedAt: true,
       team: { select: { id: true, name: true } },
       openedBy: { select: { id: true, name: true, email: true } },
       manager: { select: { id: true, name: true, email: true } },
@@ -445,6 +459,9 @@ export async function getHrProcessDetail(actor: HrActor, processId: string) {
               phone: true,
               linkedIn: true,
               source: true,
+              cvDriveUrl: true,
+              talentPoolTag: true,
+              lastContactAt: true,
               latestCvFileName: true,
               latestCvMimeType: true
             }
@@ -492,7 +509,7 @@ export async function getHrProcessDetail(actor: HrActor, processId: string) {
   const allCandidates = await prisma.hrCandidate.findMany({
     orderBy: [{ updatedAt: "desc" }],
     take: 80,
-    select: { id: true, fullName: true, email: true, phone: true, latestCvFileName: true, source: true }
+    select: { id: true, fullName: true, email: true, phone: true, latestCvFileName: true, cvDriveUrl: true, source: true }
   });
 
   return {
@@ -501,8 +518,9 @@ export async function getHrProcessDetail(actor: HrActor, processId: string) {
     existingCandidates: allCandidates,
     permissions: {
       canHrManage: hasActorHrAddon(actor),
-      canManagerReview: actor.role === "ADMIN" || actor.id === process.manager?.id,
-      canFinalApprove: actor.role === "ADMIN" || actor.id === process.finalApprover?.id
+      canApproveRequest: actor.id === process.finalApprover?.id && process.status === "DRAFT",
+      canManagerReview: actor.id === process.manager?.id,
+      canFinalApprove: actor.id === process.finalApprover?.id
     }
   };
 }
@@ -511,40 +529,46 @@ export async function createHrProcess(params: {
   actor: HrActor;
   teamId?: string | null;
   positionTitle: string;
+  requestType?: string | null;
   requestedHeadcount?: number;
   priority?: HrPriority;
   reason: string;
   note?: string | null;
-  managerId?: string | null;
+  desiredStartDate?: Date | string | null;
 }) {
-  if (!hasActorHrAddon(params.actor)) return { ok: false as const, error: "NO_ACCESS" };
+  if (!isManagerRole(params.actor.role)) return { ok: false as const, error: "NO_ACCESS" };
 
   const positionTitle = cleanText(params.positionTitle);
   const reason = cleanText(params.reason);
   const note = cleanText(params.note);
+  const requestType = cleanText(params.requestType);
   const requestedHeadcount = Math.max(1, Math.floor(Number(params.requestedHeadcount || 1)));
+  const desiredStartDate = toDateOrNull(params.desiredStartDate);
   if (!positionTitle) return { ok: false as const, error: "POSITION_REQUIRED" };
   if (!reason) return { ok: false as const, error: "REASON_REQUIRED" };
 
   const orgUsers = await loadOrgUsers();
   const { managerOf } = buildOrgIndex(orgUsers);
-  const selectedManagerId = cleanText(params.managerId) || pickPrimaryManager(params.teamId, orgUsers)?.id || null;
-  const finalApproverId = pickFinalApprover(selectedManagerId, managerOf);
-  const notifyChain = buildManagerChain(selectedManagerId, managerOf);
+  const selectedManagerId = params.actor.id;
+  const finalApproverId = pickFinalApprover(params.actor.id, managerOf) || params.actor.managerId || null;
+  if (!finalApproverId) return { ok: false as const, error: "SUPERIOR_REQUIRED" };
+  const resolvedTeamId = cleanText(params.teamId) || params.actor.teamId || null;
 
   const created = await prisma.$transaction(async (tx) => {
     const process = await tx.hrProcess.create({
       data: {
-        teamId: cleanText(params.teamId) || null,
+        teamId: resolvedTeamId,
         positionTitle,
+        requestType: requestType || null,
         requestedHeadcount,
         priority: params.priority || "MED",
         reason,
         note: note || null,
-        status: "OPEN",
+        status: "DRAFT",
         openedById: params.actor.id,
         managerId: selectedManagerId,
-        finalApproverId
+        finalApproverId,
+        desiredStartDate
       },
       select: { id: true }
     });
@@ -554,16 +578,16 @@ export async function createHrProcess(params: {
       processId: process.id,
       action: "PROCESS_CREATED",
       field: "status",
-      newValue: "OPEN",
+      newValue: "DRAFT",
       comment: `${positionTitle} · ${reason}`
     });
 
     await createNotificationsTx(tx, {
-      userIds: notifyChain,
-      type: "HR_PROCESS_OPENED",
-      title: `New hiring process: ${positionTitle}`,
+      userIds: [finalApproverId],
+      type: "HIRING_REQUEST_APPROVAL",
+      title: `Hiring request waiting approval: ${positionTitle}`,
       body: reason,
-      href: `/hr/${process.id}`,
+      href: `/management`,
       processId: process.id
     });
 
@@ -573,9 +597,10 @@ export async function createHrProcess(params: {
   logInfo("hr.process.created", {
     actorId: params.actor.id,
     processId: created.id,
-    teamId: cleanText(params.teamId) || null,
+    teamId: resolvedTeamId,
     managerId: selectedManagerId,
-    finalApproverId
+    finalApproverId,
+    requestType: requestType || null
   });
 
   return { ok: true as const, processId: created.id };
@@ -632,6 +657,85 @@ export async function updateHrProcessMeta(params: {
   return { ok: true as const };
 }
 
+export async function reviewHiringRequest(params: {
+  actor: HrActor;
+  processId: string;
+  decision: "APPROVE" | "REJECT";
+  comment?: string | null;
+}) {
+  const processId = cleanText(params.processId);
+  const comment = cleanText(params.comment);
+  if (!processId) return { ok: false as const, error: "PROCESS_NOT_FOUND" };
+  if (!comment) return { ok: false as const, error: "COMMENT_REQUIRED" };
+
+  const process = await prisma.hrProcess.findUnique({
+    where: { id: processId },
+    select: {
+      id: true,
+      status: true,
+      positionTitle: true,
+      openedById: true,
+      managerId: true,
+      finalApproverId: true
+    }
+  });
+  if (!process) return { ok: false as const, error: "PROCESS_NOT_FOUND" };
+  if (process.finalApproverId !== params.actor.id) return { ok: false as const, error: "NO_ACCESS" };
+  if (process.status !== "DRAFT") return { ok: false as const, error: "INVALID_STATUS" };
+
+  const hrOwners = await prisma.user.findMany({
+    where: { status: "ACTIVE", OR: [{ hrAddon: true }, { role: "HR" }] },
+    select: { id: true }
+  });
+
+  const nextStatus: HrProcessStatus = params.decision === "APPROVE" ? "OPEN" : "ON_HOLD";
+
+  await prisma.$transaction(async (tx) => {
+    await tx.hrProcess.update({
+      where: { id: processId },
+      data: {
+        status: nextStatus,
+        superiorComment: comment,
+        superiorDecidedAt: new Date()
+      }
+    });
+    await logAuditTx(tx, {
+      actorId: params.actor.id,
+      processId,
+      action: "HIRING_REQUEST_REVIEWED",
+      field: "status",
+      oldValue: process.status,
+      newValue: nextStatus,
+      comment
+    });
+
+    await createNotificationsTx(tx, {
+      userIds: [process.openedById],
+      type: params.decision === "APPROVE" ? "HIRING_REQUEST_APPROVED" : "HIRING_REQUEST_REJECTED",
+      title:
+        params.decision === "APPROVE"
+          ? `Hiring request approved: ${process.positionTitle}`
+          : `Hiring request rejected: ${process.positionTitle}`,
+      body: comment,
+      href: `/hr/${processId}`,
+      processId
+    });
+
+    if (params.decision === "APPROVE") {
+      await createNotificationsTx(tx, {
+        userIds: hrOwners.map((row) => row.id),
+        type: "HIRING_REQUEST_READY_FOR_HR",
+        title: `Approved for HR: ${process.positionTitle}`,
+        body: comment,
+        href: `/hr/${processId}`,
+        processId
+      });
+    }
+  });
+
+  return { ok: true as const };
+}
+
 export async function addCandidateToHrProcess(params: {
   actor: HrActor;
   processId: string;
@@ -645,6 +749,7 @@ export async function addCandidateToHrProcess(params: {
   hrComment?: string | null;
   firstRoundComment?: string | null;
   screeningResult?: string | null;
+  cvDriveUrl?: string | null;
   cvFileName?: string | null;
   cvMimeType?: string | null;
   cvData?: Buffer | null;
@@ -658,7 +763,9 @@ export async function addCandidateToHrProcess(params: {
     select: { id: true, status: true, positionTitle: true }
   });
   if (!process) return { ok: false as const, error: "PROCESS_NOT_FOUND" };
-  if (process.status === "CANCELED" || process.status === "CLOSED") return { ok: false as const, error: "PROCESS_LOCKED" };
+  if (process.status === "DRAFT" || process.status === "ON_HOLD" || process.status === "CANCELED" || process.status === "CLOSED" || process.status === "APPROVED") {
+    return { ok: false as const, error: "PROCESS_LOCKED" };
+  }
 
   const created = await prisma.$transaction(async (tx) => {
     const candidate = await getCandidateProfileTx(tx, {
@@ -669,6 +776,7 @@ export async function addCandidateToHrProcess(params: {
       linkedIn: params.linkedIn,
       source: params.source,
       createdById: params.actor.id,
+      cvDriveUrl: params.cvDriveUrl,
       cvFileName: params.cvFileName,
       cvMimeType: params.cvMimeType,
       cvData: params.cvData
@@ -846,7 +954,7 @@ export async function managerReviewHrCandidate(params: {
     }
   });
   if (!application) return { ok: false as const, error: "APPLICATION_NOT_FOUND" };
-  if (params.actor.role !== "ADMIN" && params.actor.id !== application.process.managerId) {
+  if (params.actor.id !== application.process.managerId) {
     return { ok: false as const, error: "NO_ACCESS" };
   }
 
@@ -1004,7 +1112,7 @@ export async function secondRoundHrDecision(params: {
     }
   });
   if (!application) return { ok: false as const, error: "APPLICATION_NOT_FOUND" };
-  if (params.actor.role !== "ADMIN" && params.actor.id !== application.process.managerId) {
+  if (params.actor.id !== application.process.managerId) {
     return { ok: false as const, error: "NO_ACCESS" };
   }
 
@@ -1093,6 +1201,7 @@ export async function finalApproveHrCandidate(params: {
         select: {
           id: true,
           status: true,
+          teamId: true,
           requestedHeadcount: true,
           finalApproverId: true,
           openedById: true,
@@ -1103,7 +1212,7 @@ export async function finalApproveHrCandidate(params: {
     }
   });
   if (!application) return { ok: false as const, error: "APPLICATION_NOT_FOUND" };
-  if (params.actor.role !== "ADMIN" && params.actor.id !== application.process.finalApproverId) {
+  if (params.actor.id !== application.process.finalApproverId) {
     return { ok: false as const, error: "NO_ACCESS" };
   }
 
@@ -1170,6 +1279,22 @@ export async function finalApproveHrCandidate(params: {
       processCandidateId: applicationId
     });
   });
+
+  if (params.decision === "APPROVE") {
+    const hrOwner = await prisma.user.findFirst({
+      where: { status: "ACTIVE", OR: [{ hrAddon: true }, { role: "HR" }] },
+      orderBy: [{ updatedAt: "desc" }],
+      select: { id: true }
+    });
+
+    await ensureOnboardingForApprovedCandidate({
+      processId: application.processId,
+      candidateId: application.candidate.id,
+      managerId: application.process.managerId || null,
+      teamId: application.process.teamId || null,
+      hrOwnerId: hrOwner?.id || null
+    });
+  }
 
   logInfo("hr.final-approval.saved", {
     actorId: params.actor.id,
@@ -1360,8 +1485,21 @@ export async function getManagementPanel(actor: HrActor) {
   const allowedEmployees = getScopedEmployeeIds({ id: actor.id, role: actor.role }, orgUsers);
   const allowedTeams = new Set(orgUsers.filter((user) => allowedEmployees.has(user.id)).map((user) => user.teamId).filter(Boolean));
 
-  const [processes, pendingReview, finalApprovals, notifications, openTasks, overdueTasks, pendingEvaluations, activeAbsences] =
+  const [pendingSuperiorApprovals, processes, pendingReview, finalApprovals, notifications, openTasks, overdueTasks, pendingEvaluations, activeAbsences, teams] =
     await Promise.all([
+      prisma.hrProcess.findMany({
+        where: { status: "DRAFT", finalApproverId: actor.id },
+        orderBy: [{ updatedAt: "desc" }],
+        select: {
+          id: true,
+          positionTitle: true,
+          priority: true,
+          reason: true,
+          desiredStartDate: true,
+          team: { select: { id: true, name: true } },
+          openedBy: { select: { id: true, name: true, email: true } }
+        }
+      }),
       prisma.hrProcess.findMany({
         where: {
           status: { in: OPEN_PROCESS_STATUSES }
@@ -1435,11 +1573,15 @@ export async function getManagementPanel(actor: HrActor) {
           dateFrom: { lte: new Date() },
           dateTo: { gte: new Date() }
         }
+      }),
+      prisma.team.findMany({
+        where: { id: { in: [...new Set([actor.teamId, ...allowedTeams].filter(Boolean) as string[])] } },
+        orderBy: [{ name: "asc" }],
+        select: { id: true, name: true }
       })
     ]);
 
   const visibleProcesses = processes.filter((process) => {
-    if (actor.role === "ADMIN") return true;
     if (process.manager?.id === actor.id || process.finalApprover?.id === actor.id) return true;
     if (process.team?.id && allowedTeams.has(process.team.id)) return true;
     return isVisibleThroughManagerChain(actor.id, process.manager?.id, managerOf);
@@ -1448,17 +1590,20 @@ export async function getManagementPanel(actor: HrActor) {
   return {
     ok: true as const,
     metrics: {
+      pendingSuperiorApprovals: pendingSuperiorApprovals.length,
       openPositions: visibleProcesses.length,
-      pendingManagerReviews: pendingReview.filter((item) => item.process.managerId === actor.id || actor.role === "ADMIN").length,
-      pendingFinalApprovals: finalApprovals.filter((item) => item.process.finalApproverId === actor.id || actor.role === "ADMIN").length,
+      pendingManagerReviews: pendingReview.filter((item) => item.process.managerId === actor.id).length,
+      pendingFinalApprovals: finalApprovals.filter((item) => item.process.finalApproverId === actor.id).length,
       openTasks,
       overdueTasks,
       pendingEvaluations,
       activeAbsences
     },
+    pendingSuperiorApprovals,
+    teams,
     processes: visibleProcesses,
-    pendingReview: pendingReview.filter((item) => item.process.managerId === actor.id || actor.role === "ADMIN"),
-    finalApprovals: finalApprovals.filter((item) => item.process.finalApproverId === actor.id || actor.role === "ADMIN"),
+    pendingReview: pendingReview.filter((item) => item.process.managerId === actor.id),
+    finalApprovals: finalApprovals.filter((item) => item.process.finalApproverId === actor.id),
     notifications
   };
 }

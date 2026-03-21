@@ -27,14 +27,18 @@ async function main() {
       update: {
         name,
         passwordHash,
-        role: "ADMIN",
+        role: "MANAGER",
+        hrAddon: true,
+        adminAddon: true,
         status: "ACTIVE"
       },
       create: {
         email,
         name,
         passwordHash,
-        role: "ADMIN",
+        role: "MANAGER",
+        hrAddon: true,
+        adminAddon: true,
         status: "ACTIVE"
       }
     });
@@ -49,4 +53,3 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
-

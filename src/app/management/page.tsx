@@ -4,7 +4,7 @@ import { requireActiveUser } from "@/server/current-user";
 import { getBrandingSettings } from "@/server/settings";
 import UserMenu from "../dashboard/UserMenu";
 import { getManagementPanel, hasManagementPanelAccess } from "@/server/hr";
-import { markHrNotificationReadAction } from "../hr/actions";
+import { createHrProcessAction, markHrNotificationReadAction } from "../hr/actions";
 import {
   IconAlertTriangle,
   IconArrowLeft,
@@ -132,6 +132,8 @@ export default async function ManagementPage() {
             name={user.name}
             email={user.email}
             role={user.role}
+            hrAddon={user.hrAddon}
+            adminAddon={user.adminAddon}
             position={user.position}
             team={user.team?.name ?? null}
             lang={lang}
@@ -172,6 +174,59 @@ export default async function ManagementPage() {
         </section>
 
         <div className="grid2 hr-main-grid">
+          <section className="panel stack">
+            <h2 className="h2">New hiring request</h2>
+            <form className="grid2" action={createHrProcessAction}>
+              <label className="field">
+                <span className="label">Team</span>
+                <select className="input" name="teamId" defaultValue={user.teamId ?? panel.teams[0]?.id ?? ""}>
+                  {panel.teams.map((team) => (
+                    <option key={team.id} value={team.id}>
+                      {team.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span className="label">Position</span>
+                <input className="input" name="positionTitle" type="text" required />
+              </label>
+              <label className="field">
+                <span className="label">Replacement / new position</span>
+                <input className="input" name="requestType" type="text" placeholder="Replacement / New position" />
+              </label>
+              <label className="field">
+                <span className="label">Priority</span>
+                <select className="input" name="priority" defaultValue="MED">
+                  <option value="LOW">LOW</option>
+                  <option value="MED">MED</option>
+                  <option value="HIGH">HIGH</option>
+                  <option value="CRITICAL">CRITICAL</option>
+                </select>
+              </label>
+              <label className="field">
+                <span className="label">Desired start date</span>
+                <input className="input" name="desiredStartDate" type="date" />
+              </label>
+              <label className="field">
+                <span className="label">Headcount</span>
+                <input className="input" name="requestedHeadcount" type="number" min={1} max={20} defaultValue={1} />
+              </label>
+              <label className="field">
+                <span className="label">Reason</span>
+                <input className="input" name="reason" type="text" required />
+              </label>
+              <label className="field">
+                <span className="label">Manager comment</span>
+                <input className="input" name="note" type="text" />
+              </label>
+              <div className="field field-actions">
+                <span className="label"> </span>
+                <button className="button" type="submit">Create request</button>
+              </div>
+            </form>
+          </section>
+
           <section className="panel stack">
             <h2 className="h2">{c.notifications}</h2>
             <div className="list">
@@ -233,6 +288,26 @@ export default async function ManagementPage() {
         </div>
 
         <div className="grid2 hr-main-grid">
+          <section className="panel stack">
+            <h2 className="h2">Pending superior approvals</h2>
+            <div className="list">
+              {panel.pendingSuperiorApprovals.map((process) => (
+                <div key={process.id} className="item item-compact">
+                  <div>
+                    <div className="item-title">{process.positionTitle}</div>
+                    <div className="muted small">
+                      {process.team?.name || c.noData} · {process.priority} · {process.openedBy?.name || c.noData}
+                    </div>
+                  </div>
+                  <Link className="button button-secondary" href={`/hr/${process.id}`}>
+                    {c.openDetail}
+                  </Link>
+                </div>
+              ))}
+              {panel.pendingSuperiorApprovals.length === 0 ? <div className="muted small">{c.noData}</div> : null}
+            </div>
+          </section>
+
           <section className="panel stack">
             <h2 className="h2">{c.reviewQueue}</h2>
             <div className="list">

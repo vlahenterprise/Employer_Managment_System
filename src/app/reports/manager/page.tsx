@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { prisma } from "@/server/db";
 import { requireActiveUser } from "@/server/current-user";
 import { getReportsDashboard, getReportsGrid } from "@/server/reports";
@@ -10,7 +11,10 @@ import ReportsCharts from "./ReportsCharts";
 import { IconArrowLeft, IconCalendar, IconPdf, IconReport, IconSparkles, IconTasks } from "@/components/icons";
 import { APP_TIMEZONE } from "@/server/app-settings";
 import { startOfMonth } from "date-fns";
-import { formatInTimeZone } from "date-fns-tz";
+import { formatInTimeZone } from "@/server/time";
+import { getScopedEmployeeIds, isManagerRole } from "@/server/rbac";
+import { loadOrgUsers } from "@/server/org";
+import UserMenu from "../../dashboard/UserMenu";
 
 function fmtMin(minutes: number) {
   const min = Math.max(0, Math.floor(Number(minutes || 0)));
@@ -40,22 +44,33 @@ export default async function ReportsManagerPage({
   const lang = getRequestLang();
   const t = getI18n(lang);
 
-  const isAdmin = user.role === "ADMIN";
-  const canViewAll = user.role === "ADMIN" || user.role === "HR";
+  const canViewAll = isManagerRole(user.role);
+  if (!canViewAll) redirect("/reports");
 
   const success = searchParams.success ? decodeURIComponent(searchParams.success) : null;
   const error = searchParams.error ? decodeURIComponent(searchParams.error) : null;
 
+  const orgUsers = canViewAll ? await loadOrgUsers() : [];
+  const scopedEmployeeIds = canViewAll ? [...getScopedEmployeeIds({ id: user.id, role: user.role }, orgUsers)] : [];
+
   const [teams, positions, employees] = canViewAll
     ? await Promise.all([
-        prisma.team.findMany({ orderBy: { name: "asc" }, select: { name: true } }),
+        prisma.team.findMany({
+          where: { users: { some: { id: { in: scopedEmployeeIds } } } },
+          orderBy: { name: "asc" },
+          select: { name: true }
+        }),
         prisma.user.findMany({
-          where: { position: { not: null } },
+          where: {
+            id: { in: scopedEmployeeIds },
+            position: { not: null }
+          },
           distinct: ["position"],
           orderBy: { position: "asc" },
           select: { position: true }
         }),
         prisma.user.findMany({
+          where: { id: { in: scopedEmployeeIds } },
           orderBy: { name: "asc" },
           select: { name: true, email: true, team: { select: { name: true } } }
         })
@@ -74,7 +89,7 @@ export default async function ReportsManagerPage({
     employeeEmail: searchParams.employeeEmail || null
   };
 
-  const actor = { email: user.email, role: user.role };
+  const actor = { id: user.id, email: user.email, role: user.role, hrAddon: user.hrAddon };
   const [dash, grid] = await Promise.all([
     getReportsDashboard({ actor, filters }),
     getReportsGrid({
@@ -133,6 +148,17 @@ export default async function ReportsManagerPage({
             </a>
           </div>
         </div>
+
+        <UserMenu
+          name={user.name}
+          email={user.email}
+          role={user.role}
+          hrAddon={user.hrAddon}
+          adminAddon={user.adminAddon}
+          position={user.position}
+          team={user.team?.name ?? null}
+          lang={lang}
+        />
 
         {success ? <div className="success">{success}</div> : null}
         {error ? <div className="error">{error}</div> : null}
@@ -204,7 +230,7 @@ export default async function ReportsManagerPage({
               </button>
             </div>
           </form>
-          {!canViewAll ? <div className="muted small">{t.reports.nonAdminNote}</div> : null}
+          <div className="muted small">Scope is limited to your reporting line.</div>
         </section>
 
         <section className="panel stack">
@@ -354,7 +380,7 @@ export default async function ReportsManagerPage({
                   </div>
                 </div>
 
-                {isAdmin ? (
+                {canViewAll ? (
                   <form action={deleteDailyReportRedirectAction}>
                     <input type="hidden" name="dateIso" value={r.dateIso} />
                     <input type="hidden" name="targetEmail" value={r.email} />

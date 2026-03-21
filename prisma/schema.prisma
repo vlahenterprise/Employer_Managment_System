@@ -91,6 +91,22 @@ enum HrPriority {
   CRITICAL
 }
 
+enum OnboardingStatus {
+  PLANNED
+  ACTIVE
+  WAITING_EMPLOYEE_ACTIONS
+  WAITING_MANAGER_ACTIONS
+  WAITING_HR_ACTIONS
+  COMPLETED
+}
+
+enum OnboardingItemOwner {
+  HR
+  MANAGER
+  EMPLOYEE
+  SHARED
+}
+
 model Team {
   id        String   @id @default(cuid())
   name      String   @unique
@@ -98,6 +114,7 @@ model Team {
   activityTypes ActivityType[]
   tasks     Task[]
   hrProcesses HrProcess[]
+  onboardings Onboarding[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -112,11 +129,15 @@ model User {
   passwordHash String?
   role        UserRole   @default(USER)
   hrAddon     Boolean    @default(false)
+  adminAddon  Boolean    @default(false)
   status      UserStatus @default(ACTIVE)
   carryOverAnnualLeave Int @default(0)
   annualLeaveDays Int?
   homeOfficeDays Int?
   slavaDays Int?
+  employmentDate DateTime?
+  jobDescriptionUrl String?
+  workInstructionsUrl String?
   teamId      String?
   team        Team?      @relation(fields: [teamId], references: [id])
   managerId   String?
@@ -149,10 +170,15 @@ model User {
   hrNotifications HrNotification[]
   hrApplicationComments HrCandidateComment[] @relation("HrCandidateCommentAuthor")
   hrAuditLogs HrAuditLog[] @relation("HrAuditActor")
+  onboardingsAsEmployee Onboarding[] @relation("OnboardingEmployee")
+  onboardingsAsManager Onboarding[] @relation("OnboardingManager")
+  onboardingsAsHrOwner Onboarding[] @relation("OnboardingHrOwner")
+  completedOnboardingItems OnboardingItem[] @relation("OnboardingCompletedBy")
 
   @@index([managerId])
   @@index([teamId])
   @@index([hrAddon])
+  @@index([adminAddon])
 }
 
 model OrgPosition {
@@ -525,6 +551,7 @@ model HrProcess {
   id                 String          @id @default(cuid())
   teamId             String?
   positionTitle      String
+  requestType        String?
   requestedHeadcount Int             @default(1)
   priority           HrPriority      @default(MED)
   reason             String
@@ -533,6 +560,9 @@ model HrProcess {
   openedById         String
   managerId          String?
   finalApproverId    String?
+  desiredStartDate   DateTime?
+  superiorComment    String?
+  superiorDecidedAt  DateTime?
   adPublishedAt      DateTime?
   adChannel          String?
   openedAt           DateTime        @default(now())
@@ -549,6 +579,7 @@ model HrProcess {
   candidates    HrProcessCandidate[]
   notifications HrNotification[]
   auditLogs     HrAuditLog[]
+  onboardings   Onboarding[]
 
   @@index([teamId, status])
   @@index([managerId, status])
@@ -563,6 +594,9 @@ model HrCandidate {
   phone            String?
   linkedIn         String?
   source           String?
+  cvDriveUrl       String?
+  talentPoolTag    String?
+  lastContactAt    DateTime?
   latestCvFileName String?
   latestCvMimeType String?
   latestCvData     Bytes?
@@ -573,10 +607,12 @@ model HrCandidate {
   createdBy    User?                @relation("HrCandidateCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   applications HrProcessCandidate[]
   auditLogs    HrAuditLog[]
+  onboardings  Onboarding[]
 
   @@index([fullName])
   @@index([email])
   @@index([phone])
+  @@index([talentPoolTag])
 }
 
 model HrProcessCandidate {
@@ -599,6 +635,7 @@ model HrProcessCandidate {
   archivedAt             DateTime?
   cancelledAt            DateTime?
   closedReason           String?
+  nextAction             String?
   managerProposedSlots   Json?
   createdAt              DateTime          @default(now())
   updatedAt              DateTime          @updatedAt
@@ -614,6 +651,60 @@ model HrProcessCandidate {
   @@index([processId, status])
   @@index([candidateId, status])
   @@index([appliedAt])
+}
+
+model Onboarding {
+  id                  String           @id @default(cuid())
+  processId           String?
+  candidateId         String?
+  employeeId          String?
+  teamId              String?
+  managerId           String?
+  hrOwnerId           String?
+  startDate           DateTime?
+  status              OnboardingStatus @default(PLANNED)
+  note                String?
+  jobDescriptionUrl   String?
+  workInstructionsUrl String?
+  onboardingDocsUrl   String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  process     HrProcess?        @relation(fields: [processId], references: [id], onDelete: SetNull)
+  candidate   HrCandidate?      @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+  employee    User?             @relation("OnboardingEmployee", fields: [employeeId], references: [id], onDelete: SetNull)
+  team        Team?             @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  manager     User?             @relation("OnboardingManager", fields: [managerId], references: [id], onDelete: SetNull)
+  hrOwner     User?             @relation("OnboardingHrOwner", fields: [hrOwnerId], references: [id], onDelete: SetNull)
+  items       OnboardingItem[]
+
+  @@index([processId])
+  @@index([candidateId])
+  @@index([employeeId, status])
+  @@index([managerId, status])
+  @@index([hrOwnerId, status])
+  @@index([teamId, status])
+}
+
+model OnboardingItem {
+  id            String              @id @default(cuid())
+  onboardingId  String
+  title         String
+  description   String?
+  ownerType     OnboardingItemOwner @default(SHARED)
+  driveUrl      String?
+  isCompleted   Boolean             @default(false)
+  completedAt   DateTime?
+  completedById String?
+  order         Int                 @default(0)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  onboarding   Onboarding @relation(fields: [onboardingId], references: [id], onDelete: Cascade)
+  completedBy  User?      @relation("OnboardingCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+
+  @@index([onboardingId, order])
+  @@index([ownerType, isCompleted])
 }
 
 model HrCandidateComment {

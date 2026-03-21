@@ -2,6 +2,9 @@ import "./globals.css";
 import { getBrandingSettings, getThemeCssVars } from "@/server/settings";
 import { getRequestLang } from "@/i18n/server";
 import LangToggle from "@/components/LangToggle";
+import AppNavigation from "@/components/AppNavigation";
+import { getCurrentUser } from "@/server/current-user";
+import { getPrimaryNavigation } from "@/server/navigation";
 import { Inter } from "next/font/google";
 
 const bodyFont = Inter({
@@ -24,6 +27,10 @@ export default async function RootLayout({
   const themeVars = await getThemeCssVars();
   const lang = getRequestLang();
   const branding = await getBrandingSettings();
+  const user = await getCurrentUser();
+  const navItems = user
+    ? getPrimaryNavigation({ role: user.role, hrAddon: user.hrAddon, adminAddon: user.adminAddon })
+    : [];
   return (
     <html
       lang={lang}
@@ -39,7 +46,10 @@ export default async function RootLayout({
           </div>
         ) : null}
         {branding.poweredByText ? <div className="app-powered">{branding.poweredByText}</div> : null}
-        <div className="app-shell">{children}</div>
+        <div className="app-shell">
+          {user ? <AppNavigation items={navItems} title={branding.title} logoUrl={branding.logoUrl} /> : null}
+          {children}
+        </div>
       </body>
     </html>
   );

@@ -5,9 +5,10 @@ import { APP_TIMEZONE, getAppSettings } from "@/server/app-settings";
 import { getBrandingSettings, getThemeCssVars } from "@/server/settings";
 import { getRequestLang } from "@/i18n/server";
 import { getI18n } from "@/i18n";
-import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
+import { formatInTimeZone, fromZonedTime } from "@/server/time";
 import { getAllowedEmployeesForManager, loadOrgUsers } from "@/server/org";
 import { renderPdfResponse } from "@/server/pdf";
+import { isManagerRole } from "@/server/rbac";
 
 export const runtime = "nodejs";
 
@@ -101,7 +102,7 @@ export async function GET(req: Request) {
   } else if (scopeRaw === "team") {
     const direct = orgUsers.filter((u) => u.managerId === actor.id).map((u) => u.id);
     let list = [...direct];
-    if (list.length === 0 && actor.role === "ADMIN" && actor.teamId) {
+    if (list.length === 0 && isManagerRole(actor.role) && actor.teamId) {
       list = orgUsers.filter((u) => u.teamId === actor.teamId).map((u) => u.id);
     }
     if (!list.includes(actor.id)) list.push(actor.id);

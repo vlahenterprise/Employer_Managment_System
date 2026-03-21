@@ -14,7 +14,8 @@ import {
   managerReviewCandidateAction,
   scheduleInterviewAction,
   secondRoundDecisionAction,
-  updateHrProcessMetaAction
+  updateHrProcessMetaAction,
+  reviewHiringRequestAction
 } from "../actions";
 import { IconArrowLeft, IconArrowRight, IconCheckCircle, IconClock, IconPdf, IconPlus, IconTrash } from "@/components/icons";
 
@@ -79,6 +80,12 @@ function copy(lang: "sr" | "en") {
       mark: "Akcija",
       from: "Otvorio",
       createdAt: "Kreirano",
+      requestedStart: "Željeni početak",
+      requestType: "Tip zahteva",
+      superiorComment: "Komentar nadređenog",
+      approveRequest: "Odobrenje zahteva",
+      reviewComment: "Komentar odobrenja",
+      cvDriveLink: "CV Drive link",
       noValue: "—"
     };
   }
@@ -142,6 +149,12 @@ function copy(lang: "sr" | "en") {
     mark: "Action",
     from: "Opened by",
     createdAt: "Created",
+    requestedStart: "Desired start",
+    requestType: "Request type",
+    superiorComment: "Superior comment",
+    approveRequest: "Request approval",
+    reviewComment: "Approval comment",
+    cvDriveLink: "CV Drive link",
     noValue: "—"
   };
 }
@@ -247,6 +260,8 @@ export default async function HrProcessPage({
             name={user.name}
             email={user.email}
             role={user.role}
+            hrAddon={user.hrAddon}
+            adminAddon={user.adminAddon}
             position={user.position}
             team={user.team?.name ?? null}
             lang={lang}
@@ -317,13 +332,41 @@ export default async function HrProcessPage({
             <div className="inline">
               <span className="muted small">
                 {c.team}: {process.team?.name || c.noValue} · {c.manager}: {process.manager?.name || c.noValue} · {c.finalApprover}:{" "}
-                {process.finalApprover?.name || c.noValue}
+                {process.finalApprover?.name || c.noValue} · {c.requestType}: {process.requestType || c.noValue} · {c.requestedStart}:{" "}
+                {formatDate(process.desiredStartDate, lang)} · {c.from}: {process.openedBy?.name || c.noValue}
               </span>
             </div>
             <button className="button button-secondary" type="submit">
               {c.saveProcess}
             </button>
           </form>
+
+          {detail.permissions.canApproveRequest ? (
+            <form className="stack" action={reviewHiringRequestAction}>
+              <input type="hidden" name="processId" value={process.id} />
+              <div className="grid2">
+                <label className="field">
+                  <span className="label">{c.approveRequest}</span>
+                  <select className="input" name="decision" defaultValue="APPROVE">
+                    <option value="APPROVE">{c.approve}</option>
+                    <option value="REJECT">{c.reject}</option>
+                  </select>
+                </label>
+                <label className="field">
+                  <span className="label">{c.reviewComment}</span>
+                  <input className="input" name="comment" type="text" defaultValue={process.superiorComment || ""} />
+                </label>
+              </div>
+              <button className="button" type="submit">{c.submit}</button>
+            </form>
+          ) : process.superiorComment ? (
+            <div className="notice notice-info">
+              <div>
+                <div className="item-title">{c.superiorComment}</div>
+                <div className="muted small">{process.superiorComment}</div>
+              </div>
+            </div>
+          ) : null}
 
           <div className="grid2">
             <form className="stack" action={closeHrProcessAction}>
@@ -396,8 +439,8 @@ export default async function HrProcessPage({
                 <input className="input" name="appliedAt" type="datetime-local" />
               </label>
               <label className="field">
-                <span className="label">{c.cv}</span>
-                <input className="input" name="cvFile" type="file" accept="application/pdf,.pdf" />
+                <span className="label">{c.cvDriveLink}</span>
+                <input className="input" name="cvDriveUrl" type="url" placeholder="https://drive.google.com/..." />
               </label>
             </div>
             <div className="grid3">
@@ -437,6 +480,11 @@ export default async function HrProcessPage({
                   </div>
                   <div className="pills">
                     <span className={statusClass(application.status)}>{application.status}</span>
+                    {application.candidate.cvDriveUrl ? (
+                      <a className="button button-secondary" href={application.candidate.cvDriveUrl} target="_blank" rel="noreferrer">
+                        <IconPdf size={18} /> {c.cvDriveLink}
+                      </a>
+                    ) : null}
                     {application.candidate.latestCvFileName ? (
                       <a className="button button-secondary" href={`/api/hr/candidate-cv/${application.candidate.id}`} target="_blank" rel="noreferrer">
                         <IconPdf size={18} /> {c.openCv}

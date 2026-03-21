@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth/next";
 import { buildChartPalette, getBrandingSettings, getThemeCssVars } from "@/server/settings";
 import { getReportsDashboard, normalizeReportsFilters } from "@/server/reports";
 import { renderPdfResponse } from "@/server/pdf";
+import { hasHrAddon, isManagerRole } from "@/server/rbac";
 
 export const runtime = "nodejs";
 
@@ -137,7 +138,7 @@ export async function GET(req: Request) {
 
   const actor = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, email: true, name: true, role: true, status: true, team: { select: { name: true } }, position: true }
+    select: { id: true, email: true, name: true, role: true, hrAddon: true, status: true, team: { select: { name: true } }, position: true }
   });
   if (!actor || actor.status !== "ACTIVE") return new Response("Unauthorized", { status: 401 });
 
@@ -158,7 +159,7 @@ export async function GET(req: Request) {
 
   const filters = normalizeReportsFilters(rawFilters);
 
-  const actorForQuery = { email: actor.email, role: actor.role };
+  const actorForQuery = { id: actor.id, email: actor.email, role: actor.role, hrAddon: actor.hrAddon ?? false };
   const dash = await getReportsDashboard({
     actor: actorForQuery,
     filters: {
@@ -181,7 +182,7 @@ export async function GET(req: Request) {
   const light2 = (theme as any)["--color-light-2"] as string | undefined;
 
   const targetLabelParts: string[] = [];
-  if (actor.role !== "ADMIN" && actor.role !== "HR") {
+  if (!isManagerRole(actor.role) && !hasHrAddon({ role: actor.role, hrAddon: actor.hrAddon ?? false })) {
     targetLabelParts.push(actor.name || actor.email);
   } else if (filters.employeeEmail) {
     const target = await prisma.user.findUnique({
