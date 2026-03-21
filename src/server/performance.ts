@@ -77,6 +77,7 @@ async function verifyActorPassword(actorId: string, password: string) {
 export async function createPerformanceEvaluation(params: {
   actor: { id: string; email: string; name: string; role: "ADMIN" | "HR" | "MANAGER" | "USER" };
   employeeId: string;
+  goals?: Array<{ title: string; description?: string | null; weight: number }>;
 }) {
   if (params.actor.role !== "ADMIN" && params.actor.role !== "MANAGER") return { ok: false as const, error: "NO_ACCESS" };
   const employeeId = String(params.employeeId || "").trim();
@@ -92,6 +93,22 @@ export async function createPerformanceEvaluation(params: {
   if (params.actor.role === "MANAGER" && employee.managerId !== params.actor.id) {
     return { ok: false as const, error: "NO_ACCESS" };
   }
+
+  const cleanedGoals = Array.isArray(params.goals)
+    ? params.goals
+        .map((goal) => ({
+          title: String(goal.title || "").trim(),
+          description: String(goal.description || "").trim() || null,
+          weight: Number(goal.weight || 0)
+        }))
+        .filter((goal) => goal.title)
+    : [];
+  if (cleanedGoals.length > 5) return { ok: false as const, error: "MAX_5_GOALS" };
+  if (cleanedGoals.some((goal) => !Number.isFinite(goal.weight) || goal.weight < 0)) {
+    return { ok: false as const, error: "WEIGHT_OVER_100" };
+  }
+  const initialWeight = cleanedGoals.reduce((sum, goal) => sum + Math.max(0, Number(goal.weight || 0)), 0);
+  if (initialWeight > 100) return { ok: false as const, error: "WEIGHT_OVER_100" };
 
   const existing = await prisma.performanceEvaluation.findMany({
     where: { employeeId },
@@ -118,7 +135,7 @@ export async function createPerformanceEvaluation(params: {
     const evalRow = await tx.performanceEvaluation.create({
       data: {
         employeeId,
-        managerId: params.actor.id,
+        managerId: employee.managerId || params.actor.id,
         periodStart: range.startAt,
         periodEnd: range.endAt,
         periodLabel: range.label,
@@ -138,6 +155,17 @@ export async function createPerformanceEvaluation(params: {
           area: q.area,
           description: q.description,
           scale: q.scale
+        }))
+      });
+    }
+
+    if (cleanedGoals.length) {
+      await tx.performanceGoal.createMany({
+        data: cleanedGoals.map((goal) => ({
+          evaluationId: evalRow.id,
+          title: goal.title,
+          description: goal.description,
+          weight: Math.max(0, Number(goal.weight || 0))
         }))
       });
     }
@@ -312,8 +340,7 @@ export async function getPerformanceEvaluationDetail(actor: { id: string; role: 
   const canSelfEdit = isEmployee && e.status === "OPEN" && !e.locked && (todayIso <= window.deadlineIso || e.unlockOverride);
   const canSelfSubmit = isEmployee && e.status === "OPEN" && !e.locked && todayIso >= window.startIso && todayIso <= window.deadlineIso;
 
-  const anySelfStarted = e.goals.some((g) => String(g.employeeComment || "").trim() !== "" || g.employeeScore != null);
-  const canEditGoals = canManage && e.status === "OPEN" && !e.locked && todayIso < window.startIso && !anySelfStarted;
+  const canEditGoals = canManage && e.status === "OPEN" && !e.locked;
   const canManagerReview = canManage && e.status !== "CLOSED" && e.status !== "CANCELLED" && !e.locked;
 
   return {
@@ -344,7 +371,7 @@ export async function getPerformanceHistoryForEmployee(employeeId: string) {
 export async function savePerformanceGoals(params: {
   actor: { id: string; email: string; role: "ADMIN" | "HR" | "MANAGER" | "USER" };
   evalId: string;
-  goals: Array<{ title: string; description?: string | null; weight: number }>;
+  goals: Array<{ goalId?: string | null; title: string; description?: string | null; weight: number }>;
 }) {
   const id = String(params.evalId || "").trim();
   if (!id) return { ok: false as const, error: "EVAL_NOT_FOUND" };
@@ -356,6 +383,7 @@ export async function savePerformanceGoals(params: {
   if (!detail.perms.canEditGoals) return { ok: false as const, error: "GOALS_LOCKED" };
 
   const cleaned = params.goals.map((g) => ({
+    goalId: String(g.goalId || "").trim() || null,
     title: String(g.title || "").trim(),
     description: String(g.description || "").trim() || null,
     weight: Number(g.weight || 0)
@@ -365,16 +393,46 @@ export async function savePerformanceGoals(params: {
   const sum = cleaned.reduce((s, g) => s + Math.max(0, Number(g.weight || 0)), 0);
   if (sum > 100) return { ok: false as const, error: "WEIGHT_OVER_100" };
 
+  const existingById = new Map(detail.evaluation.goals.map((goal) => [goal.id, goal]));
+  const submittedIds = cleaned.map((goal) => goal.goalId).filter(Boolean) as string[];
+  const toDelete = detail.evaluation.goals.filter((goal) => !submittedIds.includes(goal.id));
+  const hasProgress = (goal: (typeof detail.evaluation.goals)[number]) =>
+    goal.employeeScore != null ||
+    goal.managerScore != null ||
+    String(goal.employeeComment || "").trim().length > 0 ||
+    String(goal.managerComment || "").trim().length > 0;
+  if (toDelete.some(hasProgress)) return { ok: false as const, error: "GOAL_IN_USE" };
+
   await prisma.$transaction(async (tx) => {
-    await tx.performanceGoal.deleteMany({ where: { evaluationId: id } });
-    await tx.performanceGoal.createMany({
-      data: cleaned.map((g) => ({
-        evaluationId: id,
-        title: g.title,
-        description: g.description,
-        weight: Math.max(0, Number(g.weight || 0))
-      }))
-    });
+    if (toDelete.length) {
+      await tx.performanceGoal.deleteMany({
+        where: {
+          id: { in: toDelete.map((goal) => goal.id) }
+        }
+      });
+    }
+
+    for (const goal of cleaned) {
+      if (goal.goalId && existingById.has(goal.goalId)) {
+        await tx.performanceGoal.update({
+          where: { id: goal.goalId },
+          data: {
+            title: goal.title,
+            description: goal.description,
+            weight: Math.max(0, Number(goal.weight || 0))
+          }
+        });
+      } else {
+        await tx.performanceGoal.create({
+          data: {
+            evaluationId: id,
+            title: goal.title,
+            description: goal.description,
+            weight: Math.max(0, Number(goal.weight || 0))
+          }
+        });
+      }
+    }
     await tx.performanceLog.create({
       data: {
         evaluationId: id,

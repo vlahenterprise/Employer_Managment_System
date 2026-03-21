@@ -12,6 +12,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { APP_TIMEZONE } from "@/server/app-settings";
 import { IconArrowLeft, IconCalendar, IconPdf } from "@/components/icons";
 import AbsenceCalendarView from "./AbsenceCalendarView";
+import AbsenceRequestForm from "./AbsenceRequestForm";
 
 function defaultMonthRange() {
   const now = new Date();
@@ -72,6 +73,24 @@ export default async function AbsencePage({
     return value;
   }
 
+  function statusLabel(value: string) {
+    const v = String(value || "").trim().toUpperCase();
+    if (v === "PENDING") return t.absence.statusPending;
+    if (v === "APPROVED") return t.absence.statusApproved;
+    if (v === "REJECTED") return t.absence.reject;
+    if (v === "CANCELLED") return t.absence.cancel;
+    return value;
+  }
+
+  function statusPillClass(value: string) {
+    const v = String(value || "").trim().toUpperCase();
+    if (v === "APPROVED") return "pill pill-status pill-status-approved";
+    if (v === "PENDING") return "pill pill-status pill-status-pending";
+    if (v === "REJECTED") return "pill pill-status pill-status-rejected";
+    if (v === "CANCELLED") return "pill pill-status pill-status-muted";
+    return "pill";
+  }
+
   const isAdmin = user.role === "ADMIN";
   const isManager = user.role === "MANAGER";
 
@@ -114,33 +133,46 @@ export default async function AbsencePage({
   return (
     <main className="page">
       <div className="card stack">
-        <div className="header">
-          <div className="brand">
-            {branding.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
-            ) : null}
-            <div>
-              <h1 className="brand-title">{t.absence.title}</h1>
-              <p className="muted">{t.absence.subtitle}</p>
+        <div className="page-topbar">
+          <div className="page-topbar-main">
+            <div className="header">
+              <div className="brand">
+                {branding.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
+                ) : null}
+                <div>
+                  <h1 className="brand-title">{t.absence.title}</h1>
+                  <p className="muted">{t.absence.subtitle}</p>
+                </div>
+              </div>
+              <div className="inline">
+                <Link className="button button-secondary" href="/dashboard">
+                  <IconArrowLeft size={18} /> {t.common.backToDashboard}
+                </Link>
+                <a className="button button-secondary" href="#calendar">
+                  <IconCalendar size={18} /> {t.absence.calendarTitle}
+                </a>
+                <a className="button button-secondary" href={pdfSelfHref} target="_blank" rel="noreferrer">
+                  <IconPdf size={18} /> {t.absence.exportPdfSelf}
+                </a>
+                {isAdmin || isManager ? (
+                  <a className="button" href={pdfTeamHref} target="_blank" rel="noreferrer">
+                    <IconPdf size={18} /> {t.absence.exportPdfTeam}
+                  </a>
+                ) : null}
+              </div>
             </div>
           </div>
-          <div className="inline">
-            <Link className="button button-secondary" href="/dashboard">
-              <IconArrowLeft size={18} /> {t.common.backToDashboard}
-            </Link>
-            <a className="button button-secondary" href="#calendar">
-              <IconCalendar size={18} /> {t.absence.calendarTitle}
-            </a>
-            <a className="button button-secondary" href={pdfSelfHref} target="_blank" rel="noreferrer">
-              <IconPdf size={18} /> {t.absence.exportPdfSelf}
-            </a>
-            {isAdmin || isManager ? (
-              <a className="button" href={pdfTeamHref} target="_blank" rel="noreferrer">
-                <IconPdf size={18} /> {t.absence.exportPdfTeam}
-              </a>
-            ) : null}
-          </div>
+
+          <UserMenu
+            name={user.name}
+            email={user.email}
+            role={user.role}
+            position={user.position}
+            team={user.team?.name ?? null}
+            lang={lang}
+          />
         </div>
 
         {message && messageType ? <div className={messageType === "success" ? "success" : "error"}>{message}</div> : null}
@@ -180,36 +212,7 @@ export default async function AbsencePage({
 
         <section className="panel stack">
           <h2 className="h2">{t.absence.newRequestTitle}</h2>
-          <form className="stack" action={submitAbsenceAction}>
-            <div className="grid3">
-              <label className="field">
-                <span className="label">{t.absence.type}</span>
-                <select className="input" name="type" defaultValue="ANNUAL_LEAVE" required>
-                  <option value="ANNUAL_LEAVE">{t.absence.typeAnnual}</option>
-                  <option value="HOME_OFFICE">{t.absence.typeHome}</option>
-                  <option value="SLAVA">{t.absence.typeSlava}</option>
-                  <option value="SICK">{t.absence.typeSick}</option>
-                  <option value="OTHER">{t.absence.typeOther}</option>
-                </select>
-              </label>
-              <label className="field">
-                <span className="label">{t.absence.from}</span>
-                <input className="input" name="fromIso" type="date" required />
-              </label>
-              <label className="field">
-                <span className="label">{t.absence.to}</span>
-                <input className="input" name="toIso" type="date" required />
-              </label>
-            </div>
-            <label className="field">
-              <span className="label">{t.absence.comment}</span>
-              <textarea className="input" name="comment" rows={3} style={{ resize: "vertical" }} />
-            </label>
-            <button className="button" type="submit">
-              {t.absence.submit}
-            </button>
-            <div className="muted small">{t.absence.tzNote(APP_TIMEZONE)}</div>
-          </form>
+          <AbsenceRequestForm lang={lang} timeZone={APP_TIMEZONE} action={submitAbsenceAction} />
         </section>
 
         <section className="panel stack">
@@ -223,12 +226,13 @@ export default async function AbsencePage({
                       {typeLabel(r.type)} · {r.fromIso} → {r.toIso}
                     </div>
                     <div className="muted small">
-                      {t.absence.days}: {r.days} · {t.absence.status}: {r.status}
+                      {t.absence.days}: {r.days} · {t.absence.status}: {statusLabel(r.status)}
                       {r.overlapWarning ? ` · ${t.absence.overlapWarning}` : ""}
                     </div>
                   </div>
                   <div className="pills">
-                    <span className="pill">{r.status}</span>
+                    {r.overlapWarning ? <span className="pill pill-status pill-status-pending">{t.absence.overlapWarning}</span> : null}
+                    <span className={statusPillClass(r.status)}>{statusLabel(r.status)}</span>
                   </div>
                 </summary>
 
@@ -348,7 +352,7 @@ export default async function AbsencePage({
                         {x.employee.email} · {x.employee.teamName || "—"} · {t.absence.days}: {x.days}
                       </div>
                     </div>
-                    <span className="pill">PENDING</span>
+                    <span className={statusPillClass("PENDING")}>{statusLabel("PENDING")}</span>
                   </summary>
 
                   <div className="grid2">
@@ -416,14 +420,6 @@ export default async function AbsencePage({
           </section>
         ) : null}
 
-        <UserMenu
-          name={user.name}
-          email={user.email}
-          role={user.role}
-          position={user.position}
-          team={user.team?.name ?? null}
-          lang={lang}
-        />
       </div>
     </main>
   );

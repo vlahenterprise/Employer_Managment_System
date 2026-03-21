@@ -21,27 +21,40 @@ export default async function ReportsPage() {
   return (
     <main className="page">
       <div className="card stack">
-        <div className="header">
-          <div className="brand">
-            {branding.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
-            ) : null}
-            <div>
-              <h1 className="brand-title">{branding.title}</h1>
-              <p className="muted">{branding.subtitle}</p>
+        <div className="page-topbar">
+          <div className="page-topbar-main">
+            <div className="header">
+              <div className="brand">
+                {branding.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
+                ) : null}
+                <div>
+                  <h1 className="brand-title">{branding.title}</h1>
+                  <p className="muted">{branding.subtitle}</p>
+                </div>
+              </div>
+              <div className="inline">
+                <Link className="button button-secondary" href="/dashboard">
+                  <IconArrowLeft size={18} /> {t.common.backToDashboard}
+                </Link>
+                {user.role === "ADMIN" || user.role === "HR" ? (
+                  <Link className="button button-secondary" href="/reports/manager">
+                    <IconUsers size={18} /> {t.reports.managerTitle}
+                  </Link>
+                ) : null}
+              </div>
             </div>
           </div>
-          <div className="inline">
-            <Link className="button button-secondary" href="/dashboard">
-              <IconArrowLeft size={18} /> {t.common.backToDashboard}
-            </Link>
-            {user.role === "ADMIN" || user.role === "HR" ? (
-              <Link className="button button-secondary" href="/reports/manager">
-                <IconUsers size={18} /> {t.reports.managerTitle}
-              </Link>
-            ) : null}
-          </div>
+
+          <UserMenu
+            name={user.name}
+            email={user.email}
+            role={user.role}
+            position={user.position}
+            team={user.team?.name ?? null}
+            lang={lang}
+          />
         </div>
 
         <ReportEntry
@@ -54,14 +67,6 @@ export default async function ReportsPage() {
           }}
         />
 
-        <UserMenu
-          name={user.name}
-          email={user.email}
-          role={user.role}
-          position={user.position}
-          team={user.team?.name ?? null}
-          lang={lang}
-        />
       </div>
     </main>
   );

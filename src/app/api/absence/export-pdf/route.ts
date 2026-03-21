@@ -7,6 +7,7 @@ import { getRequestLang } from "@/i18n/server";
 import { getI18n } from "@/i18n";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { getAllowedEmployeesForManager, loadOrgUsers } from "@/server/org";
+import { renderPdfResponse } from "@/server/pdf";
 
 export const runtime = "nodejs";
 
@@ -327,33 +328,7 @@ export async function GET(req: Request) {
   const filenameSafe = `Absence_${scopeLabel}_${year}.pdf`.replaceAll(" ", "_");
 
   try {
-    const puppeteer = (await import("puppeteer")).default;
-    const browser = await puppeteer.launch({
-      args: ["--no-sandbox", "--disable-setuid-sandbox"]
-    });
-    try {
-      const page = await browser.newPage();
-      await page.setViewport({ width: 1200, height: 800, deviceScaleFactor: 2 });
-      await page.setContent(html, { waitUntil: "networkidle0" });
-      const pdf = await page.pdf({
-        format: "A4",
-        printBackground: true,
-        margin: { top: "10mm", bottom: "10mm", left: "10mm", right: "10mm" }
-      });
-
-      const ab = new ArrayBuffer(pdf.byteLength);
-      new Uint8Array(ab).set(pdf);
-      const blob = new Blob([ab], { type: "application/pdf" });
-      return new Response(blob, {
-        headers: {
-          "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="${filenameSafe}"`,
-          "Cache-Control": "no-store"
-        }
-      });
-    } finally {
-      await browser.close();
-    }
+    return await renderPdfResponse({ html, filename: filenameSafe });
   } catch (error) {
     return new Response(`PDF export failed: ${String((error as any)?.message || error)}`, { status: 500 });
   }

@@ -58,12 +58,46 @@ enum EvaluationStatus {
   CANCELLED
 }
 
+enum HrProcessStatus {
+  DRAFT
+  OPEN
+  IN_PROGRESS
+  ON_HOLD
+  APPROVED
+  CLOSED
+  CANCELED
+}
+
+enum HrCandidateStatus {
+  NEW_APPLICANT
+  HR_SCREENING
+  REJECTED_BY_HR
+  SENT_TO_MANAGER
+  WAITING_MANAGER_REVIEW
+  INTERVIEW_SCHEDULED
+  SECOND_ROUND_COMPLETED
+  REJECTED_BY_MANAGER
+  WAITING_FINAL_APPROVAL
+  APPROVED_FOR_EMPLOYMENT
+  REJECTED_FINAL
+  ARCHIVED
+  CANCELED
+}
+
+enum HrPriority {
+  LOW
+  MED
+  HIGH
+  CRITICAL
+}
+
 model Team {
   id        String   @id @default(cuid())
   name      String   @unique
   users     User[]
   activityTypes ActivityType[]
   tasks     Task[]
+  hrProcesses HrProcess[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -77,6 +111,7 @@ model User {
   emailVerified DateTime?
   passwordHash String?
   role        UserRole   @default(USER)
+  hrAddon     Boolean    @default(false)
   status      UserStatus @default(ACTIVE)
   carryOverAnnualLeave Int @default(0)
   annualLeaveDays Int?
@@ -106,9 +141,18 @@ model User {
   evaluationsLocked PerformanceEvaluation[] @relation("LockedByEvaluations")
   performanceLogs PerformanceLog[]
   orgAssignments OrgPositionAssignment[]
+  hrProcessesOpened HrProcess[] @relation("HrProcessOpenedBy")
+  hrProcessesManaged HrProcess[] @relation("HrProcessManager")
+  hrProcessesFinalApproval HrProcess[] @relation("HrProcessFinalApprover")
+  hrCandidatesCreated HrCandidate[] @relation("HrCandidateCreatedBy")
+  hrApplicationsCreated HrProcessCandidate[] @relation("HrApplicationCreatedBy")
+  hrNotifications HrNotification[]
+  hrApplicationComments HrCandidateComment[] @relation("HrCandidateCommentAuthor")
+  hrAuditLogs HrAuditLog[] @relation("HrAuditActor")
 
   @@index([managerId])
   @@index([teamId])
+  @@index([hrAddon])
 }
 
 model OrgPosition {
@@ -474,6 +518,162 @@ model PerformanceLog {
 
   @@index([evaluationId])
   @@index([createdAt])
+  @@index([action])
+}
+
+model HrProcess {
+  id                 String          @id @default(cuid())
+  teamId             String?
+  positionTitle      String
+  requestedHeadcount Int             @default(1)
+  priority           HrPriority      @default(MED)
+  reason             String
+  note               String?
+  status             HrProcessStatus @default(OPEN)
+  openedById         String
+  managerId          String?
+  finalApproverId    String?
+  adPublishedAt      DateTime?
+  adChannel          String?
+  openedAt           DateTime        @default(now())
+  closedAt           DateTime?
+  cancelledAt        DateTime?
+  archivedAt         DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  team          Team?               @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  openedBy      User                @relation("HrProcessOpenedBy", fields: [openedById], references: [id], onDelete: Restrict)
+  manager       User?               @relation("HrProcessManager", fields: [managerId], references: [id], onDelete: SetNull)
+  finalApprover User?               @relation("HrProcessFinalApprover", fields: [finalApproverId], references: [id], onDelete: SetNull)
+  candidates    HrProcessCandidate[]
+  notifications HrNotification[]
+  auditLogs     HrAuditLog[]
+
+  @@index([teamId, status])
+  @@index([managerId, status])
+  @@index([finalApproverId, status])
+  @@index([status, openedAt])
+}
+
+model HrCandidate {
+  id               String   @id @default(cuid())
+  fullName         String
+  email            String?
+  phone            String?
+  linkedIn         String?
+  source           String?
+  latestCvFileName String?
+  latestCvMimeType String?
+  latestCvData     Bytes?
+  createdById      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  createdBy    User?                @relation("HrCandidateCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  applications HrProcessCandidate[]
+  auditLogs    HrAuditLog[]
+
+  @@index([fullName])
+  @@index([email])
+  @@index([phone])
+}
+
+model HrProcessCandidate {
+  id                     String            @id @default(cuid())
+  processId              String
+  candidateId            String
+  createdById            String?
+  status                 HrCandidateStatus @default(NEW_APPLICANT)
+  source                 String?
+  appliedAt              DateTime          @default(now())
+  initialContactAt       DateTime?
+  hrComment              String?
+  firstRoundComment      String?
+  screeningResult        String?
+  managerComment         String?
+  finalComment           String?
+  interviewScheduledAt   DateTime?
+  secondRoundCompletedAt DateTime?
+  finalDecisionAt        DateTime?
+  archivedAt             DateTime?
+  cancelledAt            DateTime?
+  closedReason           String?
+  managerProposedSlots   Json?
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+
+  process       HrProcess           @relation(fields: [processId], references: [id], onDelete: Cascade)
+  candidate     HrCandidate         @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  createdBy     User?               @relation("HrApplicationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  comments      HrCandidateComment[]
+  notifications HrNotification[]
+  auditLogs     HrAuditLog[]
+
+  @@unique([processId, candidateId])
+  @@index([processId, status])
+  @@index([candidateId, status])
+  @@index([appliedAt])
+}
+
+model HrCandidateComment {
+  id                 String   @id @default(cuid())
+  processCandidateId String
+  actorId            String?
+  stage              String
+  body               String
+  createdAt          DateTime @default(now())
+
+  processCandidate HrProcessCandidate @relation(fields: [processCandidateId], references: [id], onDelete: Cascade)
+  actor            User?              @relation("HrCandidateCommentAuthor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([processCandidateId, createdAt])
+}
+
+model HrNotification {
+  id                 String   @id @default(cuid())
+  userId             String
+  processId          String?
+  processCandidateId String?
+  type               String
+  title              String
+  body               String?
+  href               String?
+  isRead             Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  readAt             DateTime?
+
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  process          HrProcess?          @relation(fields: [processId], references: [id], onDelete: Cascade)
+  processCandidate HrProcessCandidate? @relation(fields: [processCandidateId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@index([processId])
+  @@index([processCandidateId])
+}
+
+model HrAuditLog {
+  id                 String   @id @default(cuid())
+  processId          String?
+  processCandidateId String?
+  candidateId        String?
+  actorId            String?
+  action             String
+  field              String?
+  oldValue           String?
+  newValue           String?
+  comment            String?
+  createdAt          DateTime @default(now())
+
+  process          HrProcess?          @relation(fields: [processId], references: [id], onDelete: Cascade)
+  processCandidate HrProcessCandidate? @relation(fields: [processCandidateId], references: [id], onDelete: Cascade)
+  candidate        HrCandidate?        @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  actor            User?               @relation("HrAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([processId, createdAt])
+  @@index([processCandidateId, createdAt])
+  @@index([candidateId, createdAt])
+  @@index([actorId, createdAt])
   @@index([action])
 }
 

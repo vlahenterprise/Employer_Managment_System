@@ -104,7 +104,7 @@ export async function checkAbsenceOverlap(params: {
   const rows = await prisma.absence.findMany({
     where: {
       status: { in: ["PENDING", "APPROVED"] },
-      employee: { teamId: actor.teamId },
+      employee: { teamId: actor.teamId, id: { not: actor.id } },
       dateFrom: { lte: to },
       dateTo: { gte: from }
     },

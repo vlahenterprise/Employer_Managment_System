@@ -120,6 +120,7 @@ export async function createUserAction(formData: FormData) {
   const teamIdRaw = String(formData.get("teamId") ?? "");
   const managerIdRaw = String(formData.get("managerId") ?? "");
   const passwordRaw = String(formData.get("password") ?? "");
+  const hrAddon = formData.get("hrAddon") != null;
 
   const parsedRole = roleSchema.safeParse(roleRaw);
   if (!parsedRole.success) redirectError("/admin/users", "Neispravna uloga (role).");
@@ -154,6 +155,7 @@ export async function createUserAction(formData: FormData) {
         name,
         position,
         role: parsedRole.data,
+        hrAddon,
         status: parsedStatus.data,
         carryOverAnnualLeave: ok.data.carryOverAnnualLeave,
         teamId,
@@ -211,6 +213,7 @@ export async function updateUserAction(formData: FormData) {
   const carryOverAnnualLeaveRaw = String(formData.get("carryOverAnnualLeave") ?? "0");
   const teamIdRaw = String(formData.get("teamId") ?? "");
   const managerIdRaw = String(formData.get("managerId") ?? "");
+  const hrAddon = formData.get("hrAddon") != null;
 
   const parsedRole = roleSchema.safeParse(roleRaw);
   if (!parsedRole.success) redirectError("/admin/users", "Neispravna uloga (role).");
@@ -238,6 +241,7 @@ export async function updateUserAction(formData: FormData) {
         name,
         position,
         role: parsedRole.data,
+        hrAddon,
         status: parsedStatus.data,
         carryOverAnnualLeave: carryOverAnnualLeaveParsed.data,
         teamId,

@@ -86,6 +86,7 @@ export const authOptions: NextAuthOptions = {
             email: true,
             name: true,
             role: true,
+            hrAddon: true,
             status: true,
             teamId: true,
             passwordHash: true
@@ -103,6 +104,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
+          hrAddon: user.hrAddon,
           status: user.status,
           teamId: user.teamId
         } as any;
@@ -133,6 +135,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         (token as any).role = (user as any).role;
+        (token as any).hrAddon = (user as any).hrAddon ?? false;
         (token as any).status = (user as any).status;
         (token as any).teamId = (user as any).teamId ?? null;
       }
@@ -142,6 +145,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         (session.user as any).id = token.sub ?? (session.user as any).id;
         (session.user as any).role = (token as any).role ?? "USER";
+        (session.user as any).hrAddon = (token as any).hrAddon ?? false;
         (session.user as any).status = (token as any).status ?? "ACTIVE";
         (session.user as any).teamId = (token as any).teamId ?? null;
       }

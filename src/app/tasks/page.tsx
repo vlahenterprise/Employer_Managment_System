@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireActiveUser } from "@/server/current-user";
-import { buildChartPalette, getBrandingSettings, getThemeCssVars } from "@/server/settings";
+import { getBrandingSettings } from "@/server/settings";
 import UserMenu from "../dashboard/UserMenu";
 import { getRequestLang } from "@/i18n/server";
 import { getI18n } from "@/i18n";
@@ -10,7 +10,7 @@ import TaskCharts from "./task-charts";
 import { startOfMonth, subDays } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { APP_TIMEZONE } from "@/server/app-settings";
-import { IconAlertTriangle, IconArrowLeft, IconBolt, IconCheckCircle, IconPdf, IconTasks } from "@/components/icons";
+import { IconAlertTriangle, IconArrowLeft, IconBolt, IconCheckCircle, IconClock, IconPdf, IconSparkles, IconTasks } from "@/components/icons";
 
 function resolveQuickRange(quickRaw: string | undefined, currentFrom: string, currentTo: string) {
   const quick = Number.parseInt(String(quickRaw || ""), 10);
@@ -35,8 +35,6 @@ export default async function TasksPage({
 }) {
   const user = await requireActiveUser();
   const branding = await getBrandingSettings();
-  const theme = await getThemeCssVars();
-  const palette = buildChartPalette(theme as any);
   const lang = getRequestLang();
   const t = getI18n(lang);
 
@@ -90,6 +88,34 @@ export default async function TasksPage({
     return "P4 · LOW";
   };
 
+  const statusLabel = (status: string) => {
+    const key = String(status || "").trim().toUpperCase();
+    if (key === "OPEN") return t.tasks.statusLabels.open;
+    if (key === "IN_PROGRESS") return t.tasks.statusLabels.inProgress;
+    if (key === "FOR_APPROVAL") return t.tasks.statusLabels.forApproval;
+    if (key === "APPROVED") return t.tasks.statusLabels.approved;
+    if (key === "RETURNED") return t.tasks.statusLabels.returned;
+    return status;
+  };
+
+  const statusPillClass = (status: string) => {
+    const key = String(status || "").trim().toUpperCase();
+    if (key === "APPROVED") return "pill pill-status pill-status-approved";
+    if (key === "FOR_APPROVAL") return "pill pill-status pill-status-review";
+    if (key === "IN_PROGRESS") return "pill pill-status pill-status-progress";
+    if (key === "RETURNED") return "pill pill-status pill-status-rejected";
+    if (key === "OPEN") return "pill pill-status pill-status-muted";
+    return "pill";
+  };
+
+  const processFlow = [
+    { key: "OPEN", label: t.tasks.statsOpen, value: dash.totals.open, icon: <IconTasks size={18} />, tone: "muted" },
+    { key: "IN_PROGRESS", label: t.tasks.statsInProgress, value: dash.totals.inProgress, icon: <IconClock size={18} />, tone: "progress" },
+    { key: "FOR_APPROVAL", label: t.tasks.statsForApproval, value: dash.totals.forApproval, icon: <IconSparkles size={18} />, tone: "review" },
+    { key: "APPROVED", label: t.tasks.statsApproved, value: dash.totals.approved, icon: <IconCheckCircle size={18} />, tone: "approved" },
+    { key: "RETURNED", label: t.tasks.statsReturned, value: dash.totals.returned, icon: <IconAlertTriangle size={18} />, tone: "rejected" }
+  ];
+
   const exportParams = new URLSearchParams();
   if (dash.filters.fromIso) exportParams.set("fromIso", dash.filters.fromIso);
   if (dash.filters.toIso) exportParams.set("toIso", dash.filters.toIso);
@@ -100,25 +126,38 @@ export default async function TasksPage({
   return (
     <main className="page">
       <div className="card stack">
-        <div className="header">
-          <div className="brand">
-            {branding.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
-            ) : null}
-            <div>
-              <h1 className="brand-title">{t.tasks.title}</h1>
-              <p className="muted">{t.tasks.subtitle}</p>
+        <div className="page-topbar">
+          <div className="page-topbar-main">
+            <div className="header">
+              <div className="brand">
+                {branding.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
+                ) : null}
+                <div>
+                  <h1 className="brand-title">{t.tasks.title}</h1>
+                  <p className="muted">{t.tasks.subtitle}</p>
+                </div>
+              </div>
+              <div className="inline">
+                <Link className="button button-secondary" href="/dashboard">
+                  <IconArrowLeft size={18} /> {t.common.backToDashboard}
+                </Link>
+                <a className="button" href={exportHref} target="_blank" rel="noreferrer">
+                  <IconPdf size={18} /> {t.tasks.exportPdf}
+                </a>
+              </div>
             </div>
           </div>
-          <div className="inline">
-            <Link className="button button-secondary" href="/dashboard">
-              <IconArrowLeft size={18} /> {t.common.backToDashboard}
-            </Link>
-            <a className="button" href={exportHref} target="_blank" rel="noreferrer">
-              <IconPdf size={18} /> {t.tasks.exportPdf}
-            </a>
-          </div>
+
+          <UserMenu
+            name={user.name}
+            email={user.email}
+            role={user.role}
+            position={user.position}
+            team={user.team?.name ?? null}
+            lang={lang}
+          />
         </div>
 
         {success ? <div className="success">{success}</div> : null}
@@ -243,11 +282,32 @@ export default async function TasksPage({
 
         <TaskCharts
           lang={lang}
-          palette={palette}
           status={dash.chartStatus}
           approved={dash.chartApproved}
           tri={dash.chartTri}
         />
+
+        <section className="panel stack">
+          <div className="section-head">
+            <div>
+              <h2 className="h2">{t.tasks.processTitle}</h2>
+              <div className="muted small">{t.tasks.processHint}</div>
+            </div>
+            <span className="pill">{dash.totals.totalTasks}</span>
+          </div>
+          <div className="process-grid">
+            {processFlow.map((step) => (
+              <div key={step.key} className={`process-card process-card-${step.tone}`}>
+                <div className="process-card-icon">{step.icon}</div>
+                <div className="process-card-body">
+                  <div className="process-card-label">{step.label}</div>
+                  <div className="process-card-value">{step.value}</div>
+                </div>
+                <span className={statusPillClass(step.key)}>{statusLabel(step.key)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
 
         {canManage ? (
           <section className="panel stack">
@@ -378,7 +438,7 @@ export default async function TasksPage({
                       </div>
                     </div>
                     <div className="pills">
-                      <span className="pill">{task.status}</span>
+                      <span className={statusPillClass(task.status)}>{statusLabel(task.status)}</span>
                       <span className={`pill pill-priority priority-${task.priority.toLowerCase()}`}>{priorityLabel(task.priority)}</span>
                     </div>
                   </summary>
@@ -437,7 +497,7 @@ export default async function TasksPage({
                   <div className="pills">
                     {task.criticalOverdue ? <span className="pill pill-red">{t.tasks.criticalOverdue}</span> : null}
                     {task.overdue && !task.criticalOverdue ? <span className="pill pill-orange">{t.tasks.overdue}</span> : null}
-                    <span className="pill">{task.status}</span>
+                    <span className={statusPillClass(task.status)}>{statusLabel(task.status)}</span>
                     <span className={`pill pill-priority priority-${task.priority.toLowerCase()}`}>{priorityLabel(task.priority)}</span>
                   </div>
                 </summary>
@@ -516,14 +576,6 @@ export default async function TasksPage({
           </div>
         </section>
 
-        <UserMenu
-          name={user.name}
-          email={user.email}
-          role={user.role}
-          position={user.position}
-          team={user.team?.name ?? null}
-          lang={lang}
-        />
       </div>
     </main>
   );

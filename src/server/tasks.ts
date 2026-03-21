@@ -101,6 +101,7 @@ export type TaskDashboard = {
     approvedOnTime: number;
     approvedLate: number;
     open: number;
+    inProgress: number;
     forApproval: number;
     approved: number;
     returned: number;
@@ -189,6 +190,7 @@ export async function getTaskDashboard(actor: { id: string; email: string; role:
         approvedOnTime: 0,
         approvedLate: 0,
         open: 0,
+        inProgress: 0,
         forApproval: 0,
         approved: 0,
         returned: 0
@@ -317,6 +319,7 @@ export async function getTaskDashboard(actor: { id: string; email: string; role:
     approvedOnTime: 0,
     approvedLate: 0,
     open: 0,
+    inProgress: 0,
     forApproval: 0,
     approved: 0,
     returned: 0
@@ -328,14 +331,14 @@ export async function getTaskDashboard(actor: { id: string; email: string; role:
     totals.returnedTotal += Number(t.returnedCount || 0);
     if (Number(t.returnedCount || 0) > 0) totals.returnedEver += 1;
 
+    if (t.status === "OPEN") totals.open += 1;
+    if (t.status === "IN_PROGRESS") totals.inProgress += 1;
     if (t.status === "FOR_APPROVAL") totals.forApproval += 1;
     if (t.status === "APPROVED") totals.approved += 1;
     if (t.status === "RETURNED") totals.returned += 1;
 
     if (t.approvedOnTime) totals.approvedOnTime += 1;
     if (t.approvedLate) totals.approvedLate += 1;
-
-    if (t.status !== "APPROVED" && t.status !== "RETURNED") totals.open += 1;
   }
 
   totals.returnRate = totals.totalTasks ? Math.round((totals.returnedEver / totals.totalTasks) * 1000) / 10 : 0;
@@ -387,8 +390,11 @@ export async function getTaskDashboard(actor: { id: string; email: string; role:
   const byEmployee = [...byEmployeeMap.values()].sort((a, b) => b.total - a.total);
 
   const chartStatus = [
+    { label: "Open", value: totals.open },
+    { label: "In progress", value: totals.inProgress },
+    { label: "For approval", value: totals.forApproval },
     { label: "Approved", value: totals.approved },
-    { label: "Open", value: totals.open }
+    { label: "Returned", value: totals.returned }
   ].filter((x) => x.value > 0);
 
   const chartApproved = [

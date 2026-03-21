@@ -268,22 +268,35 @@ export default async function PerformancePage({
   return (
     <main className="page">
       <div className="card stack">
-        <div className="header">
-          <div className="brand">
-            {branding.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
-            ) : null}
-            <div>
-              <h1 className="brand-title">{t.performance.title}</h1>
-              <p className="muted">{t.performance.subtitle}</p>
+        <div className="page-topbar">
+          <div className="page-topbar-main">
+            <div className="header">
+              <div className="brand">
+                {branding.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
+                ) : null}
+                <div>
+                  <h1 className="brand-title">{t.performance.title}</h1>
+                  <p className="muted">{t.performance.subtitle}</p>
+                </div>
+              </div>
+              <div className="inline">
+                <Link className="button button-secondary" href="/dashboard">
+                  <IconArrowLeft size={18} /> {t.common.backToDashboard}
+                </Link>
+              </div>
             </div>
           </div>
-          <div className="inline">
-            <Link className="button button-secondary" href="/dashboard">
-              <IconArrowLeft size={18} /> {t.common.backToDashboard}
-            </Link>
-          </div>
+
+          <UserMenu
+            name={user.name}
+            email={user.email}
+            role={user.role}
+            position={user.position}
+            team={user.team?.name ?? null}
+            lang={lang}
+          />
         </div>
 
         {message && messageType ? <div className={messageType === "success" ? "success" : "error"}>{message}</div> : null}
@@ -466,16 +479,48 @@ export default async function PerformancePage({
           <section className="panel stack">
             <h2 className="h2">{t.performance.createTitle}</h2>
             <div className="muted small">{t.performance.createHint}</div>
-            <form className="inline" action={createEvaluationAction}>
-              <select className="input" name="employeeId" required defaultValue={createOptions[0]?.id ?? ""}>
-                {createOptions
-                  .filter((e: any) => e.id !== user.id)
-                  .map((e: any) => (
-                    <option key={e.id} value={e.id}>
-                      {e.name} ({e.email}){e.team?.name ? ` — ${e.team.name}` : ""}
-                    </option>
-                  ))}
-              </select>
+            <form className="stack" action={createEvaluationAction}>
+              <label className="field">
+                <span className="label">{t.performance.employee}</span>
+                <select className="input" name="employeeId" required defaultValue={createOptions[0]?.id ?? ""}>
+                  {createOptions
+                    .filter((e: any) => e.id !== user.id)
+                    .map((e: any) => (
+                      <option key={e.id} value={e.id}>
+                        {e.name} ({e.email}){e.team?.name ? ` — ${e.team.name}` : ""}
+                      </option>
+                    ))}
+                </select>
+              </label>
+
+              <div className="divider">
+                <span>{lang === "sr" ? "Opcioni početni ciljevi" : "Optional starting goals"}</span>
+              </div>
+
+              <div className="list">
+                {Array.from({ length: 3 }).map((_, idx) => {
+                  const n = idx + 1;
+                  return (
+                    <div key={n} className="item stack">
+                      <div className="grid2">
+                        <label className="field">
+                          <span className="label">{t.performance.goalTitle}</span>
+                          <input className="input" name={`newGoalTitle${n}`} type="text" />
+                        </label>
+                        <label className="field">
+                          <span className="label">{t.performance.goalWeight}</span>
+                          <input className="input" name={`newGoalWeight${n}`} type="number" min={0} max={100} step={1} />
+                        </label>
+                      </div>
+                      <label className="field">
+                        <span className="label">{t.performance.goalDescription}</span>
+                        <textarea className="input" name={`newGoalDesc${n}`} rows={2} style={{ resize: "vertical" }} />
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
+
               <button className="button" type="submit" disabled={createOptions.length === 0}>
                 {t.performance.createBtn}
               </button>
@@ -594,14 +639,6 @@ export default async function PerformancePage({
           </section>
         ) : null}
 
-        <UserMenu
-          name={user.name}
-          email={user.email}
-          role={user.role}
-          position={user.position}
-          team={user.team?.name ?? null}
-          lang={lang}
-        />
       </div>
     </main>
   );

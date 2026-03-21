@@ -23,12 +23,14 @@ function describeArc(cx: number, cy: number, r: number, startAngle: number, endA
 
 function DonutChart({
   title,
+  subtitle,
   items,
   palette,
   emptyText,
   centerLabel
 }: {
   title: string;
+  subtitle?: string;
   items: Item[];
   palette: string[];
   emptyText: string;
@@ -80,6 +82,7 @@ function DonutChart({
   return (
     <div className="chart-card">
       <div className="chart-title">{title}</div>
+      {subtitle ? <div className="chart-subtitle">{subtitle}</div> : null}
       {!total ? (
         <div className="muted">{emptyText}</div>
       ) : (
@@ -157,6 +160,8 @@ function normalizeLabel(lang: Lang, label: string) {
   const map: Record<string, string> = {
     approved: t.tasks.chartLabels.approved,
     open: t.tasks.chartLabels.open,
+    "in progress": t.tasks.chartLabels.inProgress,
+    "for approval": t.tasks.chartLabels.forApproval,
     returned: t.tasks.chartLabels.returned,
     "approved on time": t.tasks.chartLabels.approvedOnTime,
     "approved after deadline": t.tasks.chartLabels.approvedAfterDeadline
@@ -164,15 +169,24 @@ function normalizeLabel(lang: Lang, label: string) {
   return map[key] || label;
 }
 
+function colorForLabel(label: string) {
+  const key = String(label || "").trim().toLowerCase();
+  if (key === "approved" || key === "approved on time") return "var(--color-ok)";
+  if (key === "returned") return "var(--color-danger)";
+  if (key === "for approval") return "var(--color-secondary)";
+  if (key === "in progress") return "var(--color-accent-amber)";
+  if (key === "approved after deadline") return "var(--color-accent-gold)";
+  if (key === "open") return "var(--color-light-2)";
+  return "var(--color-secondary)";
+}
+
 export default function TaskCharts({
   lang,
-  palette,
   status,
   approved,
   tri
 }: {
   lang: Lang;
-  palette: string[];
   status: Item[];
   approved: Item[];
   tri: Item[];
@@ -182,22 +196,25 @@ export default function TaskCharts({
     <section className="charts">
       <DonutChart
         title={t.tasks.charts.status}
+        subtitle={t.tasks.charts.statusHint}
         items={status.map((x) => ({ ...x, label: normalizeLabel(lang, x.label) }))}
-        palette={palette}
+        palette={status.map((x) => colorForLabel(x.label))}
         emptyText={t.tasks.charts.empty}
         centerLabel={t.tasks.charts.totalTasks}
       />
       <DonutChart
         title={t.tasks.charts.approval}
+        subtitle={t.tasks.charts.approvalHint}
         items={approved.map((x) => ({ ...x, label: normalizeLabel(lang, x.label) }))}
-        palette={palette}
+        palette={approved.map((x) => colorForLabel(x.label))}
         emptyText={t.tasks.charts.empty}
         centerLabel={t.tasks.charts.totalTasks}
       />
       <DonutChart
         title={t.tasks.charts.onTime}
+        subtitle={t.tasks.charts.onTimeHint}
         items={tri.map((x) => ({ ...x, label: normalizeLabel(lang, x.label) }))}
-        palette={palette}
+        palette={tri.map((x) => colorForLabel(x.label))}
         emptyText={t.tasks.charts.empty}
         centerLabel={t.tasks.charts.totalApprovals}
       />

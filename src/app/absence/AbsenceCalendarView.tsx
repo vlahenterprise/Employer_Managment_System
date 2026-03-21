@@ -104,6 +104,10 @@ function typeLabel(t: ReturnType<typeof getI18n>, type: AbsenceType) {
   return t.absence.typeOther;
 }
 
+function statusLabel(t: ReturnType<typeof getI18n>, status: AbsenceStatus) {
+  return status === "APPROVED" ? t.absence.statusApproved : t.absence.statusPending;
+}
+
 function shortName(full: string) {
   const s = String(full || "").trim();
   if (!s) return "—";
@@ -197,14 +201,24 @@ export default function AbsenceCalendarView(props: {
         </div>
       </div>
 
-      <div className="inline cal-legend">
-        <span className="pill pill-blue">{t.absence.statusApproved}</span>
-        <span className="pill pill-gray">{t.absence.statusPending}</span>
-        <span className="pill absence-legend annual">{t.absence.typeAnnual}</span>
-        <span className="pill absence-legend home">{t.absence.typeHome}</span>
-        <span className="pill absence-legend slava">{t.absence.typeSlava}</span>
-        <span className="pill absence-legend sick">{t.absence.typeSick}</span>
-        <span className="pill absence-legend other">{t.absence.typeOther}</span>
+      <div className="cal-legend-grid">
+        <div className="legend-group">
+          <div className="legend-group-title">{t.absence.legendStatusTitle}</div>
+          <div className="inline cal-legend">
+            <span className="pill pill-status pill-status-approved">{t.absence.legendApprovedStyle}</span>
+            <span className="pill pill-status pill-status-pending">{t.absence.legendPendingStyle}</span>
+          </div>
+        </div>
+        <div className="legend-group">
+          <div className="legend-group-title">{t.absence.legendTypeTitle}</div>
+          <div className="inline cal-legend">
+            <span className="pill absence-legend annual">{t.absence.typeAnnual}</span>
+            <span className="pill absence-legend home">{t.absence.typeHome}</span>
+            <span className="pill absence-legend slava">{t.absence.typeSlava}</span>
+            <span className="pill absence-legend sick">{t.absence.typeSick}</span>
+            <span className="pill absence-legend other">{t.absence.typeOther}</span>
+          </div>
+        </div>
       </div>
 
       <div className="cal-grid">
@@ -237,8 +251,9 @@ export default function AbsenceCalendarView(props: {
                   <div
                     key={`${c.iso}:${x.absenceId}`}
                     className={`absence-chip ${typeClass(x.type)} ${x.status === "PENDING" ? "pending" : "approved"}`}
-                    title={`${x.employee.name} (${x.employee.email})\n${typeLabel(t, x.type)} · ${x.fromIso} → ${x.toIso}\n${x.status}`}
+                    title={`${x.employee.name} (${x.employee.email})\n${typeLabel(t, x.type)} · ${x.fromIso} → ${x.toIso}\n${statusLabel(t, x.status)}`}
                   >
+                    <span className={`absence-chip-dot ${x.status === "PENDING" ? "pending" : "approved"}`} />
                     <span className="absence-chip-name">{shortName(x.employee.name)}</span>
                     <span className="absence-chip-tag">{typeAbbr(props.lang, x.type)}</span>
                   </div>
@@ -274,7 +289,9 @@ export default function AbsenceCalendarView(props: {
                   </div>
                 </div>
                 <div className="pills">
-                  <span className={`pill ${x.status === "APPROVED" ? "pill-blue" : "pill-gray"}`}>{x.status}</span>
+                  <span className={`pill pill-status ${x.status === "APPROVED" ? "pill-status-approved" : "pill-status-pending"}`}>
+                    {statusLabel(t, x.status)}
+                  </span>
                   <span className={`pill absence-legend ${typeClass(x.type)}`}>{typeAbbr(props.lang, x.type)}</span>
                 </div>
               </div>
@@ -285,4 +302,3 @@ export default function AbsenceCalendarView(props: {
     </div>
   );
 }
-

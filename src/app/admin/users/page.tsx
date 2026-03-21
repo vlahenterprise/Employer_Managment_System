@@ -26,6 +26,7 @@ export default async function AdminUsersPage({
         position: true,
         role: true,
         status: true,
+        hrAddon: true,
         carryOverAnnualLeave: true,
         teamId: true,
         managerId: true,
@@ -130,6 +131,14 @@ export default async function AdminUsersPage({
               </label>
 
               <label className="field">
+                <span className="label">HR add-on</span>
+                <label className="inline" style={{ alignItems: "center" }}>
+                  <input name="hrAddon" type="checkbox" value="1" />
+                  <span className="muted small">Dodatni pristup za HR System</span>
+                </label>
+              </label>
+
+              <label className="field">
                 <span className="label">{t.admin.users.status}</span>
                 <select className="input" name="status" defaultValue="ACTIVE">
                   <option value="ACTIVE">ACTIVE</option>
@@ -195,10 +204,13 @@ export default async function AdminUsersPage({
                       <span className={`pill ${user.status === "ACTIVE" ? "pill-green" : "pill-gray"}`}>
                         {user.status}
                       </span>
-                    <span className={`pill ${user.hasPassword ? "pill-blue" : "pill-gray"}`}>
-                      {user.hasPassword ? t.admin.users.passwordSet : t.admin.users.passwordMissing}
-                    </span>
-                  </div>
+                      <span className={`pill ${user.hrAddon ? "pill-blue" : "pill-gray"}`}>
+                        {user.hrAddon ? "HR add-on" : "No HR add-on"}
+                      </span>
+                      <span className={`pill ${user.hasPassword ? "pill-blue" : "pill-gray"}`}>
+                        {user.hasPassword ? t.admin.users.passwordSet : t.admin.users.passwordMissing}
+                      </span>
+                    </div>
                     <form action={deleteUserAction}>
                       <input type="hidden" name="userId" value={user.id} />
                       <button className="button button-danger" type="submit">
@@ -235,6 +247,14 @@ export default async function AdminUsersPage({
                       <option value="MANAGER">MANAGER</option>
                       <option value="USER">USER</option>
                     </select>
+                  </label>
+
+                  <label className="field">
+                    <span className="label">HR add-on</span>
+                    <label className="inline" style={{ alignItems: "center" }}>
+                      <input name="hrAddon" type="checkbox" value="1" defaultChecked={user.hrAddon} />
+                      <span className="muted small">Pristup HR System modulu bez promene osnovne role</span>
+                    </label>
                   </label>
 
                   <label className="field">

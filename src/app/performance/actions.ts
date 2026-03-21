@@ -30,9 +30,20 @@ export async function createEvaluationAction(formData: FormData) {
   const employeeId = String(formData.get("employeeId") ?? "").trim();
   if (!employeeId) redirectError("/performance", "MISSING_EMPLOYEE");
 
+  const goals = [];
+  for (let i = 1; i <= 5; i += 1) {
+    const title = String(formData.get(`newGoalTitle${i}`) ?? "").trim();
+    const description = String(formData.get(`newGoalDesc${i}`) ?? "").trim();
+    const weightRaw = String(formData.get(`newGoalWeight${i}`) ?? "").trim();
+    if (!title) continue;
+    const weight = Number(weightRaw || 0);
+    goals.push({ title, description, weight });
+  }
+
   const res = await createPerformanceEvaluation({
     actor: { id: user.id, email: user.email, name: user.name, role: user.role },
-    employeeId
+    employeeId,
+    goals
   });
   if (!res.ok) redirectError("/performance", res.error);
 
@@ -47,12 +58,13 @@ export async function saveGoalsAction(formData: FormData) {
 
   const goals = [];
   for (let i = 1; i <= 5; i += 1) {
+    const goalId = String(formData.get(`goalId${i}`) ?? "").trim();
     const title = String(formData.get(`goalTitle${i}`) ?? "").trim();
     const description = String(formData.get(`goalDesc${i}`) ?? "").trim();
     const weightRaw = String(formData.get(`goalWeight${i}`) ?? "").trim();
-    if (!title) continue;
+    if (!title && !goalId) continue;
     const weight = Number(weightRaw || 0);
-    goals.push({ title, description, weight });
+    goals.push({ goalId, title, description, weight });
   }
 
   const res = await savePerformanceGoals({

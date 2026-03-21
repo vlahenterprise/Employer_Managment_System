@@ -219,28 +219,41 @@ export default async function PerformanceEvalPage({
   return (
     <main className="page">
       <div className="card stack">
-        <div className="header">
-          <div className="brand">
-            {branding.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
-            ) : null}
-            <div>
-              <h1 className="brand-title">{t.performance.detailTitle}</h1>
-              <p className="muted">
-                {e.employee.name} · {e.periodLabel} · {t.performance.status}: {e.status} ·{" "}
-                {e.locked ? t.performance.locked : t.performance.unlocked}
-              </p>
+        <div className="page-topbar">
+          <div className="page-topbar-main">
+            <div className="header">
+              <div className="brand">
+                {branding.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
+                ) : null}
+                <div>
+                  <h1 className="brand-title">{t.performance.detailTitle}</h1>
+                  <p className="muted">
+                    {e.employee.name} · {e.periodLabel} · {t.performance.status}: {e.status} ·{" "}
+                    {e.locked ? t.performance.locked : t.performance.unlocked}
+                  </p>
+                </div>
+              </div>
+              <div className="inline">
+                <Link className="button button-secondary" href="/performance">
+                  <IconArrowLeft size={18} /> {t.performance.backToList}
+                </Link>
+                <a className="button button-secondary" href={exportHref} target="_blank" rel="noreferrer">
+                  <IconPdf size={18} /> {t.performance.exportPdf}
+                </a>
+              </div>
             </div>
           </div>
-          <div className="inline">
-            <Link className="button button-secondary" href="/performance">
-              <IconArrowLeft size={18} /> {t.performance.backToList}
-            </Link>
-            <a className="button button-secondary" href={exportHref} target="_blank" rel="noreferrer">
-              <IconPdf size={18} /> {t.performance.exportPdf}
-            </a>
-          </div>
+
+          <UserMenu
+            name={user.name}
+            email={user.email}
+            role={user.role}
+            position={user.position}
+            team={user.team?.name ?? null}
+            lang={lang}
+          />
         </div>
 
         {message && messageType ? <div className={messageType === "success" ? "success" : "error"}>{message}</div> : null}
@@ -387,6 +400,7 @@ export default async function PerformanceEvalPage({
                   const n = idx + 1;
                   return (
                     <div key={n} className="item stack">
+                      <input type="hidden" name={`goalId${n}`} value={goal?.id || ""} />
                       <div className="grid2">
                         <label className="field">
                           <span className="label">{t.performance.goalTitle}</span>
@@ -671,14 +685,6 @@ export default async function PerformanceEvalPage({
           </section>
         ) : null}
 
-        <UserMenu
-          name={user.name}
-          email={user.email}
-          role={user.role}
-          position={user.position}
-          team={user.team?.name ?? null}
-          lang={lang}
-        />
       </div>
     </main>
   );

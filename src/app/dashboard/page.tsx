@@ -11,23 +11,40 @@ export default async function DashboardPage() {
   const branding = await getBrandingSettings();
   const lang = getRequestLang();
   const t = getI18n(lang);
+  const hasHrAccess = user.role === "ADMIN" || user.role === "HR" || user.hrAddon;
+  const hasManagementPanel = user.role === "ADMIN" || user.role === "MANAGER";
 
   return (
     <main className="page">
       <div className="card stack">
-        <div className="brand">
-          {branding.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
-          ) : null}
-          <div>
-            <h1 className="brand-title">{branding.title}</h1>
-            <p className="muted">{branding.subtitle}</p>
-          </div>
-        </div>
+        <div className="page-topbar">
+          <div className="page-topbar-main stack">
+            <div className="brand">
+              {branding.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
+              ) : null}
+              <div>
+                <h1 className="brand-title">{branding.title}</h1>
+                <p className="muted">{branding.subtitle}</p>
+              </div>
+            </div>
 
-        <h2 className="h2">{t.dashboard.title}</h2>
-        <p className="muted">{t.dashboard.chooseModule}</p>
+            <div>
+              <h2 className="h2">{t.dashboard.title}</h2>
+              <p className="muted">{t.dashboard.chooseModule}</p>
+            </div>
+          </div>
+
+          <UserMenu
+            name={user.name}
+            email={user.email}
+            role={user.role}
+            position={user.position}
+            team={user.team?.name ?? null}
+            lang={lang}
+          />
+        </div>
 
         <div className="module-grid" role="list">
           <Link className="module-tile module-primary" href="/reports" role="listitem">
@@ -95,6 +112,44 @@ export default async function DashboardPage() {
             </span>
           </Link>
 
+          {hasHrAccess ? (
+            <Link className="module-tile module-admin" href="/hr" role="listitem">
+              <span className="module-icon" aria-hidden="true">
+                <IconUsers size={24} />
+              </span>
+              <span className="module-body">
+                <span className="module-title">HR System</span>
+                <span className="module-subtitle">
+                  {lang === "sr"
+                    ? "Otvorene pozicije, kandidati, CV baza i HR tok."
+                    : "Open positions, candidates, CV base and HR workflow."}
+                </span>
+              </span>
+              <span className="module-cta" aria-hidden="true">
+                <IconArrowRight size={18} />
+              </span>
+            </Link>
+          ) : null}
+
+          {hasManagementPanel ? (
+            <Link className="module-tile module-admin" href="/management" role="listitem">
+              <span className="module-icon" aria-hidden="true">
+                <IconTasks size={24} />
+              </span>
+              <span className="module-body">
+                <span className="module-title">Management Panel</span>
+                <span className="module-subtitle">
+                  {lang === "sr"
+                    ? "Metrike tima, odobrenja i pregled aktivnih procesa."
+                    : "Team metrics, approvals and active workflow overview."}
+                </span>
+              </span>
+              <span className="module-cta" aria-hidden="true">
+                <IconArrowRight size={18} />
+              </span>
+            </Link>
+          ) : null}
+
           {user.role === "ADMIN" || user.role === "HR" ? (
             <Link className="module-tile module-admin" href="/reports/manager" role="listitem">
               <span className="module-icon" aria-hidden="true">
@@ -125,14 +180,6 @@ export default async function DashboardPage() {
             </Link>
           ) : null}
         </div>
-        <UserMenu
-          name={user.name}
-          email={user.email}
-          role={user.role}
-          position={user.position}
-          team={user.team?.name ?? null}
-          lang={lang}
-        />
       </div>
     </main>
   );

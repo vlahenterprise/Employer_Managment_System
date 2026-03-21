@@ -13,6 +13,7 @@ const getUserById = cache((userId: string) =>
       name: true,
       position: true,
       role: true,
+      hrAddon: true,
       status: true,
       carryOverAnnualLeave: true,
       teamId: true,

@@ -6,6 +6,7 @@ declare module "next-auth" {
     user: {
       id: string;
       role: UserRole;
+      hrAddon: boolean;
       status: UserStatus;
       teamId: string | null;
     } & DefaultSession["user"];
@@ -13,6 +14,7 @@ declare module "next-auth" {
 
   interface User {
     role: UserRole;
+    hrAddon: boolean;
     status: UserStatus;
     teamId: string | null;
   }
@@ -21,8 +23,8 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     role?: UserRole;
+    hrAddon?: boolean;
     status?: UserStatus;
     teamId?: string | null;
   }
 }
-
