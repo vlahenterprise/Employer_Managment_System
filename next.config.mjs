@@ -1,11 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  experimental: {
-    outputFileTracingIncludes: {
-      "/*": ["./node_modules/@sparticuz/chromium/**/*"]
-    }
-  }
+  reactStrictMode: true
 };
 
 export default nextConfig;

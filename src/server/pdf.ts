@@ -8,15 +8,24 @@ type PdfRenderOptions = {
   viewport?: { width: number; height: number; deviceScaleFactor?: number };
 };
 
+const chromiumPackageVersion = "138.0.2";
+const chromiumArch = process.arch === "arm64" ? "arm64" : "x64";
+const chromiumPackUrl = `https://github.com/Sparticuz/chromium/releases/download/v${chromiumPackageVersion}/chromium-v${chromiumPackageVersion}-pack.${chromiumArch}.tar`;
+
 async function launchBrowser(viewport: Required<NonNullable<PdfRenderOptions["viewport"]>>) {
   if (process.env.VERCEL || process.env.NODE_ENV === "production") {
     const chromium = (await import("@sparticuz/chromium")).default;
     const puppeteerCore = (await import("puppeteer-core")).default;
 
+    logInfo("pdf.render.chromium_pack", {
+      source: chromiumPackUrl,
+      arch: chromiumArch
+    });
+
     return puppeteerCore.launch({
       args: [...chromium.args, "--hide-scrollbars", "--font-render-hinting=none"],
       defaultViewport: viewport,
-      executablePath: await chromium.executablePath(),
+      executablePath: await chromium.executablePath(chromiumPackUrl),
       headless: true
     });
   }
