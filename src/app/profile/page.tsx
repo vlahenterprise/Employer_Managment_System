@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LabelWithTooltip } from "@/components/Tooltip";
 import { requireActiveUser } from "@/server/current-user";
 import { getBrandingSettings } from "@/server/settings";
 import { getEmployeeProfile } from "@/server/profile";
@@ -142,7 +143,16 @@ export default async function ProfilePage({
 
         <div className="grid2 profile-grid">
           <section className="panel stack">
-            <h2 className="h2">{c.basic}</h2>
+            <h2 className="h2">
+              <LabelWithTooltip
+                label={c.basic}
+                tooltip={
+                  lang === "sr"
+                    ? "Osnovne informacije o zaposlenom, timu, ulozi i reporting liniji."
+                    : "Core employee information, including team, position, and reporting line."
+                }
+              />
+            </h2>
             <div className="detail-list">
               <div><strong>{c.team}:</strong> {target.team?.name || c.noValue}</div>
               <div><strong>{c.position}:</strong> {target.position || c.noValue}</div>
@@ -154,7 +164,16 @@ export default async function ProfilePage({
           </section>
 
           <section className="panel stack">
-            <h2 className="h2">{c.access}</h2>
+            <h2 className="h2">
+              <LabelWithTooltip
+                label={c.access}
+                tooltip={
+                  lang === "sr"
+                    ? "Prikazuje baznu rolu i dodatne pristupe koje korisnik ima u sistemu."
+                    : "Shows the base role and any additional access layers assigned to this user."
+                }
+              />
+            </h2>
             <div className="pills">
               {profile.access.map((entry) => (
                 <span key={entry} className="pill pill-status pill-status-review">{entry}</span>
@@ -184,7 +203,16 @@ export default async function ProfilePage({
 
         <div className="grid3 profile-summary-grid">
           <section className="panel stack">
-            <h2 className="h2">{c.operational}</h2>
+            <h2 className="h2">
+              <LabelWithTooltip
+                label={c.operational}
+                tooltip={
+                  lang === "sr"
+                    ? "Sažetak dnevnog rada: poslednji report, aktivno odsustvo i trenutni performance ciklus."
+                    : "A compact operational summary: latest report, active absence, and the current performance cycle."
+                }
+              />
+            </h2>
             <div className="detail-list">
               <div><strong>{c.latestReport}:</strong> {summary.latestReport ? `${summary.latestReport.dateIso} · ${summary.latestReport.totalMinutes} min` : c.noValue}</div>
               <div><strong>{c.activeAbsence}:</strong> {summary.activeAbsence ? `${summary.activeAbsence.type} · ${formatDate(summary.activeAbsence.dateTo, locale)}` : c.noValue}</div>
@@ -193,7 +221,16 @@ export default async function ProfilePage({
           </section>
 
           <section className="panel stack">
-            <h2 className="h2">{c.onboarding}</h2>
+            <h2 className="h2">
+              <LabelWithTooltip
+                label={c.onboarding}
+                tooltip={
+                  lang === "sr"
+                    ? "Aktivni onboarding pokazuje status, HR vlasnika i direktan link ka checklisti."
+                    : "Active onboarding shows the current status, HR owner, and a direct link to the checklist."
+                }
+              />
+            </h2>
             {summary.activeOnboarding ? (
               <div className="detail-list">
                 <div><strong>{c.activeOnboarding}:</strong> {summary.activeOnboarding.status}</div>
@@ -208,7 +245,16 @@ export default async function ProfilePage({
           </section>
 
           <section className="panel stack">
-            <h2 className="h2">{c.links}</h2>
+            <h2 className="h2">
+              <LabelWithTooltip
+                label={c.links}
+                tooltip={
+                  lang === "sr"
+                    ? "Važni Drive linkovi za posao i radne instrukcije. Dokumenti ostaju na Drive-u, a profil čuva samo reference."
+                    : "Important Drive links for the role and instructions. Documents stay in Drive while the profile stores only the references."
+                }
+              />
+            </h2>
             <div className="list">
               {target.jobDescriptionUrl ? (
                 <a className="button button-secondary" href={target.jobDescriptionUrl} target="_blank" rel="noreferrer">

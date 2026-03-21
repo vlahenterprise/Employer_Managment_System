@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LabelWithTooltip } from "@/components/Tooltip";
 import { getRequestLang } from "@/i18n/server";
 import { requireActiveUser } from "@/server/current-user";
 import { getBrandingSettings } from "@/server/settings";
@@ -33,6 +34,10 @@ function copy(lang: "sr" | "en") {
       reviewQueue: "Kandidati za pregled",
       finalQueue: "Zahtevi za finalno odobrenje",
       activeProcesses: "Aktivni procesi",
+      startHiring: "Ovde počinje zapošljavanje",
+      startHiringText: "Menadžer otvara zahtev, nadređeni daje jedno odobrenje, a HR preuzima proces tek nakon toga.",
+      requestFormTitle: "Korak 1 — Novi hiring request",
+      requestFormText: "Unesi samo osnovne poslovne podatke. Kandidati i screening se vode kasnije, kada HR preuzme odobren zahtev.",
       noData: "Nema podataka za prikaz.",
       openDetail: "Otvori detalj",
       markRead: "Označi kao pročitano",
@@ -55,6 +60,10 @@ function copy(lang: "sr" | "en") {
     reviewQueue: "Candidates for review",
     finalQueue: "Final approval requests",
     activeProcesses: "Active processes",
+    startHiring: "This is where hiring starts",
+    startHiringText: "The manager opens the request, the superior gives one approval, and HR enters only after that approval is done.",
+    requestFormTitle: "Step 1 — New hiring request",
+    requestFormText: "Enter only the core business request. Candidates and screening are handled later, once HR takes over the approved request.",
     noData: "No data to show.",
     openDetail: "Open detail",
     markRead: "Mark as read",
@@ -175,10 +184,35 @@ export default async function ManagementPage() {
 
         <div className="grid2 hr-main-grid">
           <section className="panel stack">
-            <h2 className="h2">New hiring request</h2>
+            <div className="section-copy">
+              <h2 className="h2">
+                <LabelWithTooltip
+                  label={c.requestFormTitle}
+                  tooltip={
+                    lang === "sr"
+                      ? "Ovaj ekran pokreće samo zahtev za otvaranje pozicije. Ne unosiš kandidate ovde — to počinje kada superior odobri zahtev i HR preuzme proces."
+                      : "This screen starts only the hiring request. You do not enter candidates here — that begins after the superior approves the request and HR takes over."
+                  }
+                />
+              </h2>
+              <p className="muted small">{c.requestFormText}</p>
+            </div>
+            <div className="notice notice-info">
+              <div className="notice-icon"><IconClock size={18} /></div>
+              <div className="muted small">{c.startHiringText}</div>
+            </div>
             <form className="grid2" action={createHrProcessAction}>
               <label className="field">
-                <span className="label">Team</span>
+                <span className="label">
+                  <LabelWithTooltip
+                    label="Team"
+                    tooltip={
+                      lang === "sr"
+                        ? "Izaberi tim za koji se otvara pozicija. Ovo određuje ko će videti proces i ko je odgovoran u daljim koracima."
+                        : "Choose the team the position belongs to. This drives ownership and who sees the process later on."
+                    }
+                  />
+                </span>
                 <select className="input" name="teamId" defaultValue={user.teamId ?? panel.teams[0]?.id ?? ""}>
                   {panel.teams.map((team) => (
                     <option key={team.id} value={team.id}>
@@ -188,15 +222,42 @@ export default async function ManagementPage() {
                 </select>
               </label>
               <label className="field">
-                <span className="label">Position</span>
+                <span className="label">
+                  <LabelWithTooltip
+                    label="Position"
+                    tooltip={
+                      lang === "sr"
+                        ? "Naziv pozicije treba da bude jasan i isti kao interni naziv koji ćete koristiti kasnije u onboardingu i profilu zaposlenog."
+                        : "Use a clear position title that matches the internal name you want to keep later in onboarding and employee profiles."
+                    }
+                  />
+                </span>
                 <input className="input" name="positionTitle" type="text" required />
               </label>
               <label className="field">
-                <span className="label">Replacement / new position</span>
+                <span className="label">
+                  <LabelWithTooltip
+                    label="Replacement / new position"
+                    tooltip={
+                      lang === "sr"
+                        ? "Upiši da li je u pitanju zamena ili nova pozicija, da bi superior i HR odmah razumeli kontekst zahteva."
+                        : "State whether this is a replacement or a new position so the superior and HR immediately understand the context."
+                    }
+                  />
+                </span>
                 <input className="input" name="requestType" type="text" placeholder="Replacement / New position" />
               </label>
               <label className="field">
-                <span className="label">Priority</span>
+                <span className="label">
+                  <LabelWithTooltip
+                    label="Priority"
+                    tooltip={
+                      lang === "sr"
+                        ? "Prioritet služi za redosled obrade. Nemoj ga koristiti za opis hitnosti ako razlog već to objašnjava."
+                        : "Priority helps people sort the request queue. Use it for urgency, not as a replacement for the business reason."
+                    }
+                  />
+                </span>
                 <select className="input" name="priority" defaultValue="MED">
                   <option value="LOW">LOW</option>
                   <option value="MED">MED</option>
@@ -205,19 +266,55 @@ export default async function ManagementPage() {
                 </select>
               </label>
               <label className="field">
-                <span className="label">Desired start date</span>
+                <span className="label">
+                  <LabelWithTooltip
+                    label="Desired start date"
+                    tooltip={
+                      lang === "sr"
+                        ? "Ovo je ciljani datum početka rada, ne datum objave oglasa."
+                        : "This is the target employee start date, not the ad publishing date."
+                    }
+                  />
+                </span>
                 <input className="input" name="desiredStartDate" type="date" />
               </label>
               <label className="field">
-                <span className="label">Headcount</span>
+                <span className="label">
+                  <LabelWithTooltip
+                    label="Headcount"
+                    tooltip={
+                      lang === "sr"
+                        ? "Broj izvršilaca koje treba otvoriti kroz isti zahtev."
+                        : "How many hires you want to request under this single opening."
+                    }
+                  />
+                </span>
                 <input className="input" name="requestedHeadcount" type="number" min={1} max={20} defaultValue={1} />
               </label>
               <label className="field">
-                <span className="label">Reason</span>
+                <span className="label">
+                  <LabelWithTooltip
+                    label="Reason"
+                    tooltip={
+                      lang === "sr"
+                        ? "U nekoliko rečenica objasni poslovni razlog: rast, zamena, opterećenje tima, novi projekat ili sličan razlog."
+                        : "Explain the business need in a few clear sentences: growth, replacement, workload, a new project, or a similar reason."
+                    }
+                  />
+                </span>
                 <input className="input" name="reason" type="text" required />
               </label>
               <label className="field">
-                <span className="label">Manager comment</span>
+                <span className="label">
+                  <LabelWithTooltip
+                    label="Manager comment"
+                    tooltip={
+                      lang === "sr"
+                        ? "Dodatni kontekst za HR ili superiora: bitni rokovi, očekivanja ili detalji koje treba znati pre odobrenja."
+                        : "Optional extra context for HR or the superior: timelines, expectations, or anything that matters before approval."
+                    }
+                  />
+                </span>
                 <input className="input" name="note" type="text" />
               </label>
               <div className="field field-actions">

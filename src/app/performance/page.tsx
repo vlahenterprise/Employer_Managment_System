@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LabelWithTooltip } from "@/components/Tooltip";
 import { requireActiveUser } from "@/server/current-user";
 import { buildChartPalette, getBrandingSettings, getThemeCssVars } from "@/server/settings";
 import UserMenu from "../dashboard/UserMenu";
@@ -305,7 +306,16 @@ export default async function PerformancePage({
         {message && messageType ? <div className={messageType === "success" ? "success" : "error"}>{message}</div> : null}
 
         <section className="panel stack">
-          <h2 className="h2">{t.performance.kpiTitle}</h2>
+          <h2 className="h2">
+            <LabelWithTooltip
+              label={t.performance.kpiTitle}
+              tooltip={
+                lang === "sr"
+                  ? "Pregled tekućeg performance ciklusa: koliko evaluacija je otvoreno, zatvoreno i gde još postoji akcija."
+                  : "A snapshot of the current performance cycle: how many evaluations are open, closed, and still need action."
+              }
+            />
+          </h2>
           <div className="grid3">
             <div className="item item-compact kpi-card">
               <div className="kpi-icon">
@@ -383,7 +393,16 @@ export default async function PerformancePage({
           <section className="panel stack">
             <div className="section-head">
               <div>
-                <h2 className="h2">{t.performance.analyticsTitle}</h2>
+                <h2 className="h2">
+                  <LabelWithTooltip
+                    label={t.performance.analyticsTitle}
+                    tooltip={
+                      lang === "sr"
+                        ? "Timski pregled bez promene scoring logike: ko čeka self-assessment, ko čeka manager review i kakvi su završni rezultati."
+                        : "A team view without changing the scoring model: who is waiting on self-assessment, who is waiting on manager review, and how final results look."
+                    }
+                  />
+                </h2>
                 <div className="muted small">{t.performance.analyticsHint}</div>
               </div>
             </div>
@@ -480,7 +499,16 @@ export default async function PerformancePage({
 
         {canCreate ? (
           <section className="panel stack">
-            <h2 className="h2">{t.performance.createTitle}</h2>
+            <h2 className="h2">
+              <LabelWithTooltip
+                label={t.performance.createTitle}
+                tooltip={
+                  lang === "sr"
+                    ? "Ovde menadžer otvara novu kvartalnu evaluaciju i po želji odmah dodaje početne ciljeve."
+                    : "Managers open a new quarterly evaluation here and can optionally add the starting goals immediately."
+                }
+              />
+            </h2>
             <div className="muted small">{t.performance.createHint}</div>
             <form className="stack" action={createEvaluationAction}>
               <label className="field">
@@ -533,7 +561,16 @@ export default async function PerformancePage({
         ) : null}
 
         <section className="panel stack">
-          <h2 className="h2">{t.performance.myTitle}</h2>
+          <h2 className="h2">
+            <LabelWithTooltip
+              label={t.performance.myTitle}
+              tooltip={
+                lang === "sr"
+                  ? "Tvoj pregled ciljeva, self-assessment-a i finalnog rezultata kada ciklus bude zatvoren."
+                  : "Your view of goals, self-assessment, and the final result once the cycle is closed."
+              }
+            />
+          </h2>
           <div className="muted small">{t.performance.myHint}</div>
           <div className="list">
             {my.items.map((e) => {
@@ -569,7 +606,16 @@ export default async function PerformancePage({
 
         {canViewTeam ? (
           <section className="panel stack">
-            <h2 className="h2">{t.performance.teamTitle}</h2>
+            <h2 className="h2">
+              <LabelWithTooltip
+                label={t.performance.teamTitle}
+                tooltip={
+                  lang === "sr"
+                    ? "Pregled direktnih podređenih i stanja njihovih kvartalnih evaluacija."
+                    : "A view of direct reports and the status of their quarterly evaluations."
+                }
+              />
+            </h2>
             <div className="muted small">{t.performance.teamHint}</div>
             <div className="inline">
               <Link className={teamFilter === "ALL" ? "button" : "button button-secondary"} href="/performance?teamFilter=ALL">

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LabelWithTooltip } from "@/components/Tooltip";
 import { prisma } from "@/server/db";
 import { requireAdminUser } from "@/server/current-user";
 import { createUserAction, deleteUserAction, setUserPasswordAction, updateUserAction } from "../actions";
@@ -134,7 +135,16 @@ export default async function AdminUsersPage({
               </label>
 
               <label className="field">
-                <span className="label">HR add-on</span>
+                <span className="label">
+                  <LabelWithTooltip
+                    label="HR add-on"
+                    tooltip={
+                      lang === "sr"
+                        ? "Dodatni pristup za Hiring, Candidates, Talent Pool i Onboarding. Nije osnovna rola, već dopunski pristup."
+                        : "Extra access for Hiring, Candidates, Talent Pool, and Onboarding. It is not a base role; it is an extra access layer."
+                    }
+                  />
+                </span>
                 <label className="inline" style={{ alignItems: "center" }}>
                   <input name="hrAddon" type="checkbox" value="1" />
                   <span className="muted small">Dodatni pristup za HR System</span>
@@ -142,7 +152,16 @@ export default async function AdminUsersPage({
               </label>
 
               <label className="field">
-                <span className="label">Admin add-on</span>
+                <span className="label">
+                  <LabelWithTooltip
+                    label="Admin add-on"
+                    tooltip={
+                      lang === "sr"
+                        ? "Daje pristup Settings i Access sekcijama. Koristi se za konfiguraciju sistema, ne za dnevni HR rad."
+                        : "Grants access to Settings and Access sections. Use it for configuration, not for day-to-day HR operations."
+                    }
+                  />
+                </span>
                 <label className="inline" style={{ alignItems: "center" }}>
                   <input name="adminAddon" type="checkbox" value="1" />
                   <span className="muted small">Dodatni pristup za Settings i Access</span>
@@ -175,7 +194,16 @@ export default async function AdminUsersPage({
               </label>
 
               <label className="field">
-                <span className="label">{t.admin.users.manager}</span>
+                <span className="label">
+                  <LabelWithTooltip
+                    label={t.admin.users.manager}
+                    tooltip={
+                      lang === "sr"
+                        ? "Direktni nadređeni određuje approvals, performance tok i team visibility za ovog korisnika."
+                        : "The direct manager drives approvals, performance flow, and team visibility for this user."
+                    }
+                  />
+                </span>
                 <select className="input" name="managerId" defaultValue="">
                   <option value="">{t.admin.users.none}</option>
                   {usersForView.map((user) => (
@@ -187,17 +215,44 @@ export default async function AdminUsersPage({
               </label>
 
               <label className="field">
-                <span className="label">Employment date</span>
+                <span className="label">
+                  <LabelWithTooltip
+                    label="Employment date"
+                    tooltip={
+                      lang === "sr"
+                        ? "Koristi se za profil, onboarding pregled i druge zaposleničke sažetke."
+                        : "Used in the employee profile, onboarding visibility, and related employment summaries."
+                    }
+                  />
+                </span>
                 <input className="input" name="employmentDate" type="date" />
               </label>
 
               <label className="field">
-                <span className="label">Job description Drive URL</span>
+                <span className="label">
+                  <LabelWithTooltip
+                    label="Job description Drive URL"
+                    tooltip={
+                      lang === "sr"
+                        ? "Ovde ide Google Drive link ka opisu posla. Dokument ostaje na Drive-u, a u aplikaciji čuvamo samo URL."
+                        : "Use a Google Drive link to the job description. The document stays in Drive while the app stores only the URL."
+                    }
+                  />
+                </span>
                 <input className="input" name="jobDescriptionUrl" type="url" placeholder="https://drive.google.com/..." />
               </label>
 
               <label className="field">
-                <span className="label">Work instructions Drive URL</span>
+                <span className="label">
+                  <LabelWithTooltip
+                    label="Work instructions Drive URL"
+                    tooltip={
+                      lang === "sr"
+                        ? "Ovde dodaj Drive link ka radnim instrukcijama za ovu poziciju ili zaposlenog."
+                        : "Use this for the Google Drive link to work instructions for this position or employee."
+                    }
+                  />
+                </span>
                 <input className="input" name="workInstructionsUrl" type="url" placeholder="https://drive.google.com/..." />
               </label>
             </div>

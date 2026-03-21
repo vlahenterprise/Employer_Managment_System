@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LabelWithTooltip } from "@/components/Tooltip";
 import { prisma } from "@/server/db";
 import { requireActiveUser } from "@/server/current-user";
 import { getBrandingSettings } from "@/server/settings";
@@ -183,7 +184,16 @@ export default async function AbsencePage({
         {message && messageType ? <div className={messageType === "success" ? "success" : "error"}>{message}</div> : null}
 
         <section className="panel stack">
-          <h2 className="h2">{t.absence.remainingTitle}</h2>
+          <h2 className="h2">
+            <LabelWithTooltip
+              label={t.absence.remainingTitle}
+              tooltip={
+                lang === "sr"
+                  ? "Ovde vidiš trenutno stanje dostupnih dana po tipu odsustva, uključujući carry-over kada postoji."
+                  : "This shows the current remaining balance by absence type, including carry-over when available."
+              }
+            />
+          </h2>
           <div className="grid3">
             <div className="item item-compact">
               <div>
@@ -216,12 +226,30 @@ export default async function AbsencePage({
         </section>
 
         <section className="panel stack">
-          <h2 className="h2">{t.absence.newRequestTitle}</h2>
+          <h2 className="h2">
+            <LabelWithTooltip
+              label={t.absence.newRequestTitle}
+              tooltip={
+                lang === "sr"
+                  ? "Pošalji novi zahtev za odsustvo. Sistem će te upozoriti ako je neko iz tvog tima već odsutan u istom periodu."
+                  : "Submit a new absence request. The system will warn you if someone from your team is already absent in the same period."
+              }
+            />
+          </h2>
           <AbsenceRequestForm lang={lang} timeZone={APP_TIMEZONE} action={submitAbsenceAction} />
         </section>
 
         <section className="panel stack">
-          <h2 className="h2">{t.absence.myRequestsTitle}</h2>
+          <h2 className="h2">
+            <LabelWithTooltip
+              label={t.absence.myRequestsTitle}
+              tooltip={
+                lang === "sr"
+                  ? "Lista tvojih zahteva sa statusima, komentarima i upozorenjem ako postoji team overlap."
+                  : "Your request history with statuses, comments, and a warning when there is a team overlap."
+              }
+            />
+          </h2>
           <div className="list">
             {myReq.items.map((r) => (
               <details key={r.absenceId} className="item stack">

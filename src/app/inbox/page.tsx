@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LabelWithTooltip } from "@/components/Tooltip";
 import { requireActiveUser } from "@/server/current-user";
 import { getInboxData } from "@/server/inbox";
 import { getBrandingSettings } from "@/server/settings";
@@ -16,7 +17,10 @@ function copy(lang: "sr" | "en") {
       assigned: "Assigned To Me",
       updates: "Recent Updates",
       empty: "Trenutno nema stavki.",
-      open: "Otvori"
+      open: "Otvori",
+      needsActionHint: "Stavke koje traže tvoju odluku, odgovor ili sledeći korak.",
+      assignedHint: "Stavke koje su ti trenutno dodeljene za rad ili praćenje.",
+      updatesHint: "Nove informacije koje je dobro da vidiš, iako možda ne traže hitnu akciju."
     };
   }
 
@@ -28,7 +32,10 @@ function copy(lang: "sr" | "en") {
     assigned: "Assigned To Me",
     updates: "Recent Updates",
     empty: "Nothing to show right now.",
-    open: "Open"
+    open: "Open",
+    needsActionHint: "Items that need your decision, response, or next step.",
+    assignedHint: "Items currently assigned to you for follow-up or work.",
+    updatesHint: "Recent changes that are useful to see even when they do not need immediate action."
   };
 }
 
@@ -52,9 +59,9 @@ export default async function InboxPage() {
   });
 
   const sections = [
-    { title: c.needsAction, items: inbox.needsMyAction },
-    { title: c.assigned, items: inbox.assignedToMe },
-    { title: c.updates, items: inbox.recentUpdates }
+    { title: c.needsAction, hint: c.needsActionHint, items: inbox.needsMyAction },
+    { title: c.assigned, hint: c.assignedHint, items: inbox.assignedToMe },
+    { title: c.updates, hint: c.updatesHint, items: inbox.recentUpdates }
   ];
 
   return (
@@ -95,7 +102,9 @@ export default async function InboxPage() {
           {sections.map((section) => (
             <section key={section.title} className="panel stack">
               <div className="item-top">
-                <h2 className="h2">{section.title}</h2>
+                <h2 className="h2">
+                  <LabelWithTooltip label={section.title} tooltip={section.hint} />
+                </h2>
                 <span className="pill">{section.items.length}</span>
               </div>
               <div className="list">

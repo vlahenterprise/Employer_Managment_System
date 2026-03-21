@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { LabelWithTooltip } from "@/components/Tooltip";
 import { getRequestLang } from "@/i18n/server";
 import { getBrandingSettings } from "@/server/settings";
 import { requireActiveUser } from "@/server/current-user";
 import UserMenu from "../dashboard/UserMenu";
 import { getHrDashboard, hasHrSystemAccess } from "@/server/hr";
-import { createHrProcessAction, markHrNotificationReadAction } from "./actions";
+import { buildHrDashboardBuckets, getProcessWorkflowSummary, type HrNextActionKey, type HrStageKey, type HrWaitingOnKey } from "@/server/hr-presentation";
+import { markHrNotificationReadAction } from "./actions";
 import {
   IconArrowLeft,
   IconArrowRight,
@@ -12,7 +14,6 @@ import {
   IconCalendar,
   IconCheckCircle,
   IconClock,
-  IconPlus,
   IconReport,
   IconUsers
 } from "@/components/icons";
@@ -42,6 +43,37 @@ function copy(lang: "sr" | "en") {
       quarterMetrics: "Kvartalni pregled",
       avgTime: "Prosečno vreme zapošljavanja",
       fillRate: "Stopa uspešno popunjenih pozicija",
+      workflowTitle: "Kako izgleda tok zapošljavanja",
+      workflowSubtitle: "Proces ostaje isti, ali je sada prikazan jednostavnije: zahtev → odobrenje → HR obrada → intervjui → odluka → onboarding.",
+      stepOne: "1. Menadžer otvara zahtev",
+      stepOneText: "Novi zahtev za zapošljavanje otvara se iz Management Panel-a, ne iz HR ekrana.",
+      stepTwo: "2. Nadređeni odobrava",
+      stepTwoText: "Samo jedan nivo iznad menadžera potvrđuje ili odbija zahtev.",
+      stepThree: "3. HR počinje screening",
+      stepThreeText: "Tek kada je zahtev odobren, HR dodaje i obrađuje kandidate.",
+      stepFour: "4. Menadžer vodi sledeći krug",
+      stepFourText: "Menadžer pregleda odabrane kandidate i daje komentar za dalje.",
+      stepFive: "5. Finalna odluka i onboarding",
+      stepFiveText: "Posle finalnog odobrenja kandidat prelazi u onboarding tok.",
+      managerStartTitle: "Početak procesa je u Management Panel-u",
+      managerStartText: "Da bismo HR ekran držali čistim, novi hiring request se otvara tamo gde menadžer već prati tim i odobrenja.",
+      openManagement: "Otvori Management Panel",
+      actionQueuesTitle: "Šta trenutno čeka HR",
+      actionQueuesSubtitle: "Najbitnije radne kolone — bez suvišnih statusa i bez traženja po više ekrana.",
+      readyForHr: "Spremno za HR",
+      readyForHrText: "Odobreni zahtevi gde HR treba da započne rad i doda prve kandidate.",
+      screeningQueue: "HR screening",
+      screeningQueueText: "Kandidati koje HR treba da obradi ili dopuni prvim komentarima.",
+      managerQueue: "Čeka menadžera",
+      managerQueueText: "Kandidati koji su prosleđeni menadžeru za pregled ili nastavak kruga.",
+      finalQueue: "Finalna odluka",
+      finalQueueText: "Kandidati koji čekaju finalno odobrenje nadređenog.",
+      onboardingQueue: "Spremno za onboarding",
+      onboardingQueueText: "Kandidati koji su odobreni za zaposlenje i treba da pređu u onboarding.",
+      currentPhase: "Trenutna faza",
+      waitingOn: "Na potezu je",
+      nextAction: "Sledeći korak",
+      systemStatus: "Sistemski status",
       candidateBase: "Baza kandidata",
       candidateBaseHint: "Istorija prijava i ponovna upotreba postojećih kandidata.",
       notifications: "Notifikacije",
@@ -91,6 +123,37 @@ function copy(lang: "sr" | "en") {
     quarterMetrics: "Quarter snapshot",
     avgTime: "Average time to hire",
     fillRate: "Position fill rate",
+    workflowTitle: "How hiring works",
+    workflowSubtitle: "The logic stays the same, but the UI is now clearer: request → approval → HR screening → interviews → decision → onboarding.",
+    stepOne: "1. Manager opens request",
+    stepOneText: "A new hiring request starts in the Management Panel, not inside the HR workspace.",
+    stepTwo: "2. Superior approves",
+    stepTwoText: "Only one approval level above the requesting manager confirms or rejects the request.",
+    stepThree: "3. HR starts screening",
+    stepThreeText: "HR enters the process only after the request is approved.",
+    stepFour: "4. Manager drives the next round",
+    stepFourText: "The manager reviews shortlisted candidates and guides the next interview step.",
+    stepFive: "5. Final decision and onboarding",
+    stepFiveText: "After final approval, HR moves the candidate into onboarding.",
+    managerStartTitle: "The process starts in the Management Panel",
+    managerStartText: "To keep HR clean and practical, new hiring requests are opened where managers already handle team visibility and approvals.",
+    openManagement: "Open Management Panel",
+    actionQueuesTitle: "What is currently waiting for HR",
+    actionQueuesSubtitle: "The most important working columns — no extra status noise and no hunting across screens.",
+    readyForHr: "Ready for HR",
+    readyForHrText: "Approved requests where HR should start work and add the first candidates.",
+    screeningQueue: "HR screening",
+    screeningQueueText: "Candidates HR still needs to process or enrich with first-round notes.",
+    managerQueue: "Waiting for manager",
+    managerQueueText: "Candidates already sent forward and now waiting for manager review or next-step input.",
+    finalQueue: "Final decision",
+    finalQueueText: "Candidates waiting for the final superior decision.",
+    onboardingQueue: "Ready for onboarding",
+    onboardingQueueText: "Candidates approved for hire and ready to move into onboarding.",
+    currentPhase: "Current phase",
+    waitingOn: "Waiting on",
+    nextAction: "Next action",
+    systemStatus: "System status",
     candidateBase: "Candidate base",
     candidateBaseHint: "Application history and reuse of existing candidates.",
     notifications: "Notifications",
@@ -146,6 +209,86 @@ function daysBetween(start: Date | string | null | undefined, end: Date | string
   const to = end instanceof Date ? end : new Date(end);
   if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return null;
   return Math.max(0, Math.round((to.getTime() - from.getTime()) / 86400000));
+}
+
+function toneClass(tone: "muted" | "review" | "progress" | "approved" | "rejected") {
+  if (tone === "approved") return "process-card process-card-approved";
+  if (tone === "review") return "process-card process-card-review";
+  if (tone === "progress") return "process-card process-card-progress";
+  if (tone === "rejected") return "process-card process-card-rejected";
+  return "process-card process-card-muted";
+}
+
+function stageLabel(lang: "sr" | "en", stage: HrStageKey) {
+  const labels =
+    lang === "sr"
+      ? {
+          REQUEST_APPROVAL: "Čeka odobrenje zahteva",
+          READY_FOR_HR: "HR screening",
+          MANAGER_REVIEW: "Pregled menadžera",
+          ROUND_TWO: "Drugi krug",
+          FINAL_DECISION: "Finalna odluka",
+          APPROVED_FOR_HIRE: "Spremno za onboarding",
+          PAUSED: "Na čekanju",
+          CLOSED: "Zatvoreno",
+          CANCELED: "Otkazano"
+        }
+      : {
+          REQUEST_APPROVAL: "Request approval",
+          READY_FOR_HR: "HR screening",
+          MANAGER_REVIEW: "Manager review",
+          ROUND_TWO: "Round 2",
+          FINAL_DECISION: "Final decision",
+          APPROVED_FOR_HIRE: "Ready for onboarding",
+          PAUSED: "On hold",
+          CLOSED: "Closed",
+          CANCELED: "Canceled"
+        };
+
+  return labels[stage];
+}
+
+function waitingOnLabel(
+  lang: "sr" | "en",
+  waitingOn: HrWaitingOnKey,
+  names?: { manager?: string | null; finalApprover?: string | null }
+) {
+  if (waitingOn === "MANAGER") return names?.manager || (lang === "sr" ? "Menadžer" : "Manager");
+  if (waitingOn === "FINAL_APPROVER") return names?.finalApprover || (lang === "sr" ? "Nadređeni menadžer" : "Superior manager");
+  if (waitingOn === "HR") return lang === "sr" ? "HR" : "HR";
+  if (waitingOn === "SUPERIOR") return names?.finalApprover || (lang === "sr" ? "Nadređeni" : "Superior");
+  return lang === "sr" ? "Niko" : "No one";
+}
+
+function nextActionLabel(lang: "sr" | "en", nextAction: HrNextActionKey) {
+  const labels =
+    lang === "sr"
+      ? {
+          APPROVE_REQUEST: "Nadređeni treba da odobri ili odbije zahtev.",
+          START_SCREENING: "HR treba da započne screening i doda prve kandidate.",
+          SCREEN_CANDIDATES: "HR treba da obradi kandidate i odluči ko ide dalje.",
+          MANAGER_REVIEW: "Menadžer treba da pregleda izabrane kandidate.",
+          ROUND_TWO_FEEDBACK: "Potrebno je završiti drugi krug i zabeležiti ishod.",
+          FINAL_DECISION: "Čeka se finalna odluka nadređenog.",
+          START_ONBOARDING: "HR može da pokrene onboarding za odobrenog kandidata.",
+          WAITING_INPUT: "Proces je pauziran dok ne stigne sledeći poslovni signal.",
+          PROCESS_COMPLETE: "Proces je završen i ostaje vidljiv u istoriji.",
+          PROCESS_CANCELED: "Proces je otkazan i ostaje samo u istoriji."
+        }
+      : {
+          APPROVE_REQUEST: "The superior needs to approve or reject the request.",
+          START_SCREENING: "HR should start screening and add the first candidates.",
+          SCREEN_CANDIDATES: "HR should process candidates and decide who moves forward.",
+          MANAGER_REVIEW: "The manager should review shortlisted candidates.",
+          ROUND_TWO_FEEDBACK: "Round 2 needs to be completed and documented.",
+          FINAL_DECISION: "Waiting for the final superior decision.",
+          START_ONBOARDING: "HR can start onboarding for the approved candidate.",
+          WAITING_INPUT: "The process is paused until the next business signal arrives.",
+          PROCESS_COMPLETE: "The process is finished and remains in history.",
+          PROCESS_CANCELED: "The process was canceled and remains in history."
+        };
+
+  return labels[nextAction];
 }
 
 export default async function HrPage({
@@ -228,6 +371,11 @@ export default async function HrPage({
   }
   const sourceRows = [...sourceMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
   const managerOptions = dashboard.users.filter((member) => isManagerRole(member.role));
+  const queueBuckets = buildHrDashboardBuckets(dashboard.processes);
+  const processRows = dashboard.processes.map((process) => ({
+    process,
+    summary: getProcessWorkflowSummary(process)
+  }));
 
   return (
     <main className="page">
@@ -268,7 +416,18 @@ export default async function HrPage({
         {error ? <div className="error">{error}</div> : null}
 
         <section className="panel stack">
-          <h2 className="h2">{c.metricsTitle}</h2>
+          <div className="section-copy">
+            <h2 className="h2">
+              <LabelWithTooltip
+                label={c.metricsTitle}
+                tooltip={
+                  lang === "sr"
+                    ? "Brzi pregled obima zapošljavanja, opterećenja HR-a i trenutnog tempa popunjavanja pozicija."
+                    : "A quick view of hiring volume, HR workload, and how fast positions are being filled."
+                }
+              />
+            </h2>
+          </div>
           <div className="grid3 hr-stats-grid">
             <div className="item item-compact kpi-card">
               <div className="kpi-icon"><IconReport size={22} /></div>
@@ -364,17 +523,45 @@ export default async function HrPage({
           </div>
         </section>
 
-        <div className="grid2 hr-main-grid">
-          <section className="panel stack">
-            <h2 className="h2">{c.filtersTitle}</h2>
+        <section className="panel stack">
+            <div className="section-copy">
+              <h2 className="h2">
+                <LabelWithTooltip
+                  label={c.filtersTitle}
+                  tooltip={
+                    lang === "sr"
+                      ? "Filtriraj procese po timu, menadžeru i statusu kada želiš da se fokusiraš samo na deo hiring pipeline-a."
+                      : "Filter processes by team, manager, and status when you want to focus on a specific part of the hiring pipeline."
+                  }
+                />
+              </h2>
+            </div>
             <form className="stack" method="GET">
               <label className="field">
-                <span className="label">{c.query}</span>
+                <span className="label">
+                  <LabelWithTooltip
+                    label={c.query}
+                    tooltip={
+                      lang === "sr"
+                        ? "Pretraga radi preko pozicije, razloga zahteva, imena kandidata i drugih povezanih podataka."
+                        : "Search works across position titles, request reasons, candidate names, and other related process data."
+                    }
+                  />
+                </span>
                 <input className="input" name="query" type="text" defaultValue={dashboard.filters.query || ""} />
               </label>
               <div className="grid3">
                 <label className="field">
-                  <span className="label">{c.team}</span>
+                  <span className="label">
+                    <LabelWithTooltip
+                      label={c.team}
+                      tooltip={
+                        lang === "sr"
+                          ? "Koristi tim filter kada HR želi da se fokusira na jedan sektor ili kada menadžer prati samo svoj deo organizacije."
+                          : "Use the team filter when HR wants to focus on one department or when a manager is reviewing a narrower part of the organization."
+                      }
+                    />
+                  </span>
                   <select className="input" name="teamId" defaultValue={dashboard.filters.teamId || ""}>
                     <option value="">{c.all}</option>
                     {dashboard.teams.map((team) => (
@@ -385,7 +572,16 @@ export default async function HrPage({
                   </select>
                 </label>
                 <label className="field">
-                  <span className="label">{c.manager}</span>
+                  <span className="label">
+                    <LabelWithTooltip
+                      label={c.manager}
+                      tooltip={
+                        lang === "sr"
+                          ? "Ovo je odgovorni menadžer za zahtev, ne HR owner. Pomaže kada više timova radi paralelno."
+                          : "This is the manager responsible for the request, not the HR owner. It helps when several teams are hiring in parallel."
+                      }
+                    />
+                  </span>
                   <select className="input" name="managerId" defaultValue={dashboard.filters.managerId || ""}>
                     <option value="">{c.all}</option>
                     {managerOptions.map((manager) => (
@@ -396,7 +592,16 @@ export default async function HrPage({
                   </select>
                 </label>
                 <label className="field">
-                  <span className="label">{c.status}</span>
+                  <span className="label">
+                    <LabelWithTooltip
+                      label={c.status}
+                      tooltip={
+                        lang === "sr"
+                          ? "Sistemski status procesa je detaljniji od prikazanih faza. Faze niže služe za lakše praćenje rada, a status ostaje izvor istine."
+                          : "The system status is more detailed than the simplified phases below. Phases help people work faster, while status remains the source of truth."
+                      }
+                    />
+                  </span>
                   <select className="input" name="status" defaultValue={dashboard.filters.status || "ALL"}>
                     <option value="ALL">{c.all}</option>
                     {["OPEN", "IN_PROGRESS", "ON_HOLD", "APPROVED", "CLOSED", "CANCELED"].map((status) => (
@@ -419,7 +624,18 @@ export default async function HrPage({
           </section>
 
           <section className="panel stack">
-            <h2 className="h2">{c.notifications}</h2>
+            <div className="section-copy">
+              <h2 className="h2">
+                <LabelWithTooltip
+                  label={c.notifications}
+                  tooltip={
+                    lang === "sr"
+                      ? "Ovde stižu ključne HR i hiring promene: komentar menadžera, spremni termini, finalna odluka ili sledeći korak."
+                      : "This is the compact HR notification stream: manager comments, proposed slots, final decisions, and other key next-step updates."
+                  }
+                />
+              </h2>
+            </div>
             <div className="list">
               {dashboard.notifications.map((notification) => (
                 <div key={notification.id} className="item stack">
@@ -456,68 +672,148 @@ export default async function HrPage({
         </div>
 
         <div className="grid2 hr-main-grid">
-          {isManagerRole(user.role) ? (
-            <section className="panel stack">
-              <h2 className="h2">{c.openProcess}</h2>
-              <form className="stack" action={createHrProcessAction}>
-              <div className="grid2">
-                <label className="field">
-                  <span className="label">{c.team}</span>
-                  <select className="input" name="teamId" defaultValue={dashboard.filters.teamId || user.teamId || ""}>
-                    <option value="">{c.all}</option>
-                    {dashboard.teams.map((team) => (
-                      <option key={team.id} value={team.id}>
-                        {team.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="field">
-                  <span className="label">Replacement / new position</span>
-                  <input className="input" name="requestType" type="text" placeholder="Replacement / New position" />
-                </label>
-              </div>
-              <div className="grid3">
-                <label className="field">
-                  <span className="label">{c.positionTitle}</span>
-                  <input className="input" name="positionTitle" type="text" required />
-                </label>
-                <label className="field">
-                  <span className="label">{c.headcount}</span>
-                  <input className="input" name="requestedHeadcount" type="number" min={1} defaultValue={1} />
-                </label>
-                <label className="field">
-                  <span className="label">{c.priority}</span>
-                  <select className="input" name="priority" defaultValue="MED">
-                    <option value="LOW">LOW</option>
-                    <option value="MED">MED</option>
-                    <option value="HIGH">HIGH</option>
-                    <option value="CRITICAL">CRITICAL</option>
-                  </select>
-                </label>
-                <label className="field">
-                  <span className="label">Desired start date</span>
-                  <input className="input" name="desiredStartDate" type="date" />
-                </label>
-              </div>
-              <label className="field">
-                <span className="label">{c.reason}</span>
-                <textarea className="input" name="reason" rows={3} required />
-              </label>
-              <label className="field">
-                <span className="label">{c.note}</span>
-                <textarea className="input" name="note" rows={2} />
-              </label>
-              <button className="button" type="submit">
-                <IconPlus size={18} /> {c.createProcess}
-              </button>
-            </form>
-            </section>
-          ) : null}
+          <section className="panel stack">
+            <div className="section-copy">
+              <h2 className="h2">
+                <LabelWithTooltip
+                  label={c.workflowTitle}
+                  tooltip={
+                    lang === "sr"
+                      ? "Ovo je uprošćen prikaz istog workflow-a: ne menja logiku, već pomaže da se odmah zna gde proces počinje i ko je sledeći na potezu."
+                      : "This is a simplified view of the same workflow. It does not change the logic; it simply makes it easier to see where a process starts and who owns the next step."
+                  }
+                />
+              </h2>
+              <p className="muted small">{c.workflowSubtitle}</p>
+            </div>
+
+            <div className="workflow-strip">
+              {[
+                { step: c.stepOne, text: c.stepOneText },
+                { step: c.stepTwo, text: c.stepTwoText },
+                { step: c.stepThree, text: c.stepThreeText },
+                { step: c.stepFour, text: c.stepFourText },
+                { step: c.stepFive, text: c.stepFiveText }
+              ].map((item, index) => (
+                <div key={item.step} className="workflow-step">
+                  <div className="workflow-step-index">{index + 1}</div>
+                  <div className="flow-step-copy">
+                    <div className="flow-step-title">{item.step}</div>
+                    <div className="flow-step-text muted small">{item.text}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
 
           <section className="panel stack">
-            <h2 className="h2">{c.candidateBase}</h2>
-            <div className="muted small">{c.candidateBaseHint}</div>
+            <div className="section-copy">
+              <h2 className="h2">
+                <LabelWithTooltip
+                  label={c.managerStartTitle}
+                  tooltip={
+                    lang === "sr"
+                      ? "Zahtev za zapošljavanje otvara menadžer iz svog prostora. HR ekran ostaje fokusiran na obradu kandidata i sledeće korake."
+                      : "A hiring request starts from the manager workspace. The HR area stays focused on candidate handling and next-step execution."
+                  }
+                />
+              </h2>
+              <p className="muted small">{c.managerStartText}</p>
+            </div>
+            {isManagerRole(user.role) ? (
+              <div className="inline">
+                <Link className="button" href="/management">
+                  {c.openManagement} <IconArrowRight size={18} />
+                </Link>
+              </div>
+            ) : null}
+            <div className="notice notice-info">
+              <div className="notice-icon"><IconUsers size={18} /></div>
+              <div className="muted small">
+                {lang === "sr"
+                  ? "HR koristi ovaj ekran tek kada zahtev dobije superior approval. Tako ostaje jasno šta je zahtev, a šta je obrada kandidata."
+                  : "HR uses this workspace only after the hiring request receives superior approval. That keeps the request step separate from candidate processing."}
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section className="panel stack">
+          <div className="section-copy">
+            <h2 className="h2">
+              <LabelWithTooltip
+                label={c.actionQueuesTitle}
+                tooltip={
+                  lang === "sr"
+                    ? "Najvažnije kolone za rad. Svaka kartica sabira ono što zaista traži sledeću HR akciju."
+                    : "These are the key working buckets. Each card summarizes items that truly need the next HR action."
+                }
+              />
+            </h2>
+            <p className="muted small">{c.actionQueuesSubtitle}</p>
+          </div>
+
+          <div className="grid4 hr-metric-grid">
+            <div className={toneClass("review")}>
+              <div className="process-card-icon"><IconCheckCircle size={20} /></div>
+              <div className="process-card-body">
+                <div className="process-card-label">{c.readyForHr}</div>
+                <div className="process-card-value">{queueBuckets.readyForHr}</div>
+                <div className="muted small">{c.readyForHrText}</div>
+              </div>
+            </div>
+            <div className={toneClass("review")}>
+              <div className="process-card-icon"><IconUsers size={20} /></div>
+              <div className="process-card-body">
+                <div className="process-card-label">{c.screeningQueue}</div>
+                <div className="process-card-value">{queueBuckets.hrScreening}</div>
+                <div className="muted small">{c.screeningQueueText}</div>
+              </div>
+            </div>
+            <div className={toneClass("progress")}>
+              <div className="process-card-icon"><IconArrowRight size={20} /></div>
+              <div className="process-card-body">
+                <div className="process-card-label">{c.managerQueue}</div>
+                <div className="process-card-value">{queueBuckets.managerReview}</div>
+                <div className="muted small">{c.managerQueueText}</div>
+              </div>
+            </div>
+            <div className={toneClass("approved")}>
+              <div className="process-card-icon"><IconCalendar size={20} /></div>
+              <div className="process-card-body">
+                <div className="process-card-label">{c.onboardingQueue}</div>
+                <div className="process-card-value">{queueBuckets.approvedForHire}</div>
+                <div className="muted small">{c.onboardingQueueText}</div>
+              </div>
+            </div>
+          </div>
+          <div className="grid2 hr-main-grid">
+            <div className={toneClass("review")}>
+              <div className="process-card-icon"><IconClock size={20} /></div>
+              <div className="process-card-body">
+                <div className="process-card-label">{c.finalQueue}</div>
+                <div className="process-card-value">{queueBuckets.finalDecision}</div>
+                <div className="muted small">{c.finalQueueText}</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="grid2 hr-main-grid">
+          <section className="panel stack">
+            <div className="section-copy">
+              <h2 className="h2">
+                <LabelWithTooltip
+                  label={c.candidateBase}
+                  tooltip={
+                    lang === "sr"
+                      ? "Kandidati ostaju sačuvani i kada nisu aktivni u trenutnom procesu, da HR može lakše da ih vrati u rad ili proveri istoriju."
+                      : "Candidates remain reusable even when they are not active in the current process, so HR can bring them back later or check their history."
+                  }
+              />
+            </h2>
+              <p className="muted small">{c.candidateBaseHint}</p>
+            </div>
             <div className="list">
               {dashboard.candidates.map((candidate) => (
                 <div key={candidate.id} className="item stack">
@@ -539,13 +835,23 @@ export default async function HrPage({
               ))}
               {dashboard.candidates.length === 0 ? <div className="muted small">{c.noCandidates}</div> : null}
             </div>
-          </section>
-        </div>
+        </section>
 
         <section className="panel stack">
-          <h2 className="h2">{c.processesTitle}</h2>
+          <div className="section-copy">
+            <h2 className="h2">
+              <LabelWithTooltip
+                label={c.processesTitle}
+                tooltip={
+                  lang === "sr"
+                    ? "Svaki proces prikazuje i uprošćenu fazu rada i sistemski status, kako bi HR i menadžeri lakše znali šta stvarno sledi."
+                    : "Each process shows both the simplified work phase and the underlying system status, so HR and managers can quickly see what really happens next."
+                }
+              />
+            </h2>
+          </div>
           <div className="list">
-            {dashboard.processes.map((process) => {
+            {processRows.map(({ process, summary }) => {
               const applicants = process.candidates.length;
               const screened = process.candidates.filter((candidate) => candidate.status !== "NEW_APPLICANT").length;
               const secondRound = process.candidates.filter((candidate) =>
@@ -564,6 +870,37 @@ export default async function HrPage({
                     <div className="pills">
                       <span className={statusClass(process.status)}>{process.status}</span>
                       <span className="pill">{process.requestedHeadcount}</span>
+                    </div>
+                  </div>
+                  <div className="grid4 hr-metric-grid">
+                    <div className={toneClass(summary.tone)}>
+                      <div className="process-card-body">
+                        <div className="process-card-label">{c.currentPhase}</div>
+                        <div className="item-title">{stageLabel(lang, summary.stageKey)}</div>
+                      </div>
+                    </div>
+                    <div className="process-card process-card-muted">
+                      <div className="process-card-body">
+                        <div className="process-card-label">{c.waitingOn}</div>
+                        <div className="item-title">
+                          {waitingOnLabel(lang, summary.waitingOn, {
+                            manager: process.manager?.name,
+                            finalApprover: process.finalApprover?.name
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="process-card process-card-muted">
+                      <div className="process-card-body">
+                        <div className="process-card-label">{c.nextAction}</div>
+                        <div className="muted small">{nextActionLabel(lang, summary.nextAction)}</div>
+                      </div>
+                    </div>
+                    <div className="process-card process-card-muted">
+                      <div className="process-card-body">
+                        <div className="process-card-label">{c.systemStatus}</div>
+                        <div className="item-title">{process.status}</div>
+                      </div>
                     </div>
                   </div>
                   <div className="grid4 hr-metric-grid">
