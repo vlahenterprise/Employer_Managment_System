@@ -91,6 +91,7 @@ function copy(lang: "sr" | "en") {
       noCandidates: "Još nema kandidata u bazi.",
       noNotifications: "Nema novih notifikacija.",
       unread: "Nepročitano",
+      read: "Pročitano",
       markRead: "Označi kao pročitano",
       from: "od",
       applicants: "Prijavljeni",
@@ -171,6 +172,7 @@ function copy(lang: "sr" | "en") {
     noCandidates: "No candidates in the base yet.",
     noNotifications: "No notifications.",
     unread: "Unread",
+    read: "Read",
     markRead: "Mark as read",
     from: "from",
     applicants: "Applicants",
@@ -645,7 +647,7 @@ export default async function HrPage({
                       <div className="muted small">{notification.body || c.noValue}</div>
                     </div>
                     <span className={notification.isRead ? "pill pill-status pill-status-muted" : "pill pill-status pill-status-review"}>
-                      {notification.isRead ? "Read" : c.unread}
+                      {notification.isRead ? c.read : c.unread}
                     </span>
                   </div>
                   <div className="inline">

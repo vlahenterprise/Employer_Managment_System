@@ -1,29 +1,73 @@
 import Link from "next/link";
+import { LabelWithTooltip } from "@/components/Tooltip";
 import { requireActiveUser } from "@/server/current-user";
 import { getCandidateDetail } from "@/server/candidates";
 import { getBrandingSettings } from "@/server/settings";
 import { getRequestLang } from "@/i18n/server";
 import UserMenu from "../../dashboard/UserMenu";
-import { IconArrowLeft, IconArrowRight, IconPdf } from "@/components/icons";
+import { IconArrowLeft, IconArrowRight, IconCalendar, IconPdf, IconUsers } from "@/components/icons";
+import { getCandidateStageMeta } from "@/server/recruiting-presentation";
 
 function copy(lang: "sr" | "en") {
   if (lang === "sr") {
     return {
       back: "Candidates",
       noAccess: "Detalj kandidata nije dostupan.",
-      openCv: "Open CV link",
-      history: "Application History",
-      comments: "Comments & recommendations",
-      noData: "Nema podataka."
+      openCv: "Otvori CV link",
+      profileTitle: "Profil kandidata",
+      profileHint: "Osnovni kontakt podaci, izvor kandidata i poslednji signal da li vredi čuvati kandidata za buduće procese.",
+      history: "Istorija prijava",
+      historyHint: "Svaka prijava pokazuje tok kroz HR proces, preporuke iz rundi i sledeći korak.",
+      comments: "Komentari i preporuke",
+      noData: "Nema podataka.",
+      email: "Email",
+      phone: "Telefon",
+      source: "Izvor",
+      talentTag: "Talent pool tag",
+      lastContact: "Poslednji kontakt",
+      position: "Pozicija",
+      team: "Tim",
+      nextAction: "Sledeći korak",
+      hr: "HR komentar",
+      round1: "Prvi krug",
+      round2: "Drugi krug",
+      final: "Finalni komentar",
+      stage: "Faza",
+      updated: "Poslednja izmena",
+      openProcess: "Otvori proces",
+      summaryTitle: "Trenutni fokus",
+      summaryHint: "Na vrhu vidiš gde je kandidat sada i koja je najvažnija naredna odluka.",
+      noValue: "—"
     };
   }
   return {
     back: "Candidates",
     noAccess: "Candidate detail is not available.",
     openCv: "Open CV link",
-    history: "Application History",
-    comments: "Comments & recommendations",
-    noData: "No data."
+    profileTitle: "Candidate profile",
+    profileHint: "Basic contact details, source, and the latest signal on whether this candidate should stay reusable later.",
+    history: "Application history",
+    historyHint: "Each application shows the HR flow, round feedback, and the next practical action.",
+    comments: "Comments and recommendations",
+    noData: "No data.",
+    email: "Email",
+    phone: "Phone",
+    source: "Source",
+    talentTag: "Talent pool tag",
+    lastContact: "Last contact",
+    position: "Position",
+    team: "Team",
+    nextAction: "Next action",
+    hr: "HR comment",
+    round1: "Round 1",
+    round2: "Round 2",
+    final: "Final comment",
+    stage: "Stage",
+    updated: "Last update",
+    openProcess: "Open process",
+    summaryTitle: "Current focus",
+    summaryHint: "See where the candidate is now and what the next important decision should be.",
+    noValue: "—"
   };
 }
 
@@ -55,11 +99,14 @@ export default async function CandidateDetailPage({
   }
 
   const candidate = data.candidate;
+  const latestApplication = candidate.applications[0] || null;
+  const latestStage = getCandidateStageMeta(latestApplication?.status, lang);
+
   return (
     <main className="page">
       <div className="card stack">
         <div className="page-topbar">
-          <div className="page-topbar-main">
+          <div className="page-topbar-main stack">
             <div className="header">
               <div className="brand">
                 {branding.logoUrl ? (
@@ -68,7 +115,7 @@ export default async function CandidateDetailPage({
                 ) : null}
                 <div>
                   <h1 className="brand-title">{candidate.fullName}</h1>
-                  <p className="muted">{candidate.email || candidate.phone || "—"}</p>
+                  <p className="muted">{candidate.email || candidate.phone || c.noValue}</p>
                 </div>
               </div>
               <div className="inline">
@@ -80,6 +127,16 @@ export default async function CandidateDetailPage({
                     <IconPdf size={18} /> {c.openCv}
                   </a>
                 ) : null}
+              </div>
+            </div>
+
+            <div className="notice notice-info">
+              <div className="notice-icon">
+                <IconUsers size={18} />
+              </div>
+              <div className="stack">
+                <div className="notice-title">{c.summaryTitle}</div>
+                <div className="muted small">{c.summaryHint}</div>
               </div>
             </div>
           </div>
@@ -96,54 +153,108 @@ export default async function CandidateDetailPage({
           />
         </div>
 
+        <div className="grid3 profile-metrics">
+          <div className="item item-compact kpi-card">
+            <div className="kpi-icon">
+              <IconUsers size={18} />
+            </div>
+            <div>
+              <div className="kpi-value">{candidate.applications.length}</div>
+              <div className="kpi-label">{c.history}</div>
+            </div>
+          </div>
+          <div className="item item-compact kpi-card">
+            <div className="kpi-icon">
+              <IconCalendar size={18} />
+            </div>
+            <div>
+              <div className="kpi-value">{latestStage.label}</div>
+              <div className="kpi-label">{c.stage}</div>
+            </div>
+          </div>
+          <div className="item item-compact kpi-card">
+            <div className="kpi-icon">
+              <IconArrowRight size={18} />
+            </div>
+            <div>
+              <div className="kpi-value">{latestApplication?.nextAction || c.noValue}</div>
+              <div className="kpi-label">{c.nextAction}</div>
+            </div>
+          </div>
+        </div>
+
         <div className="grid3 profile-summary-grid">
           <section className="panel stack">
-            <h2 className="h2">Candidate</h2>
-            <div className="detail-list">
-              <div><strong>Email:</strong> {candidate.email || "—"}</div>
-              <div><strong>Phone:</strong> {candidate.phone || "—"}</div>
-              <div><strong>Source:</strong> {candidate.source || "—"}</div>
-              <div><strong>Talent pool tag:</strong> {candidate.talentPoolTag || "—"}</div>
-              <div><strong>Last contact:</strong> {formatDate(candidate.lastContactAt, locale)}</div>
+            <div className="section-head">
+              <div className="section-copy">
+                <h2 className="h2">
+                  <LabelWithTooltip label={c.profileTitle} tooltip={c.profileHint} />
+                </h2>
+              </div>
+              <span className={`pill pill-status pill-status-${latestStage.tone}`}>{latestStage.label}</span>
+            </div>
+            <div className="detail-list detail-list-compact">
+              <div><strong>{c.email}:</strong> {candidate.email || c.noValue}</div>
+              <div><strong>{c.phone}:</strong> {candidate.phone || c.noValue}</div>
+              <div><strong>{c.source}:</strong> {candidate.source || c.noValue}</div>
+              <div><strong>{c.talentTag}:</strong> {candidate.talentPoolTag || c.noValue}</div>
+              <div><strong>{c.lastContact}:</strong> {formatDate(candidate.lastContactAt, locale)}</div>
+              <div><strong>{c.updated}:</strong> {formatDate(candidate.updatedAt, locale)}</div>
             </div>
           </section>
 
           <section className="panel stack profile-wide">
-            <h2 className="h2">{c.history}</h2>
+            <div className="section-head">
+              <div className="section-copy">
+                <h2 className="h2">
+                  <LabelWithTooltip label={c.history} tooltip={c.historyHint} />
+                </h2>
+              </div>
+            </div>
             <div className="list">
-              {candidate.applications.map((application) => (
-                <div key={application.id} className="item stack">
-                  <div className="item-top">
-                    <div>
-                      <div className="item-title">{application.process.positionTitle}</div>
-                      <div className="muted small">
-                        {application.process.team?.name || "—"} · {application.status} · {formatDate(application.appliedAt, locale)}
+              {candidate.applications.map((application) => {
+                const stage = getCandidateStageMeta(application.status, lang);
+                return (
+                  <div key={application.id} className="item stack entity-card">
+                    <div className="item-top">
+                      <div className="stack">
+                        <div className="item-title">{application.process.positionTitle}</div>
+                        <div className="muted small">
+                          {application.process.team?.name || c.noValue} · {formatDate(application.appliedAt, locale)}
+                        </div>
+                      </div>
+                      <div className="inline">
+                        <span className={`pill pill-status pill-status-${stage.tone}`}>{stage.label}</span>
+                        <Link className="button button-secondary" href={`/hr/${application.process.id}`}>
+                          {c.openProcess} <IconArrowRight size={18} />
+                        </Link>
                       </div>
                     </div>
-                    <Link className="button button-secondary" href={`/hr/${application.process.id}`}>
-                      Open process <IconArrowRight size={18} />
-                    </Link>
-                  </div>
-                  <div className="detail-list">
-                    <div><strong>Next action:</strong> {application.nextAction || "—"}</div>
-                    <div><strong>HR:</strong> {application.hrComment || "—"}</div>
-                    <div><strong>Round 1:</strong> {application.firstRoundComment || "—"}</div>
-                    <div><strong>Round 2:</strong> {application.managerComment || "—"}</div>
-                    <div><strong>Final:</strong> {application.finalComment || "—"}</div>
-                  </div>
-                  <div className="list hr-mini-list">
-                    {application.comments.map((comment) => (
-                      <div key={comment.id} className="item stack">
-                        <div className="muted small">
-                          {comment.stage} · {comment.actor?.name || "—"} · {formatDate(comment.createdAt, locale)}
+
+                    <div className="detail-list detail-list-compact">
+                      <div><strong>{c.position}:</strong> {application.process.positionTitle}</div>
+                      <div><strong>{c.team}:</strong> {application.process.team?.name || c.noValue}</div>
+                      <div><strong>{c.nextAction}:</strong> {application.nextAction || c.noValue}</div>
+                      <div><strong>{c.hr}:</strong> {application.hrComment || c.noValue}</div>
+                      <div><strong>{c.round1}:</strong> {application.firstRoundComment || c.noValue}</div>
+                      <div><strong>{c.round2}:</strong> {application.managerComment || c.noValue}</div>
+                      <div><strong>{c.final}:</strong> {application.finalComment || c.noValue}</div>
+                    </div>
+
+                    <div className="list hr-mini-list timeline-list">
+                      {application.comments.map((comment) => (
+                        <div key={comment.id} className="item stack timeline-item">
+                          <div className="muted small">
+                            {comment.stage} · {comment.actor?.name || c.noValue} · {formatDate(comment.createdAt, locale)}
+                          </div>
+                          <div>{comment.body}</div>
                         </div>
-                        <div>{comment.body}</div>
-                      </div>
-                    ))}
-                    {application.comments.length === 0 ? <div className="muted small">{c.noData}</div> : null}
+                      ))}
+                      {application.comments.length === 0 ? <div className="muted small">{c.noData}</div> : null}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {candidate.applications.length === 0 ? <div className="muted small">{c.noData}</div> : null}
             </div>
           </section>

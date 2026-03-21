@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LabelWithTooltip } from "@/components/Tooltip";
 import { requireActiveUser } from "@/server/current-user";
 import { getBrandingSettings } from "@/server/settings";
 import UserMenu from "../../dashboard/UserMenu";
@@ -119,6 +120,76 @@ function ScoreRing({
   );
 }
 
+function getPerformanceFocus(params: {
+  lang: Lang;
+  status: string;
+  locked: boolean;
+  canEditGoals: boolean;
+  canSelfEdit: boolean;
+  canManagerReview: boolean;
+}) {
+  const { lang, status, locked, canEditGoals, canSelfEdit, canManagerReview } = params;
+  const sr = lang === "sr";
+
+  if (status === "CLOSED") {
+    return {
+      tone: "approved",
+      label: sr ? "Finalizovano" : "Finalized",
+      text: sr
+        ? "Evaluacija je zatvorena i finalni score je zaključan za istoriju i KPI pregled."
+        : "The evaluation is closed and the final score is locked for history and KPI visibility."
+    };
+  }
+
+  if (locked) {
+    return {
+      tone: "muted",
+      label: sr ? "Zaključano" : "Locked",
+      text: sr
+        ? "Evaluacija je privremeno zaključana. Sledeći korak je otključavanje ili finalizacija."
+        : "The evaluation is temporarily locked. The next step is either unlocking or finalizing it."
+    };
+  }
+
+  if (canEditGoals) {
+    return {
+      tone: "review",
+      label: sr ? "Postavi ciljeve" : "Set goals",
+      text: sr
+        ? "Menadžer prvo treba da definiše 2–5 ciljeva i da ukupna težina ostane 100%."
+        : "The manager should first define 2–5 goals and keep the total weight at 100%."
+    };
+  }
+
+  if (canSelfEdit) {
+    return {
+      tone: "progress",
+      label: sr ? "Čeka self-review" : "Waiting self-review",
+      text: sr
+        ? "Zaposleni sada popunjava self-assessment po ciljevima pre konačnog manager review-a."
+        : "The employee now completes the self-assessment per goal before the final manager review."
+    };
+  }
+
+  if (canManagerReview || status === "SELF_SUBMITTED") {
+    return {
+      tone: "review",
+      label: sr ? "Čeka manager review" : "Waiting manager review",
+      text: sr
+        ? "Self-review je završen. Menadžer sada daje finalne goal score-ove i personal evaluation."
+        : "The self-review is finished. The manager now gives the final goal scores and personal evaluation."
+    };
+  }
+
+  return {
+    tone: "muted",
+    label: sr ? "U toku" : "In progress",
+    text: sr
+      ? "Evaluacija je otvorena i čeka sledeći korak prema trenutnim dozvolama i statusu."
+      : "The evaluation is open and waiting for the next step based on the current permissions and status."
+  };
+}
+
 export default async function PerformanceEvalPage({
   params,
   searchParams
@@ -215,6 +286,21 @@ export default async function PerformanceEvalPage({
   const personalCompleted = e.personalItems.filter((p) => String(p.managerComment || "").trim() && p.managerRating != null).length;
   const managerTotal = e.goals.length + e.personalItems.length;
   const managerCompleted = managerGoalsCompleted + personalCompleted;
+  const focus = getPerformanceFocus({
+    lang,
+    status: e.status,
+    locked: e.locked,
+    canEditGoals: detail.perms.canEditGoals,
+    canSelfEdit: detail.perms.canSelfEdit,
+    canManagerReview: detail.perms.canManagerReview
+  });
+  const activeWorkflowStep = e.status === "CLOSED"
+    ? 4
+    : detail.perms.canManagerReview || e.status === "SELF_SUBMITTED"
+      ? 3
+      : detail.perms.canSelfEdit || selfCompleted > 0
+        ? 2
+        : 1;
 
   return (
     <main className="page">
@@ -261,7 +347,77 @@ export default async function PerformanceEvalPage({
         {message && messageType ? <div className={messageType === "success" ? "success" : "error"}>{message}</div> : null}
 
         <section className="panel stack">
-          <h2 className="h2">{t.performance.detailProgressTitle}</h2>
+          <div className="section-head">
+            <div className="section-copy">
+              <h2 className="h2">
+                <LabelWithTooltip
+                  label={lang === "sr" ? "Tok evaluacije" : "Evaluation flow"}
+                  tooltip={
+                    lang === "sr"
+                      ? "Ovaj blok ne menja score logiku. Samo pokazuje gde je evaluacija sada, ko je na potezu i šta je sledeći korak."
+                      : "This block does not change the scoring logic. It simply shows where the evaluation is now, who owns the next move, and what should happen next."
+                  }
+                />
+              </h2>
+              <p className="muted small">{focus.text}</p>
+            </div>
+            <div className="pills">
+              <span className={`pill pill-status pill-status-${focus.tone}`}>{focus.label}</span>
+              <span className="pill pill-blue">
+                {lang === "sr" ? "Status" : "Status"}: {e.status}
+              </span>
+            </div>
+          </div>
+
+          <div className="workflow-strip">
+            {[
+              {
+                index: 1,
+                title: lang === "sr" ? "Ciljevi" : "Goals",
+                text: lang === "sr" ? "Menadžer postavlja 2–5 ciljeva sa ukupnom težinom 100%." : "The manager sets 2–5 goals with a total weight of 100%."
+              },
+              {
+                index: 2,
+                title: lang === "sr" ? "Self-assessment" : "Self-assessment",
+                text: lang === "sr" ? "Zaposleni ocenjuje svaki cilj u opsegu 0–200%." : "The employee rates each goal in the 0–200% range."
+              },
+              {
+                index: 3,
+                title: lang === "sr" ? "Manager review" : "Manager review",
+                text: lang === "sr" ? "Menadžer daje finalne score-ove po ciljevima i personal evaluation." : "The manager gives the final goal scores and personal evaluation."
+              },
+              {
+                index: 4,
+                title: lang === "sr" ? "Final score" : "Final score",
+                text: lang === "sr" ? "Finalni rezultat zadržava postojeću 70/30 logiku i može preći 100%." : "The final result keeps the existing 70/30 logic and can exceed 100%."
+              }
+            ].map((step) => (
+              <div key={step.index} className={`workflow-step${activeWorkflowStep === step.index ? " is-active" : ""}`}>
+                <div className="workflow-step-index">{step.index}</div>
+                <div className="flow-step-copy">
+                  <div className="flow-step-title">{step.title}</div>
+                  <div className="flow-step-text">{step.text}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel stack">
+          <div className="section-head">
+            <div className="section-copy">
+              <h2 className="h2">
+                <LabelWithTooltip
+                  label={t.performance.detailProgressTitle}
+                  tooltip={
+                    lang === "sr"
+                      ? "Ove progress trake pomažu da se odmah vidi ko još nije završio svoj deo evaluacije i koliko je ostalo do kraja perioda."
+                      : "These progress bars make it easy to see who still needs to complete their part of the evaluation and how much time is left in the cycle."
+                  }
+                />
+              </h2>
+            </div>
+          </div>
           <div className="grid2">
             <div className="item stack">
               <div className="item-title">{t.performance.detailEmployeeProgress}</div>
@@ -305,7 +461,20 @@ export default async function PerformanceEvalPage({
         </section>
 
         <section className="panel stack">
-          <h2 className="h2">{t.performance.detailScoresTitle}</h2>
+          <div className="section-head">
+            <div className="section-copy">
+              <h2 className="h2">
+                <LabelWithTooltip
+                  label={t.performance.detailScoresTitle}
+                  tooltip={
+                    lang === "sr"
+                      ? "Goals deo ostaje 70%, personal evaluation 30%. Manager final score po cilju i dalje može da ide do 200%."
+                      : "The goals part stays 70% and personal evaluation stays 30%. The manager final goal score can still go up to 200%."
+                  }
+                />
+              </h2>
+            </div>
+          </div>
           <div className="score-grid">
             <ScoreRing
               label={t.performance.detailEmployeeGoals}
@@ -335,7 +504,11 @@ export default async function PerformanceEvalPage({
         </section>
 
         <section className="panel stack">
-          <h2 className="h2">{t.performance.detailHistoryTitle}</h2>
+          <div className="section-head">
+            <div className="section-copy">
+              <h2 className="h2">{t.performance.detailHistoryTitle}</h2>
+            </div>
+          </div>
           <div className="list">
             {historyRows.map((r) => (
               <div key={r.id} className="item item-compact">
@@ -355,7 +528,11 @@ export default async function PerformanceEvalPage({
         </section>
 
         <section className="panel stack">
-          <h2 className="h2">{t.performance.metaTitle}</h2>
+          <div className="section-head">
+            <div className="section-copy">
+              <h2 className="h2">{t.performance.metaTitle}</h2>
+            </div>
+          </div>
           <div className="list">
             <div className="item item-compact">
               <div>
@@ -391,7 +568,20 @@ export default async function PerformanceEvalPage({
         </section>
 
         <section className="panel stack">
-          <h2 className="h2">{t.performance.goalsTitle}</h2>
+          <div className="section-head">
+            <div className="section-copy">
+              <h2 className="h2">
+                <LabelWithTooltip
+                  label={t.performance.goalsTitle}
+                  tooltip={
+                    lang === "sr"
+                      ? "Ciljevi ostaju srž kvartalne evaluacije. Minimum su 2, maksimum 5, a ukupna težina mora da ostane 100%."
+                      : "Goals remain the core of the quarterly evaluation. The minimum is 2, the maximum is 5, and total weight must remain 100%."
+                  }
+                />
+              </h2>
+            </div>
+          </div>
           {detail.perms.canEditGoals ? (
             <form className="stack" action={saveGoalsAction}>
               <input type="hidden" name="evalId" value={e.id} />
@@ -461,7 +651,20 @@ export default async function PerformanceEvalPage({
 
         {detail.perms.isEmployee ? (
           <section className="panel stack">
-            <h2 className="h2">{t.performance.selfTitle}</h2>
+            <div className="section-head">
+              <div className="section-copy">
+                <h2 className="h2">
+                  <LabelWithTooltip
+                    label={t.performance.selfTitle}
+                    tooltip={
+                      lang === "sr"
+                        ? "Zaposleni ovde unosi svoju procenu po cilju. Ovaj deo je informativan za menadžera i ne menja finalnu logiku ocenjivanja."
+                        : "The employee enters their own assessment per goal here. This informs the manager but does not change the final scoring logic."
+                    }
+                  />
+                </h2>
+              </div>
+            </div>
             <div className="muted small">
               {t.performance.selfWindow(detail.window.startIso, detail.window.deadlineIso, detail.window.endIso)}
             </div>
@@ -523,7 +726,20 @@ export default async function PerformanceEvalPage({
 
         {detail.perms.canManagerReview ? (
           <section className="panel stack">
-            <h2 className="h2">{t.performance.managerReviewTitle}</h2>
+            <div className="section-head">
+              <div className="section-copy">
+                <h2 className="h2">
+                  <LabelWithTooltip
+                    label={t.performance.managerReviewTitle}
+                    tooltip={
+                      lang === "sr"
+                        ? "Menadžer daje finalni procenat po cilju i personal evaluation 1–10. Time se završava score logika za ovaj ciklus."
+                        : "The manager gives the final percentage per goal and the personal evaluation from 1–10. This completes the scoring logic for the cycle."
+                    }
+                  />
+                </h2>
+              </div>
+            </div>
 
             <form className="stack" action={saveManagerReviewAction}>
               <input type="hidden" name="evalId" value={e.id} />
@@ -621,7 +837,20 @@ export default async function PerformanceEvalPage({
 
         {detail.perms.canManage ? (
           <section className="panel stack">
-            <h2 className="h2">{t.performance.adminActionsTitle}</h2>
+            <div className="section-head">
+              <div className="section-copy">
+                <h2 className="h2">
+                  <LabelWithTooltip
+                    label={t.performance.adminActionsTitle}
+                    tooltip={
+                      lang === "sr"
+                        ? "Ove akcije koriste se samo kada treba zaključati, otključati, finalizovati ili administrativno zatvoriti evaluaciju."
+                        : "Use these actions only when you need to lock, unlock, finalize, or administratively close the evaluation."
+                    }
+                  />
+                </h2>
+              </div>
+            </div>
             <div className="grid2">
               <form className="stack" action={lockEvalAction}>
                 <input type="hidden" name="evalId" value={e.id} />

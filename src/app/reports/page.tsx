@@ -31,8 +31,8 @@ export default async function ReportsPage() {
                   <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
                 ) : null}
                 <div>
-                  <h1 className="brand-title">{branding.title}</h1>
-                  <p className="muted">{branding.subtitle}</p>
+                  <h1 className="brand-title">{t.reports.entryTitle}</h1>
+                  <p className="muted">{t.reports.rules(settings.MinDayActivtyDuration, settings.MaxDayActivtyDuration, settings.MaxActivitiesPerDay)}</p>
                 </div>
               </div>
               <div className="inline">

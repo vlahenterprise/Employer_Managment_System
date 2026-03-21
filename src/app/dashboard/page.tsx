@@ -929,13 +929,6 @@ export default async function DashboardPage() {
                 <p className="muted">{branding.subtitle}</p>
               </div>
             </div>
-
-            <div className="dashboard-intro stack">
-              <div>
-                <h2 className="h2">{t.dashboard.title}</h2>
-                <p className="muted">{hero.text}</p>
-              </div>
-            </div>
           </div>
 
           <UserMenu

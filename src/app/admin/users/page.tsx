@@ -1,11 +1,10 @@
-import Link from "next/link";
 import { LabelWithTooltip } from "@/components/Tooltip";
+import AdminShell from "@/components/AdminShell";
 import { prisma } from "@/server/db";
 import { requireAdminUser } from "@/server/current-user";
 import { createUserAction, deleteUserAction, setUserPasswordAction, updateUserAction } from "../actions";
 import { getRequestLang } from "@/i18n/server";
 import { getI18n } from "@/i18n";
-import { IconArrowLeft } from "@/components/icons";
 import { getAccessSummary } from "@/server/rbac";
 
 export default async function AdminUsersPage({
@@ -13,7 +12,7 @@ export default async function AdminUsersPage({
 }: {
   searchParams: { success?: string; error?: string };
 }) {
-  await requireAdminUser();
+  const user = await requireAdminUser();
   const lang = getRequestLang();
   const t = getI18n(lang);
 
@@ -52,49 +51,20 @@ export default async function AdminUsersPage({
   const error = searchParams.error ? decodeURIComponent(searchParams.error) : null;
 
   return (
-    <main className="page">
-      <div className="card stack">
-        <div className="header">
-          <div>
-            <h1>{t.admin.title}</h1>
-            <p className="muted">{t.admin.users.subtitle}</p>
-          </div>
-          <div className="inline">
-            <Link className="button button-secondary" href="/dashboard">
-              <IconArrowLeft size={18} /> {t.common.backToDashboard}
-            </Link>
-          </div>
-        </div>
-
-        <div className="tabs">
-          <Link className="tab tab-active" href="/admin/users">
-            {t.admin.tabs.users}
-          </Link>
-          <Link className="tab" href="/admin/teams">
-            {t.admin.tabs.teams}
-          </Link>
-          <Link className="tab" href="/admin/org-structure">
-            {t.admin.tabs.org}
-          </Link>
-          <Link className="tab" href="/admin/activity-types">
-            {t.admin.tabs.activityTypes}
-          </Link>
-          <Link className="tab" href="/admin/settings">
-            {t.admin.tabs.settings}
-          </Link>
-          <Link className="tab" href="/admin/performance-questions">
-            {t.admin.tabs.performanceQuestions}
-          </Link>
-          <Link className="tab" href="/admin/import">
-            {t.admin.tabs.import}
-          </Link>
-          <Link className="tab" href="/admin/backup">
-            {t.admin.tabs.backup}
-          </Link>
-        </div>
-
-        {success ? <div className="success">{success}</div> : null}
-        {error ? <div className="error">{error}</div> : null}
+    <AdminShell
+      user={user}
+      lang={lang}
+      title={t.admin.tabs.users}
+      subtitle={t.admin.users.subtitle}
+      activeTab="users"
+      success={success}
+      error={error}
+      note={
+        lang === "sr"
+          ? "Ovde postavljaš baznu rolu, HR/Admin add-on pristupe, tim, menadžera i Drive linkove koji utiču na ostatak sistema."
+          : "Set the base role, HR/Admin add-on access, team, manager, and Drive links here. These values affect the rest of the system."
+      }
+    >
 
         <section className="panel stack">
           <h2 className="h2">{t.admin.users.newUser}</h2>
@@ -454,7 +424,6 @@ export default async function AdminUsersPage({
             ))}
           </div>
         </section>
-      </div>
-    </main>
+    </AdminShell>
   );
 }

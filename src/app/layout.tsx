@@ -30,7 +30,7 @@ export default async function RootLayout({
   const branding = await getBrandingSettings();
   const user = await getCurrentUser();
   const navItems = user
-    ? getPrimaryNavigation({ role: user.role, hrAddon: user.hrAddon, adminAddon: user.adminAddon })
+    ? getPrimaryNavigation({ role: user.role, hrAddon: user.hrAddon, adminAddon: user.adminAddon }, lang)
     : [];
   const accessBadges = user
     ? [
@@ -67,6 +67,7 @@ export default async function RootLayout({
               title={branding.title}
               logoUrl={branding.logoUrl}
               accessBadges={accessBadges}
+              lang={lang}
             />
           ) : null}
           {children}

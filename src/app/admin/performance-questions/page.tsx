@@ -1,4 +1,4 @@
-import Link from "next/link";
+import AdminShell from "@/components/AdminShell";
 import { prisma } from "@/server/db";
 import { requireAdminUser } from "@/server/current-user";
 import { getRequestLang } from "@/i18n/server";
@@ -9,14 +9,13 @@ import {
   setPerformanceQuestionActiveAction,
   updatePerformanceQuestionAction
 } from "../actions";
-import { IconArrowLeft } from "@/components/icons";
 
 export default async function AdminPerformanceQuestionsPage({
   searchParams
 }: {
   searchParams: { success?: string; error?: string };
 }) {
-  await requireAdminUser();
+  const user = await requireAdminUser();
   const lang = getRequestLang();
   const t = getI18n(lang);
 
@@ -29,49 +28,20 @@ export default async function AdminPerformanceQuestionsPage({
   const error = searchParams.error ? decodeURIComponent(searchParams.error) : null;
 
   return (
-    <main className="page">
-      <div className="card stack">
-        <div className="header">
-          <div>
-            <h1>{t.admin.title}</h1>
-            <p className="muted">{t.admin.performanceQuestions.subtitle}</p>
-          </div>
-          <div className="inline">
-            <Link className="button button-secondary" href="/dashboard">
-              <IconArrowLeft size={18} /> {t.common.backToDashboard}
-            </Link>
-          </div>
-        </div>
-
-        <div className="tabs">
-          <Link className="tab" href="/admin/users">
-            {t.admin.tabs.users}
-          </Link>
-          <Link className="tab" href="/admin/teams">
-            {t.admin.tabs.teams}
-          </Link>
-          <Link className="tab" href="/admin/org-structure">
-            {t.admin.tabs.org}
-          </Link>
-          <Link className="tab" href="/admin/activity-types">
-            {t.admin.tabs.activityTypes}
-          </Link>
-          <Link className="tab" href="/admin/settings">
-            {t.admin.tabs.settings}
-          </Link>
-          <Link className="tab tab-active" href="/admin/performance-questions">
-            {t.admin.tabs.performanceQuestions}
-          </Link>
-          <Link className="tab" href="/admin/import">
-            {t.admin.tabs.import}
-          </Link>
-          <Link className="tab" href="/admin/backup">
-            {t.admin.tabs.backup}
-          </Link>
-        </div>
-
-        {success ? <div className="success">{success}</div> : null}
-        {error ? <div className="error">{error}</div> : null}
+    <AdminShell
+      user={user}
+      lang={lang}
+      title={t.admin.tabs.performanceQuestions}
+      subtitle={t.admin.performanceQuestions.subtitle}
+      activeTab="performanceQuestions"
+      success={success}
+      error={error}
+      note={
+        lang === "sr"
+          ? "Ovo su sekcije za personal evaluation. Tekstovi mogu biti dvojezični, ali scoring logika ostaje ista kroz ceo sistem."
+          : "These define the personal evaluation sections. Text can be bilingual, while the scoring logic stays identical across the system."
+      }
+    >
 
         <section className="panel stack">
           <h2 className="h2">{t.admin.performanceQuestions.newQuestion}</h2>
@@ -194,7 +164,6 @@ export default async function AdminPerformanceQuestionsPage({
             {questions.length === 0 ? <div className="muted">{t.admin.performanceQuestions.empty}</div> : null}
           </div>
         </section>
-      </div>
-    </main>
+    </AdminShell>
   );
 }
