@@ -48,6 +48,25 @@ export function IconArrowRight(props: IconProps) {
   );
 }
 
+export function IconMenu(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M4 7h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M4 12h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function IconClose(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M18 6 6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function IconHome(props: IconProps) {
   return (
     <Svg {...props}>

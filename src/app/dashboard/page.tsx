@@ -920,13 +920,13 @@ export default async function DashboardPage() {
         <div className="page-topbar">
           <div className="page-topbar-main stack">
             <div className="brand">
-              {branding.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
-              ) : null}
               <div>
-                <h1 className="brand-title">{branding.title}</h1>
-                <p className="muted">{branding.subtitle}</p>
+                <h1 className="brand-title">{lang === "sr" ? "Početna" : "Home"}</h1>
+                <p className="muted">
+                  {lang === "sr"
+                    ? "Jedan centralni pregled zadataka, ljudi i akcija koje traže tvoju pažnju."
+                    : "One central place for tasks, people, and actions that need your attention."}
+                </p>
               </div>
             </div>
           </div>
@@ -946,11 +946,8 @@ export default async function DashboardPage() {
         <section className="panel stack dashboard-hero">
           <div className="dashboard-hero-main">
             <div className="stack">
-              <div className="pills">
-                <span className="pill pill-blue">{hero.title}</span>
-                {hasManagementPanel ? <span className="pill">{lang === "sr" ? "Timski pogled" : "Team view"}</span> : null}
-                {hasHrAccess ? <span className="pill">{lang === "sr" ? "HR pristup" : "HR access"}</span> : null}
-                {hasAdminAccess ? <span className="pill">{lang === "sr" ? "Admin pristup" : "Admin access"}</span> : null}
+              <div className="small muted">
+                {lang === "sr" ? "Centralni radni pregled" : "Central workspace overview"}
               </div>
               <div>
                 <h2 className="h2">{hero.title}</h2>

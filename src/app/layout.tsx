@@ -60,7 +60,7 @@ export default async function RootLayout({
           </div>
         ) : null}
         {branding.poweredByText ? <div className="app-powered">{branding.poweredByText}</div> : null}
-        <div className="app-shell">
+        <div className={`app-shell ${user ? "app-shell-auth" : "app-shell-public"}`}>
           {user ? (
             <AppNavigation
               items={navItems}
@@ -70,7 +70,7 @@ export default async function RootLayout({
               lang={lang}
             />
           ) : null}
-          {children}
+          <div className="app-main">{children}</div>
         </div>
       </body>
     </html>
