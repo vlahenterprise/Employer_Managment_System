@@ -71,13 +71,7 @@ function DonutChart({
   const r = (size - stroke) / 2;
 
   const activeSlice = useMemo(() => (active ? slices.find((s) => s.label === active) ?? null : null), [active, slices]);
-  const activePct = activeSlice && total ? Math.round(((activeSlice.value / total) * 1000)) / 10 : null;
-
-  function clipCenterLabel(text: string) {
-    const s = String(text || "").trim();
-    if (s.length <= 22) return s;
-    return `${s.slice(0, 21)}…`;
-  }
+  const activePct = activeSlice && total ? Math.round((activeSlice.value / total) * 1000) / 10 : null;
 
   return (
     <div className="chart-card">
@@ -113,7 +107,9 @@ function DonutChart({
             </text>
             <text x={cx} y={cy + 18} textAnchor="middle" fontSize={12} fill="rgba(255 255 255 / 0.75)">
               {activeSlice
-                ? `${clipCenterLabel(activeSlice.label)}${activePct != null ? ` · ${activePct}%` : ""}`
+                ? activePct != null
+                  ? `${activePct}%`
+                  : centerLabel
                 : centerLabel}
             </text>
           </svg>

@@ -43,13 +43,11 @@ export default function AppNavigation({
   items,
   title,
   logoUrl,
-  accessBadges,
   lang
 }: {
   items: NavItem[];
   title: string;
   logoUrl?: string | null;
-  accessBadges?: string[];
   lang: "sr" | "en";
 }) {
   const pathname = usePathname();
@@ -153,7 +151,7 @@ export default function AppNavigation({
             )}
             <div className="app-nav-brand-copy">
               <span className="app-nav-brand-title">{title}</span>
-              <span className="app-nav-brand-sub">{lang === "sr" ? "Employer sistem" : "Employer Management"}</span>
+              <span className="app-nav-brand-sub">{lang === "sr" ? "Radni prostor" : "Workspace"}</span>
             </div>
           </div>
 
@@ -167,21 +165,6 @@ export default function AppNavigation({
               </section>
             ))}
           </nav>
-
-          {accessBadges?.length ? (
-            <div className="app-nav-access">
-              <div className="app-nav-group-label" aria-hidden="true">
-                {lang === "sr" ? "Pristup" : "Access"}
-              </div>
-              <div className="app-nav-brand-meta">
-                {accessBadges.map((badge) => (
-                  <span key={badge} className="app-nav-badge">
-                    {badge}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : null}
         </div>
       </aside>
     </>

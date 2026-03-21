@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { requireActiveUser } from "@/server/current-user";
 import UserMenu from "./UserMenu";
-import { getBrandingSettings } from "@/server/settings";
 import { getRequestLang } from "@/i18n/server";
-import { getI18n } from "@/i18n";
 import {
   IconAlertTriangle,
   IconArrowRight,
@@ -23,7 +21,6 @@ import { hasAccessAdmin, hasHrAddon, isManagerRole } from "@/server/rbac";
 import { LabelWithTooltip } from "@/components/Tooltip";
 
 type DashboardIcon = typeof IconTasks;
-type DashboardMode = "user" | "manager" | "hr" | "admin";
 
 type SummaryCard = {
   value: string;
@@ -31,15 +28,6 @@ type SummaryCard = {
   detail: string;
   icon: DashboardIcon;
   tone?: "default" | "warning" | "success";
-};
-
-type FocusCard = {
-  value: string;
-  label: string;
-  description: string;
-  href: string;
-  cta: string;
-  icon: DashboardIcon;
 };
 
 type VisibilityRow = {
@@ -52,14 +40,6 @@ type QuickAction = {
   href: string;
   label: string;
   icon: DashboardIcon;
-};
-
-type ModuleItem = {
-  href: string;
-  title: string;
-  subtitle: string;
-  icon: DashboardIcon;
-  className: string;
 };
 
 function getDashboardCopy(lang: "sr" | "en") {
@@ -170,6 +150,7 @@ function getDashboardCopy(lang: "sr" | "en") {
         absence: "Odsustva",
         management: "Management Panel",
         hr: "HR System",
+        candidates: "Kandidati",
         access: "Access",
         settings: "Settings",
         onboarding: "Onboarding"
@@ -282,6 +263,7 @@ function getDashboardCopy(lang: "sr" | "en") {
       absence: "Absence",
       management: "Management Panel",
       hr: "HR System",
+      candidates: "Candidates",
       access: "Access",
       settings: "Settings",
       onboarding: "Onboarding"
@@ -315,22 +297,6 @@ function formatOnboardingStatus(status: string | null | undefined, lang: "sr" | 
     COMPLETED: lang === "sr" ? "Završen" : "Completed"
   } as const;
   return map[status as keyof typeof map] ?? status;
-}
-
-function getHeroContent(
-  mode: DashboardMode,
-  copy: ReturnType<typeof getDashboardCopy>
-) {
-  if (mode === "manager") {
-    return { title: copy.hero.managerTitle, text: copy.hero.managerText };
-  }
-  if (mode === "hr") {
-    return { title: copy.hero.hrTitle, text: copy.hero.hrText };
-  }
-  if (mode === "admin") {
-    return { title: copy.hero.adminTitle, text: copy.hero.adminText };
-  }
-  return { title: copy.hero.userTitle, text: copy.hero.userText };
 }
 
 function getSummaryCards({
@@ -465,132 +431,6 @@ function getSummaryCards({
       label: copy.summary.needsAction,
       detail: copy.summary.actionHint,
       icon: IconInbox
-    }
-  ];
-}
-
-function getFocusCards({
-  lang,
-  copy,
-  home,
-  hasAdminAccess
-}: {
-  lang: "sr" | "en";
-  copy: ReturnType<typeof getDashboardCopy>;
-  home: Awaited<ReturnType<typeof getHomeDashboard>>;
-  hasAdminAccess: boolean;
-}): FocusCard[] {
-  if (home.mode === "manager") {
-    return [
-      {
-        value: String(home.summary.inbox.totals.needsMyAction),
-        label: copy.focus.managerApprovals,
-        description: copy.focus.managerApprovalsText,
-        href: "/management",
-        cta: copy.open,
-        icon: IconCheckCircle
-      },
-      {
-        value: String(home.summary.missingReports.length),
-        label: copy.focus.managerReports,
-        description: copy.focus.managerReportsText,
-        href: "/reports/manager",
-        cta: copy.open,
-        icon: IconReport
-      },
-      {
-        value: String(home.summary.teamOpenHiring),
-        label: copy.focus.managerHiring,
-        description: copy.focus.managerHiringText,
-        href: "/management",
-        cta: copy.open,
-        icon: IconBriefcase
-      }
-    ];
-  }
-
-  if (home.mode === "hr") {
-    return [
-      {
-        value: String(home.summary.hrApprovedRequests),
-        label: copy.focus.hrRequests,
-        description: copy.focus.hrRequestsText,
-        href: "/hr",
-        cta: copy.open,
-        icon: IconBriefcase
-      },
-      {
-        value: String(home.summary.hrScreening + home.summary.hrRoundTwo + home.summary.hrFinalRound),
-        label: copy.focus.hrCandidates,
-        description: copy.focus.hrCandidatesText,
-        href: "/candidates",
-        cta: copy.open,
-        icon: IconUsers
-      },
-      {
-        value: String(home.summary.hrOverdueOnboarding),
-        label: copy.focus.hrOnboarding,
-        description: copy.focus.hrOnboardingText,
-        href: "/onboarding",
-        cta: copy.open,
-        icon: IconSparkles
-      }
-    ];
-  }
-
-  if (home.mode === "admin") {
-    return [
-      {
-        value: hasAdminAccess ? (lang === "sr" ? "SPREMNO" : "READY") : "—",
-        label: copy.focus.adminAccess,
-        description: copy.focus.adminAccessText,
-        href: "/access",
-        cta: copy.open,
-        icon: IconUsers
-      },
-      {
-        value: hasAdminAccess ? (lang === "sr" ? "AKTIVNO" : "LIVE") : "—",
-        label: copy.focus.adminSettings,
-        description: copy.focus.adminSettingsText,
-        href: "/admin/settings",
-        cta: copy.open,
-        icon: IconSettings
-      },
-      {
-        value: String(home.summary.inbox.totals.needsMyAction),
-        label: copy.focus.adminInbox,
-        description: copy.focus.adminInboxText,
-        href: "/inbox",
-        cta: copy.open,
-        icon: IconInbox
-      }
-    ];
-  }
-
-  return [
-    {
-      value: String(home.summary.todayTaskCount),
-      label: copy.focus.userTasks,
-      description: copy.focus.userTasksText,
-      href: "/tasks",
-      cta: copy.open,
-      icon: IconTasks
-    },
-    {
-      value: home.summary.todayReport ? copy.summary.reportDone : copy.summary.reportMissing,
-      label: copy.focus.userReports,
-      description: copy.focus.userReportsText,
-      href: "/reports",
-      cta: copy.open,
-      icon: IconReport
-    },
-    {
-      value: String(home.summary.teamAbsencesToday.length),
-      label: copy.focus.userAbsence,
-      description: copy.focus.userAbsenceText,
-      href: "/absence",
-      cta: copy.open,
-      icon: IconCalendar
     }
   ];
 }
@@ -737,11 +577,13 @@ function getVisibilityRows({
 }
 
 function getQuickActions({
+  home,
   copy,
   hasManagementPanel,
   hasHrAccess,
   hasAdminAccess
 }: {
+  home: Awaited<ReturnType<typeof getHomeDashboard>>;
   copy: ReturnType<typeof getDashboardCopy>;
   hasManagementPanel: boolean;
   hasHrAccess: boolean;
@@ -753,133 +595,38 @@ function getQuickActions({
     actions.push(action);
   };
 
-  if (hasManagementPanel) {
+  if (home.mode === "manager") {
     push({ href: "/management", label: copy.quick.management, icon: IconBriefcase });
+    push({ href: "/tasks", label: copy.quick.tasks, icon: IconTasks });
+    push({ href: "/reports/manager", label: copy.quick.reports, icon: IconReport });
+    push({ href: "/inbox", label: copy.quick.inbox, icon: IconInbox });
+    return actions;
   }
 
-  if (hasHrAccess) {
+  if (home.mode === "hr") {
     push({ href: "/hr", label: copy.quick.hr, icon: IconBriefcase });
+    push({ href: "/candidates", label: copy.quick.candidates, icon: IconUsers });
+    push({ href: "/onboarding", label: copy.quick.onboarding, icon: IconSparkles });
+    push({ href: "/inbox", label: copy.quick.inbox, icon: IconInbox });
+    return actions;
   }
 
-  if (hasAdminAccess) {
-    push({ href: "/access", label: copy.quick.access, icon: IconUsers });
+  if (home.mode === "admin") {
+    if (hasAdminAccess) push({ href: "/access", label: copy.quick.access, icon: IconUsers });
+    if (hasAdminAccess) push({ href: "/admin/settings", label: copy.quick.settings, icon: IconSettings });
+    push({ href: "/inbox", label: copy.quick.inbox, icon: IconInbox });
+    push({ href: "/tasks", label: copy.quick.tasks, icon: IconTasks });
+    return actions;
   }
 
   push({ href: "/tasks", label: copy.quick.tasks, icon: IconTasks });
   push({ href: hasManagementPanel ? "/reports/manager" : "/reports", label: copy.quick.reports, icon: IconReport });
   push({ href: "/absence", label: copy.quick.absence, icon: IconCalendar });
   push({ href: "/inbox", label: copy.quick.inbox, icon: IconInbox });
-  push({ href: "/onboarding", label: copy.quick.onboarding, icon: IconSparkles });
-  push({ href: "/admin/settings", label: copy.quick.settings, icon: IconSettings });
+  if (hasHrAccess) push({ href: "/hr", label: copy.quick.hr, icon: IconBriefcase });
+  if (hasAdminAccess) push({ href: "/access", label: copy.quick.access, icon: IconUsers });
 
   return actions.slice(0, 4);
-}
-
-function getModuleSections({
-  lang,
-  hasManagementPanel,
-  hasHrAccess,
-  hasAdminAccess,
-  t
-}: {
-  lang: "sr" | "en";
-  hasManagementPanel: boolean;
-  hasHrAccess: boolean;
-  hasAdminAccess: boolean;
-  t: ReturnType<typeof getI18n>;
-}) {
-  const workspace: ModuleItem[] = [
-    {
-      href: hasManagementPanel ? "/reports/manager" : "/reports",
-      title: hasManagementPanel ? t.dashboard.reportingManager : t.dashboard.dailyReport,
-      subtitle: hasManagementPanel ? t.dashboard.reportingManagerDesc : t.dashboard.dailyReportDesc,
-      icon: IconReport,
-      className: "module-primary"
-    },
-    {
-      href: "/tasks",
-      title: t.dashboard.tasks,
-      subtitle: t.dashboard.tasksDesc,
-      icon: IconTasks,
-      className: "module-tasks"
-    },
-    {
-      href: "/absence",
-      title: t.dashboard.absence,
-      subtitle: t.dashboard.absenceDesc,
-      icon: IconCalendar,
-      className: "module-absence"
-    },
-    {
-      href: "/performance",
-      title: t.dashboard.performance,
-      subtitle: t.dashboard.performanceDesc,
-      icon: IconSparkles,
-      className: "module-performance"
-    },
-    {
-      href: "/organization",
-      title: t.dashboard.orgChart,
-      subtitle: t.dashboard.orgChartDesc,
-      icon: IconUsers,
-      className: "module-admin"
-    }
-  ];
-
-  const accessTools: ModuleItem[] = [];
-
-  if (hasManagementPanel) {
-    accessTools.push({
-      href: "/management",
-      title: "Management Panel",
-      subtitle:
-        lang === "sr"
-          ? "Odobrenja, otvoreni hiring zahtevi i timski fokus na jednom mestu."
-          : "Approvals, hiring requests, and team focus in one place.",
-      icon: IconBriefcase,
-      className: "module-admin"
-    });
-  }
-
-  if (hasHrAccess) {
-    accessTools.push({
-      href: "/hr",
-      title: "HR System",
-      subtitle:
-        lang === "sr"
-          ? "Otvorene pozicije, kandidati i sledeći HR koraci bez pretrpavanja."
-          : "Open positions, candidates, and next HR actions without extra noise.",
-      icon: IconUsers,
-      className: "module-admin"
-    });
-  }
-
-  if (hasAdminAccess) {
-    accessTools.push(
-      {
-        href: "/access",
-        title: "Access",
-        subtitle:
-          lang === "sr"
-            ? "Uloge, timovi, menadžeri i dodatni pristupi."
-            : "Roles, teams, managers, and extra access layers.",
-        icon: IconUsers,
-        className: "module-admin"
-      },
-      {
-        href: "/admin/settings",
-        title: "Settings",
-        subtitle:
-          lang === "sr"
-            ? "Sistemske vrednosti, rečnici i podrazumevani linkovi."
-            : "System values, dictionaries, and default links.",
-        icon: IconSettings,
-        className: "module-admin"
-      }
-    );
-  }
-
-  return { workspace, accessTools };
 }
 
 function getToneLabel(tone: "review" | "warning" | "info" | "success", lang: "sr" | "en") {
@@ -891,9 +638,7 @@ function getToneLabel(tone: "review" | "warning" | "info" | "success", lang: "sr
 
 export default async function DashboardPage() {
   const user = await requireActiveUser();
-  const branding = await getBrandingSettings();
   const lang = getRequestLang();
-  const t = getI18n(lang);
   const copy = getDashboardCopy(lang);
   const home = await getHomeDashboard({
     id: user.id,
@@ -907,12 +652,9 @@ export default async function DashboardPage() {
   const hasManagementPanel = isManagerRole(user.role);
   const hasAdminAccess = hasAccessAdmin(user);
   const inboxPreview = home.summary.inbox.needsMyAction.slice(0, 4);
-  const hero = getHeroContent(home.mode as DashboardMode, copy);
   const summaryCards = getSummaryCards({ lang, copy, home });
-  const focusCards = getFocusCards({ lang, copy, home, hasAdminAccess });
   const visibilityRows = getVisibilityRows({ lang, copy, home, hasHrAccess, hasAdminAccess });
-  const quickActions = getQuickActions({ copy, hasManagementPanel, hasHrAccess, hasAdminAccess });
-  const modules = getModuleSections({ lang, hasManagementPanel, hasHrAccess, hasAdminAccess, t });
+  const quickActions = getQuickActions({ home, copy, hasManagementPanel, hasHrAccess, hasAdminAccess });
 
   return (
     <main className="page">
@@ -945,13 +687,17 @@ export default async function DashboardPage() {
 
         <section className="panel stack dashboard-hero">
           <div className="dashboard-hero-main">
-            <div className="stack">
+            <div className="stack dashboard-hero-copy">
               <div className="small muted">
-                {lang === "sr" ? "Centralni radni pregled" : "Central workspace overview"}
+                {lang === "sr" ? "Najbitnije stavke za današnji rad" : "Most important items for today"}
               </div>
               <div>
-                <h2 className="h2">{hero.title}</h2>
-                <p className="muted">{hero.text}</p>
+                <h2 className="h2">{copy.focusTitle}</h2>
+                <p className="muted">
+                  {lang === "sr"
+                    ? "Početna je svedena na ono što traži tvoju pažnju odmah: status rada, prioriteti i brze akcije."
+                    : "Home is reduced to what needs your attention first: work status, priorities, and quick actions."}
+                </p>
               </div>
             </div>
 
@@ -998,34 +744,6 @@ export default async function DashboardPage() {
           <section className="panel stack">
             <div className="dashboard-section-head">
               <h2 className="h2">
-                <LabelWithTooltip label={copy.focusTitle} tooltip={copy.focusTooltip} />
-              </h2>
-            </div>
-            <div className="grid3 dashboard-focus-grid">
-              {focusCards.map((card) => {
-                const Icon = card.icon;
-                return (
-                  <article key={card.label} className="item stack dashboard-focus-card">
-                    <div className="dashboard-focus-top">
-                      <span className="dashboard-focus-icon">
-                        <Icon size={18} />
-                      </span>
-                      <span className="dashboard-focus-value">{card.value}</span>
-                    </div>
-                    <div className="dashboard-focus-label">{card.label}</div>
-                    <p className="muted small">{card.description}</p>
-                    <Link className="button button-secondary" href={card.href}>
-                      {card.cta}
-                    </Link>
-                  </article>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="panel stack">
-            <div className="dashboard-section-head">
-              <h2 className="h2">
                 <LabelWithTooltip label={copy.actionCenterTitle} tooltip={copy.actionCenterTooltip} />
               </h2>
               <Link className="button button-secondary" href="/inbox">
@@ -1057,84 +775,24 @@ export default async function DashboardPage() {
           </section>
         </div>
 
-        <div className="grid2 dashboard-home-grid">
-          <section className="panel stack">
-            <div className="dashboard-section-head">
-              <h2 className="h2">
-                <LabelWithTooltip label={copy.visibilityTitle} tooltip={copy.visibilityTooltip} />
-              </h2>
-            </div>
-            <div className="dashboard-visibility-list">
-              {visibilityRows.map((row) => (
-                <div key={row.label} className="item dashboard-visibility-row">
-                  <div>
-                    <div className="item-title">{row.label}</div>
-                    {row.detail ? <div className="muted small">{row.detail}</div> : null}
-                  </div>
-                  <div className="dashboard-visibility-value">{row.value}</div>
+        <section className="panel stack">
+          <div className="dashboard-section-head">
+            <h2 className="h2">
+              <LabelWithTooltip label={copy.visibilityTitle} tooltip={copy.visibilityTooltip} />
+            </h2>
+          </div>
+          <div className="dashboard-visibility-list">
+            {visibilityRows.map((row) => (
+              <div key={row.label} className="item dashboard-visibility-row">
+                <div>
+                  <div className="item-title">{row.label}</div>
+                  {row.detail ? <div className="muted small">{row.detail}</div> : null}
                 </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="panel stack">
-            <div className="dashboard-section-head">
-              <div>
-                <h2 className="h2">{copy.workspaceTitle}</h2>
-                <p className="muted small">{copy.workspaceText}</p>
+                <div className="dashboard-visibility-value">{row.value}</div>
               </div>
-            </div>
-            <div className="module-grid" role="list">
-              {modules.workspace.map((module) => {
-                const Icon = module.icon;
-                return (
-                  <Link key={module.href} className={`module-tile ${module.className}`} href={module.href} role="listitem">
-                    <span className="module-icon" aria-hidden="true">
-                      <Icon size={24} />
-                    </span>
-                    <span className="module-body">
-                      <span className="module-title">{module.title}</span>
-                      <span className="module-subtitle">{module.subtitle}</span>
-                    </span>
-                    <span className="module-cta" aria-hidden="true">
-                      <IconArrowRight size={18} />
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-        </div>
-
-        {modules.accessTools.length ? (
-          <section className="panel stack">
-            <div className="dashboard-section-head">
-              <div>
-                <h2 className="h2">{copy.accessTitle}</h2>
-                <p className="muted small">{copy.accessText}</p>
-              </div>
-            </div>
-            <div className="module-grid" role="list">
-              {modules.accessTools.map((module) => {
-                const Icon = module.icon;
-                return (
-                  <Link key={module.href} className={`module-tile ${module.className}`} href={module.href} role="listitem">
-                    <span className="module-icon" aria-hidden="true">
-                      <Icon size={24} />
-                    </span>
-                    <span className="module-body">
-                      <span className="module-title">{module.title}</span>
-                      <span className="module-subtitle">{module.subtitle}</span>
-                    </span>
-                    <span className="module-cta" aria-hidden="true">
-                      <IconArrowRight size={18} />
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-        ) : null}
+            ))}
+          </div>
+        </section>
       </div>
     </main>
   );

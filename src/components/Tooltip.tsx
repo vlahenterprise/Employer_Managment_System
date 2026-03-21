@@ -1,7 +1,10 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { IconInfoCircle } from "@/components/icons";
+import { getTooltipPosition } from "@/components/tooltip-position";
 
 export function Tooltip({
   text,
@@ -11,33 +14,24 @@ export function Tooltip({
   label?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [align, setAlign] = useState<"left" | "center" | "right">("right");
+  const [position, setPosition] = useState<ReturnType<typeof getTooltipPosition> | null>(null);
   const ref = useRef<HTMLSpanElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
   const tooltipId = useId();
 
   useEffect(() => {
     if (!open) return;
 
-    const updateAlignment = () => {
-      const node = ref.current;
+    const updatePosition = () => {
+      const node = buttonRef.current;
       if (!node) return;
-      const rect = node.getBoundingClientRect();
-      const tooltipWidth = Math.min(280, window.innerWidth - 48);
-      const viewportPadding = 18;
-      const centerLeft = rect.left + rect.width / 2 - tooltipWidth / 2;
-      const centerRight = centerLeft + tooltipWidth;
-
-      if (rect.left + tooltipWidth > window.innerWidth - viewportPadding) {
-        setAlign("right");
-        return;
-      }
-
-      if (centerLeft >= viewportPadding && centerRight <= window.innerWidth - viewportPadding) {
-        setAlign("center");
-        return;
-      }
-
-      setAlign("left");
+      setPosition(
+        getTooltipPosition({
+          triggerRect: node.getBoundingClientRect(),
+          viewportWidth: window.innerWidth,
+          viewportHeight: window.innerHeight
+        })
+      );
     };
 
     const onPointerDown = (event: MouseEvent) => {
@@ -51,22 +45,23 @@ export function Tooltip({
       if (event.key === "Escape") setOpen(false);
     };
 
-    updateAlignment();
+    updatePosition();
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
-    window.addEventListener("resize", updateAlignment);
-    window.addEventListener("scroll", updateAlignment, true);
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
     return () => {
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("resize", updateAlignment);
-      window.removeEventListener("scroll", updateAlignment, true);
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
     };
   }, [open]);
 
   return (
     <span ref={ref} className={`help-tooltip${open ? " is-open" : ""}`}>
       <button
+        ref={buttonRef}
         type="button"
         className="help-tooltip-button"
         aria-label={label}
@@ -76,11 +71,26 @@ export function Tooltip({
       >
         <IconInfoCircle size={16} />
       </button>
-      {open ? (
-        <span id={tooltipId} role="tooltip" className={`help-tooltip-card help-tooltip-card-${align}`}>
-          {text}
-        </span>
-      ) : null}
+      {open && position
+        ? createPortal(
+            <span
+              id={tooltipId}
+              role="tooltip"
+              className={`help-tooltip-card help-tooltip-card-${position.placement}`}
+              style={
+                {
+                  left: `${position.left}px`,
+                  top: `${position.top}px`,
+                  width: `${position.width}px`,
+                  "--tooltip-arrow-left": `${position.arrowLeft}px`
+                } as CSSProperties
+              }
+            >
+              {text}
+            </span>,
+            document.body
+          )
+        : null}
     </span>
   );
 }

@@ -444,15 +444,15 @@ export default async function HrProcessPage({
               <div className="process-card-value">{process.requestedHeadcount}</div>
             </div>
             <div className="item">
-              <div className="process-card-label">Applicants</div>
+              <div className="process-card-label">{lang === "sr" ? "Prijavljeni" : "Applicants"}</div>
               <div className="process-card-value">{applicants}</div>
             </div>
             <div className="item">
-              <div className="process-card-label">Second round</div>
+              <div className="process-card-label">{c.secondRound}</div>
               <div className="process-card-value">{secondRound}</div>
             </div>
             <div className="item">
-              <div className="process-card-label">Approved</div>
+              <div className="process-card-label">{lang === "sr" ? "Odobreni" : "Approved"}</div>
               <div className="process-card-value">{approved}</div>
             </div>
           </div>
