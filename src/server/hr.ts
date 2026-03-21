@@ -2,7 +2,13 @@ import "server-only";
 
 import { Prisma, type HrCandidateStatus, type HrPriority, type HrProcessStatus, type UserRole } from "@prisma/client";
 import { prisma } from "./db";
-import { buildOrgIndex, getAllowedEmployeesForManager, loadOrgUsers } from "./org";
+import { buildOrgIndex, loadOrgUsers } from "./org";
+import {
+  getScopedEmployeeIds,
+  hasHrSystemAccess as actorHasHrSystemAccess,
+  hasManagementPanelAccess as actorHasManagementPanelAccess
+} from "./rbac";
+import { logInfo } from "./log";
 
 type HrActor = {
   id: string;
@@ -57,11 +63,11 @@ function dedupe<T>(items: T[]) {
 }
 
 function hasActorHrAddon(actor: Pick<HrActor, "role" | "hrAddon">) {
-  return actor.role === "ADMIN" || actor.role === "HR" || Boolean(actor.hrAddon);
+  return actorHasHrSystemAccess(actor);
 }
 
 function hasManagementPanel(actor: Pick<HrActor, "role">) {
-  return actor.role === "ADMIN" || actor.role === "MANAGER";
+  return actorHasManagementPanelAccess(actor);
 }
 
 function buildManagerChain(managerId: string | null | undefined, managerOf: Map<string, string | null>) {
@@ -255,11 +261,11 @@ async function getCandidateProfileTx(
 }
 
 export function hasHrSystemAccess(actor: Pick<HrActor, "role" | "hrAddon">) {
-  return hasActorHrAddon(actor);
+  return actorHasHrSystemAccess(actor);
 }
 
 export function hasManagementPanelAccess(actor: Pick<HrActor, "role">) {
-  return hasManagementPanel(actor);
+  return actorHasManagementPanelAccess(actor);
 }
 
 export async function getHrDashboard(actor: HrActor, rawFilters: ProcessFilterInput = {}) {
@@ -564,6 +570,14 @@ export async function createHrProcess(params: {
     return process;
   });
 
+  logInfo("hr.process.created", {
+    actorId: params.actor.id,
+    processId: created.id,
+    teamId: cleanText(params.teamId) || null,
+    managerId: selectedManagerId,
+    finalApproverId
+  });
+
   return { ok: true as const, processId: created.id };
 }
 
@@ -605,6 +619,14 @@ export async function updateHrProcessMeta(params: {
       newValue: nextStatus,
       comment: [adChannel ? `channel=${adChannel}` : "", note].filter(Boolean).join(" · ")
     });
+  });
+
+  logInfo("hr.process.updated", {
+    actorId: params.actor.id,
+    processId,
+    status: nextStatus,
+    adChannel: adChannel || null,
+    adPublishedAt: adPublishedAt?.toISOString() || null
   });
 
   return { ok: true as const };
@@ -708,6 +730,13 @@ export async function addCandidateToHrProcess(params: {
   if (created === null) return { ok: false as const, error: "CANDIDATE_REQUIRED" };
   if (created === "EXISTS") return { ok: false as const, error: "CANDIDATE_EXISTS" };
 
+  logInfo("hr.candidate.added", {
+    actorId: params.actor.id,
+    processId,
+    applicationId: created.applicationId,
+    candidateId: created.candidateId
+  });
+
   return { ok: true as const, ...created };
 }
 
@@ -776,6 +805,14 @@ export async function hrScreenCandidate(params: {
         processCandidateId: applicationId
       });
     }
+  });
+
+  logInfo("hr.screening.saved", {
+    actorId: params.actor.id,
+    processId: application.processId,
+    applicationId,
+    decision: params.decision,
+    nextStatus
   });
 
   return { ok: true as const };
@@ -861,6 +898,15 @@ export async function managerReviewHrCandidate(params: {
     });
   });
 
+  logInfo("hr.manager.review.saved", {
+    actorId: params.actor.id,
+    processId: application.processId,
+    applicationId,
+    decision: params.decision,
+    nextStatus,
+    proposedSlots: proposedSlots.length
+  });
+
   return { ok: true as const };
 }
 
@@ -924,6 +970,13 @@ export async function scheduleHrInterview(params: {
         processCandidateId: applicationId
       });
     }
+  });
+
+  logInfo("hr.interview.scheduled", {
+    actorId: params.actor.id,
+    processId: application.processId,
+    applicationId,
+    interviewAt: interviewAt.toISOString()
   });
 
   return { ok: true as const };
@@ -1007,6 +1060,14 @@ export async function secondRoundHrDecision(params: {
         processCandidateId: applicationId
       });
     }
+  });
+
+  logInfo("hr.second-round.saved", {
+    actorId: params.actor.id,
+    processId: application.processId,
+    applicationId,
+    decision: params.decision,
+    nextStatus
   });
 
   return { ok: true as const };
@@ -1110,6 +1171,14 @@ export async function finalApproveHrCandidate(params: {
     });
   });
 
+  logInfo("hr.final-approval.saved", {
+    actorId: params.actor.id,
+    processId: application.processId,
+    applicationId,
+    decision: params.decision,
+    nextStatus
+  });
+
   return { ok: true as const };
 }
 
@@ -1152,6 +1221,13 @@ export async function archiveHrCandidate(params: {
       newValue: params.status,
       comment: reason
     });
+  });
+
+  logInfo("hr.candidate.archived", {
+    actorId: params.actor.id,
+    processId: application.processId,
+    applicationId,
+    status: params.status
   });
 
   return { ok: true as const };
@@ -1209,6 +1285,11 @@ export async function cancelHrProcess(params: {
     });
   });
 
+  logInfo("hr.process.canceled", {
+    actorId: params.actor.id,
+    processId
+  });
+
   return { ok: true as const };
 }
 
@@ -1244,6 +1325,11 @@ export async function closeHrProcess(params: {
     });
   });
 
+  logInfo("hr.process.closed", {
+    actorId: params.actor.id,
+    processId
+  });
+
   return { ok: true as const };
 }
 
@@ -1271,8 +1357,7 @@ export async function getManagementPanel(actor: HrActor) {
 
   const orgUsers = await loadOrgUsers();
   const { managerOf } = buildOrgIndex(orgUsers);
-  const allowedEmployees =
-    actor.role === "ADMIN" ? new Set(orgUsers.map((user) => user.id)) : getAllowedEmployeesForManager(actor.id, orgUsers);
+  const allowedEmployees = getScopedEmployeeIds({ id: actor.id, role: actor.role }, orgUsers);
   const allowedTeams = new Set(orgUsers.filter((user) => allowedEmployees.has(user.id)).map((user) => user.teamId).filter(Boolean));
 
   const [processes, pendingReview, finalApprovals, notifications, openTasks, overdueTasks, pendingEvaluations, activeAbsences] =

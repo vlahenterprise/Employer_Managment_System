@@ -491,7 +491,10 @@ export const KNOWN_SETTINGS: SettingMeta[] = [
     group: "Backup",
     type: "boolean",
     label: { sr: "Backup enabled", en: "Backup enabled" },
-    description: { sr: "Omogućava automatski backup dok aplikacija radi.", en: "Enables automatic backups while the app is running." },
+    description: {
+      sr: "Omogućava automatski backup kroz cron-kompatibilan job.",
+      en: "Enables automatic backups through a cron-compatible job."
+    },
     placeholder: "0"
   },
   {
@@ -499,7 +502,10 @@ export const KNOWN_SETTINGS: SettingMeta[] = [
     group: "Backup",
     type: "time",
     label: { sr: "Backup vreme", en: "Backup time" },
-    description: { sr: "Dnevno vreme (HH:MM) kada scheduler pokušava da uradi backup.", en: "Daily time (HH:MM) when scheduler runs backup." },
+    description: {
+      sr: "Dnevno vreme (HH:MM) kada zakazani backup proverava da li treba da se izvrši.",
+      en: "Daily time (HH:MM) when the scheduled backup checks whether it should run."
+    },
     placeholder: "02:00"
   },
   {
@@ -507,7 +513,10 @@ export const KNOWN_SETTINGS: SettingMeta[] = [
     group: "Backup",
     type: "number",
     label: { sr: "Backup keep days", en: "Backup keep days" },
-    description: { sr: "Koliko dana zadržavamo backup fajlove na serveru.", en: "How many days backups are kept on the server." },
+    description: {
+      sr: "Koliko dana zadržavamo snimljene backup ZIP fajlove.",
+      en: "How many days stored backup ZIP files are kept."
+    },
     min: 1,
     max: 3650,
     step: 1,
@@ -518,7 +527,10 @@ export const KNOWN_SETTINGS: SettingMeta[] = [
     group: "Backup",
     type: "text",
     label: { sr: "Backup folder", en: "Backup folder" },
-    description: { sr: "Folder (relativno od root-a) gde se čuvaju backup ZIP fajlovi.", en: "Folder (relative to app root) where backup ZIP files are stored." },
+    description: {
+      sr: "Logički naziv grupe pod kojom se backup ZIP fajlovi čuvaju i prikazuju.",
+      en: "Logical group name under which backup ZIP files are stored and listed."
+    },
     placeholder: "backups"
   }
 ];

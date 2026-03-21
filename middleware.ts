@@ -26,6 +26,9 @@ export const config = {
     "/reports/:path*",
     "/tasks/:path*",
     "/absence/:path*",
-    "/performance/:path*"
+    "/performance/:path*",
+    "/organization/:path*",
+    "/hr/:path*",
+    "/management/:path*"
   ]
 };

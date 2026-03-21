@@ -109,7 +109,9 @@ export default async function AbsencePage({
     getAbsenceRemaining({ id: user.id }),
     getMyAbsenceRequests({ id: user.id }),
     isAdmin ? getAbsenceApprovals({ id: user.id, role: user.role }) : Promise.resolve({ ok: true as const, items: [] as any[] }),
-    isAdmin || isManager ? getAbsenceManagerStats({ id: user.id }) : Promise.resolve({ ok: true as const, year: new Date().getFullYear(), items: [] as any[] }),
+    isAdmin || isManager
+      ? getAbsenceManagerStats({ id: user.id, role: user.role })
+      : Promise.resolve({ ok: true as const, year: new Date().getFullYear(), items: [] as any[] }),
     isAdmin ? prisma.team.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }) : Promise.resolve([]),
     getAbsenceCalendar({
       actor: { id: user.id, role: user.role, teamId: user.teamId },

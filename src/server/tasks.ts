@@ -2,9 +2,11 @@ import "server-only";
 
 import { prisma } from "./db";
 import { APP_TIMEZONE, getAppSettings } from "./app-settings";
-import { buildApprovalHierarchyContext, canManagerApproveEmployee, getAllowedEmployeesForManager, loadOrgUsers } from "./org";
+import { buildApprovalHierarchyContext, canManagerApproveEmployee, loadOrgUsers } from "./org";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { normalizeIsoDate } from "./iso-date";
+import { getScopedEmployeeIds, isAdminRole } from "./rbac";
+import { idSchema, isoDateSchema, requiredTextSchema } from "./validation";
 
 function normalizeEmail(value: string) {
   return String(value || "").trim().toLowerCase();
@@ -55,7 +57,9 @@ export function normalizeTaskFilters(filters: {
   return { fromIso, toIso, teamId, employeeId };
 }
 
-async function canApproveTask(actorId: string, assigneeId: string) {
+async function canApproveTask(actor: { id: string; role: "ADMIN" | "HR" | "MANAGER" | "USER" }, assigneeId: string) {
+  if (isAdminRole(actor.role)) return true;
+  const actorId = actor.id;
   if (!actorId || !assigneeId) return false;
   if (actorId === assigneeId) return false;
 
@@ -129,12 +133,7 @@ export type TaskDashboard = {
 export async function getTaskPickers(actor: { id: string; role: "ADMIN" | "HR" | "MANAGER" | "USER" }) {
   const canManage = actor.role !== "USER";
   const orgUsers = await loadOrgUsers();
-  const allowedIds =
-    actor.role === "ADMIN" || actor.role === "HR"
-      ? new Set(orgUsers.map((u) => u.id))
-      : canManage
-        ? getAllowedEmployeesForManager(actor.id, orgUsers)
-        : null;
+  const allowedIds = canManage ? getScopedEmployeeIds({ id: actor.id, role: actor.role }, orgUsers) : null;
 
   const [teams, users] = await Promise.all([
     prisma.team.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
@@ -168,7 +167,7 @@ export async function getTaskPickers(actor: { id: string; role: "ADMIN" | "HR" |
 
 export async function getTaskDashboard(actor: { id: string; email: string; role: "ADMIN" | "HR" | "MANAGER" | "USER" }, filtersRaw: TaskFilters): Promise<TaskDashboard> {
   const canManage = actor.role !== "USER";
-  const isAdmin = actor.role === "ADMIN";
+  const isAdmin = isAdminRole(actor.role);
   const f = { ...filtersRaw };
 
   if (!canManage) {
@@ -205,12 +204,7 @@ export async function getTaskDashboard(actor: { id: string; email: string; role:
   }
 
   const orgUsers = await loadOrgUsers();
-  const allowedIds =
-    actor.role === "ADMIN" || actor.role === "HR"
-      ? new Set(orgUsers.map((u) => u.id))
-      : canManage
-        ? getAllowedEmployeesForManager(actor.id, orgUsers)
-        : null;
+  const allowedIds = canManage ? getScopedEmployeeIds({ id: actor.id, role: actor.role }, orgUsers) : null;
 
   const range = parseRangeUtc(f.fromIso, f.toIso);
   const tIso = todayIso();
@@ -244,21 +238,6 @@ export async function getTaskDashboard(actor: { id: string; email: string; role:
     }
   });
 
-  const approvalByAssignee = new Map<string, boolean>();
-  if (isAdmin && tasks.length > 0) {
-    const settings = await getAppSettings();
-    const context = await buildApprovalHierarchyContext({
-      allowAncestor: Boolean(Number(settings.AllowAncestorApprovalTasks || 0)),
-      employeeIds: tasks.map((task) => task.assignee.id)
-    });
-    for (const task of tasks) {
-      const assigneeId = task.assignee.id;
-      if (!approvalByAssignee.has(assigneeId)) {
-        approvalByAssignee.set(assigneeId, canManagerApproveEmployee(actor.id, assigneeId, context));
-      }
-    }
-  }
-
   const items: TaskDashboardItem[] = [];
   for (const t of tasks) {
     const delegatedIso = formatInTimeZone(t.delegatedAt, APP_TIMEZONE, "yyyy-MM-dd");
@@ -274,7 +253,7 @@ export async function getTaskDashboard(actor: { id: string; email: string; role:
       approvedLate = !approvedOnTime;
     }
 
-    const canApprove = isAdmin ? (approvalByAssignee.get(t.assignee.id) ?? false) : false;
+    const canApprove = isAdmin;
 
     items.push({
       taskId: t.id,
@@ -418,17 +397,25 @@ export async function createTask(params: {
 }) {
   if (params.actor.role !== "ADMIN") return { ok: false as const, error: "NO_ACCESS" };
 
-  const title = String(params.payload.title || "").trim();
-  const description = String(params.payload.description || "").trim();
-  const dueIso = normalizeIsoDate(params.payload.dueIso) || "";
-  if (!title) return { ok: false as const, error: "MISSING_TITLE" };
-  if (!description) return { ok: false as const, error: "MISSING_DESCRIPTION" };
-  if (!params.payload.assigneeId) return { ok: false as const, error: "MISSING_ASSIGNEE" };
-  if (!dueIso) return { ok: false as const, error: "MISSING_DUE_DATE" };
+  const titleParsed = requiredTextSchema(200, "MISSING_TITLE").safeParse(params.payload.title);
+  if (!titleParsed.success) return { ok: false as const, error: titleParsed.error.issues[0]?.message || "MISSING_TITLE" };
+  const descriptionParsed = requiredTextSchema(5000, "MISSING_DESCRIPTION").safeParse(params.payload.description);
+  if (!descriptionParsed.success) {
+    return { ok: false as const, error: descriptionParsed.error.issues[0]?.message || "MISSING_DESCRIPTION" };
+  }
+  const assigneeIdParsed = idSchema.safeParse(params.payload.assigneeId);
+  if (!assigneeIdParsed.success) return { ok: false as const, error: "MISSING_ASSIGNEE" };
+  const dueIsoParsed = isoDateSchema.safeParse(params.payload.dueIso);
+  if (!dueIsoParsed.success) return { ok: false as const, error: "MISSING_DUE_DATE" };
+
+  const title = titleParsed.data;
+  const description = descriptionParsed.data;
+  const assigneeId = assigneeIdParsed.data;
+  const dueIso = dueIsoParsed.data;
 
   const orgUsers = await loadOrgUsers();
-  const allowedIds = getAllowedEmployeesForManager(params.actor.id, orgUsers);
-  if (!allowedIds.has(params.payload.assigneeId)) return { ok: false as const, error: "NO_ACCESS" };
+  const allowedIds = getScopedEmployeeIds({ id: params.actor.id, role: params.actor.role }, orgUsers);
+  if (!allowedIds.has(assigneeId)) return { ok: false as const, error: "NO_ACCESS" };
 
   const delegatedAt = new Date();
   const dueDate = fromZonedTime(`${dueIso}T00:00:00`, APP_TIMEZONE);
@@ -440,7 +427,7 @@ export async function createTask(params: {
       priority: params.payload.priority,
       status: "OPEN",
       delegatorId: params.actor.id,
-      assigneeId: params.payload.assigneeId,
+      assigneeId,
       teamId: params.payload.teamId,
       delegatedAt,
       dueDate,
@@ -456,7 +443,7 @@ export async function createTask(params: {
       actorId: params.actor.id,
       actorEmail: normalizeEmail(params.actor.email),
       actorName: params.actor.name,
-      comment: `Delegated to ${params.payload.assigneeId}`
+      comment: `Delegated to ${assigneeId}`
     }
   });
 
@@ -470,8 +457,10 @@ export async function submitTaskForApproval(params: {
 }) {
   const taskId = String(params.taskId || "").trim();
   const comment = String(params.comment || "").trim();
-  if (!taskId) return { ok: false as const, error: "TASK_NOT_FOUND" };
-  if (!comment) return { ok: false as const, error: "COMMENT_REQUIRED" };
+  if (!idSchema.safeParse(taskId).success) return { ok: false as const, error: "TASK_NOT_FOUND" };
+  if (!requiredTextSchema(5000, "COMMENT_REQUIRED").safeParse(comment).success) {
+    return { ok: false as const, error: "COMMENT_REQUIRED" };
+  }
 
   const task = await prisma.task.findUnique({
     where: { id: taskId },
@@ -516,7 +505,7 @@ export async function approveTaskAction(params: {
 }) {
   if (params.actor.role !== "ADMIN") return { ok: false as const, error: "NO_ACCESS" };
   const taskId = String(params.taskId || "").trim();
-  if (!taskId) return { ok: false as const, error: "TASK_NOT_FOUND" };
+  if (!idSchema.safeParse(taskId).success) return { ok: false as const, error: "TASK_NOT_FOUND" };
 
   const task = await prisma.task.findUnique({
     where: { id: taskId },
@@ -524,7 +513,7 @@ export async function approveTaskAction(params: {
   });
   if (!task) return { ok: false as const, error: "TASK_NOT_FOUND" };
 
-  const can = await canApproveTask(params.actor.id, task.assigneeId);
+  const can = await canApproveTask(params.actor, task.assigneeId);
   if (!can) return { ok: false as const, error: "NO_ACCESS" };
 
   const comment = String(params.comment || "").trim();
@@ -559,7 +548,7 @@ export async function returnTaskAction(params: {
 }) {
   if (params.actor.role !== "ADMIN") return { ok: false as const, error: "NO_ACCESS" };
   const taskId = String(params.taskId || "").trim();
-  if (!taskId) return { ok: false as const, error: "TASK_NOT_FOUND" };
+  if (!idSchema.safeParse(taskId).success) return { ok: false as const, error: "TASK_NOT_FOUND" };
 
   const task = await prisma.task.findUnique({
     where: { id: taskId },
@@ -567,7 +556,7 @@ export async function returnTaskAction(params: {
   });
   if (!task) return { ok: false as const, error: "TASK_NOT_FOUND" };
 
-  const can = await canApproveTask(params.actor.id, task.assigneeId);
+  const can = await canApproveTask(params.actor, task.assigneeId);
   if (!can) return { ok: false as const, error: "NO_ACCESS" };
 
   const comment = String(params.comment || "").trim();
@@ -603,7 +592,7 @@ export async function cancelTaskAction(params: {
 }) {
   if (params.actor.role !== "ADMIN") return { ok: false as const, error: "NO_ACCESS" };
   const taskId = String(params.taskId || "").trim();
-  if (!taskId) return { ok: false as const, error: "TASK_NOT_FOUND" };
+  if (!idSchema.safeParse(taskId).success) return { ok: false as const, error: "TASK_NOT_FOUND" };
 
   const task = await prisma.task.findUnique({
     where: { id: taskId },
@@ -612,7 +601,7 @@ export async function cancelTaskAction(params: {
   if (!task) return { ok: false as const, error: "TASK_NOT_FOUND" };
   if (task.status === "CANCELLED") return { ok: true as const };
 
-  const can = await canApproveTask(params.actor.id, task.assigneeId);
+  const can = await canApproveTask(params.actor, task.assigneeId);
   if (!can) return { ok: false as const, error: "NO_ACCESS" };
 
   const comment = String(params.comment || "").trim();

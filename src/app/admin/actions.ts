@@ -6,11 +6,11 @@ import { prisma } from "@/server/db";
 import { requireAdminUser } from "@/server/current-user";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
-import { listBackupFiles, writeBackupZipToDisk } from "@/server/backup";
+import { pruneStoredBackups, writeBackupZipToDisk } from "@/server/backup";
 import { APP_TIMEZONE } from "@/server/app-settings";
 import { ORG_STRUCTURE_CACHE_TAG, ORG_USERS_CACHE_TAG, SETTINGS_CACHE_TAG } from "@/server/cache-tags";
 import { importLegacyDataset } from "@/server/legacy-import";
-import fs from "node:fs/promises";
+import { logError, logInfo } from "@/server/log";
 
 const roleSchema = z.enum(["ADMIN", "HR", "MANAGER", "USER"]);
 const statusSchema = z.enum(["ACTIVE", "INACTIVE"]);
@@ -753,7 +753,7 @@ function todayIsoInTz(timeZone: string) {
 }
 
 export async function upsertBackupSettingsAction(formData: FormData) {
-  await requireAdminUser();
+  const user = await requireAdminUser();
 
   const enabledRaw = String(formData.get("enabled") ?? "0").trim();
   const timeRaw = String(formData.get("time") ?? "").trim();
@@ -782,13 +782,21 @@ export async function upsertBackupSettingsAction(formData: FormData) {
     redirectError("/admin/backup", "Ne mogu da sačuvam backup settings.");
   }
 
+  logInfo("admin.backup.settings.updated", {
+    actorId: user.id,
+    enabled,
+    time,
+    keepDays,
+    folder
+  });
+
   revalidatePath("/admin/backup");
   revalidateSettingsData();
   redirectSuccess("/admin/backup", "Backup settings su sačuvani.");
 }
 
 export async function runBackupNowAction() {
-  await requireAdminUser();
+  const user = await requireAdminUser();
 
   const [folderRow, keepDaysRow] = await Promise.all([
     prisma.setting.findUnique({ where: { key: "BackupFolder" }, select: { value: true } }),
@@ -798,7 +806,7 @@ export async function runBackupNowAction() {
   const keepDays = Number.parseInt(String(keepDaysRow?.value || "30").trim(), 10);
 
   try {
-    const res = await writeBackupZipToDisk({ folder });
+    const res = await writeBackupZipToDisk({ folder, source: "MANUAL" });
     const nowIso = todayIsoInTz(APP_TIMEZONE);
     const nowAt = new Date().toISOString();
     await prisma.$transaction([
@@ -814,21 +822,25 @@ export async function runBackupNowAction() {
       })
     ]);
 
-    // Best-effort cleanup: delete backups older than keepDays.
     if (Number.isFinite(keepDays) && keepDays > 0) {
-      try {
-        const files = await listBackupFiles(folder);
-        const cutoffMs = Date.now() - keepDays * 24 * 60 * 60 * 1000;
-        const old = files.filter((f) => f.mtimeMs < cutoffMs);
-        await Promise.all(old.map((f) => fs.unlink(f.fullPath).catch(() => null)));
-      } catch {
-        // ignore cleanup errors
-      }
+      await pruneStoredBackups({ folder, keepDays });
     }
+
+    logInfo("admin.backup.run-now.completed", {
+      actorId: user.id,
+      filename: res.filename,
+      sizeBytes: res.sizeBytes,
+      folder
+    });
+
     revalidatePath("/admin/backup");
     revalidateSettingsData();
     redirectSuccess("/admin/backup", `Backup sačuvan: ${res.filename}`);
-  } catch {
+  } catch (error) {
+    logError("admin.backup.run-now.failed", error, {
+      actorId: user.id,
+      folder
+    });
     redirectError("/admin/backup", "Backup nije uspeo.");
   }
 }

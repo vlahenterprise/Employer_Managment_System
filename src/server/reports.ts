@@ -2,6 +2,7 @@ import { prisma } from "./db";
 import { APP_TIMEZONE, getAppSettings } from "./app-settings";
 import { getISOWeek, parseISO } from "date-fns";
 import { normalizeIsoDate } from "./iso-date";
+import { buildPaginationMeta, normalizePagination, type PaginationInput } from "./pagination";
 
 function todayIsoInTz(timeZone: string) {
   return new Intl.DateTimeFormat("sv-SE", {
@@ -213,9 +214,13 @@ export function normalizeReportsFilters(filters: ReportsFiltersInput) {
 export async function getReportsGrid(params: {
   actor: { email: string; role: "ADMIN" | "HR" | "MANAGER" | "USER" };
   filters: ReportsFiltersInput;
+  pagination?: PaginationInput;
 }) {
   const f = normalizeReportsFilters(params.filters);
-  if (f._missingDates) return { ok: true as const, filters: f, rows: [] };
+  const pagination = normalizePagination({ ...params.pagination, defaultPageSize: 50, maxPageSize: 100 });
+  if (f._missingDates) {
+    return { ok: true as const, filters: f, rows: [], meta: buildPaginationMeta(0, pagination) };
+  }
 
   const where: any = {
     dateIso: { gte: f.fromIso, lte: f.toIso }
@@ -229,24 +234,30 @@ export async function getReportsGrid(params: {
     if (f.position) where.position = f.position;
   }
 
-  const rows = await prisma.dailyReport.findMany({
-    where,
-    orderBy: [{ dateIso: "desc" }, { employeeName: "asc" }],
-    select: {
-      id: true,
-      dateIso: true,
-      employeeEmail: true,
-      employeeName: true,
-      teamName: true,
-      position: true,
-      totalMinutes: true,
-      _count: { select: { activities: true } }
-    }
-  });
+  const [total, rows] = await Promise.all([
+    prisma.dailyReport.count({ where }),
+    prisma.dailyReport.findMany({
+      where,
+      orderBy: [{ dateIso: "desc" }, { employeeName: "asc" }],
+      skip: pagination.skip,
+      take: pagination.take,
+      select: {
+        id: true,
+        dateIso: true,
+        employeeEmail: true,
+        employeeName: true,
+        teamName: true,
+        position: true,
+        totalMinutes: true,
+        _count: { select: { activities: true } }
+      }
+    })
+  ]);
 
   return {
     ok: true as const,
     filters: f,
+    meta: buildPaginationMeta(total, pagination),
     rows: rows.map((r) => ({
       reportId: r.id,
       dateIso: r.dateIso,

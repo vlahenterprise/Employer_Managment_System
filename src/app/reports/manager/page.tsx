@@ -28,6 +28,7 @@ export default async function ReportsManagerPage({
     teamName?: string;
     position?: string;
     employeeEmail?: string;
+    page?: string;
     success?: string;
     error?: string;
   };
@@ -76,7 +77,11 @@ export default async function ReportsManagerPage({
   const actor = { email: user.email, role: user.role };
   const [dash, grid] = await Promise.all([
     getReportsDashboard({ actor, filters }),
-    getReportsGrid({ actor, filters })
+    getReportsGrid({
+      actor,
+      filters,
+      pagination: { page: searchParams.page }
+    })
   ]);
 
   const exportParams = new URLSearchParams();
@@ -86,6 +91,17 @@ export default async function ReportsManagerPage({
   if (filters.position) exportParams.set("position", filters.position);
   if (filters.employeeEmail) exportParams.set("employeeEmail", filters.employeeEmail);
   const exportHref = `/api/reports/dashboard-pdf?${exportParams.toString()}`;
+
+  function pageHref(page: number) {
+    const params = new URLSearchParams();
+    params.set("fromIso", filters.fromIso || "");
+    params.set("toIso", filters.toIso || "");
+    if (filters.teamName) params.set("teamName", filters.teamName);
+    if (filters.position) params.set("position", filters.position);
+    if (filters.employeeEmail) params.set("employeeEmail", filters.employeeEmail);
+    if (page > 1) params.set("page", String(page));
+    return `/reports/manager?${params.toString()}`;
+  }
 
   const topMostMax = Math.max(1, ...dash.topMost.map((x) => Number(x.minutes || 0)));
   const topLeastMax = Math.max(1, ...dash.topLeast.map((x) => Number(x.minutes || 0)));
@@ -320,7 +336,12 @@ export default async function ReportsManagerPage({
 
         <section className="panel stack">
           <h2 className="h2">{t.reports.gridTitle}</h2>
-          <div className="muted small">{t.reports.gridDesc}</div>
+          <div className="inline" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div className="muted small">{t.reports.gridDesc}</div>
+            <div className="muted small">
+              {grid.meta.start}-{grid.meta.end} / {grid.meta.total}
+            </div>
+          </div>
           <div className="list">
             {grid.rows.map((r) => (
               <div key={r.reportId} className="item item-compact">
@@ -346,6 +367,27 @@ export default async function ReportsManagerPage({
             ))}
             {grid.rows.length === 0 ? <div className="muted">{t.reports.empty}</div> : null}
           </div>
+          {grid.meta.pageCount > 1 ? (
+            <div className="inline" style={{ justifyContent: "space-between" }}>
+              <div className="muted small">
+                {grid.meta.page} / {grid.meta.pageCount}
+              </div>
+              <div className="inline">
+                {grid.meta.hasPrev ? (
+                  <Link className="button button-secondary" href={pageHref(grid.meta.page - 1)} aria-label="Previous page">
+                    <IconArrowLeft size={18} />
+                  </Link>
+                ) : null}
+                {grid.meta.hasNext ? (
+                  <Link className="button button-secondary" href={pageHref(grid.meta.page + 1)} aria-label="Next page">
+                    <span style={{ display: "inline-flex", transform: "rotate(180deg)" }}>
+                      <IconArrowLeft size={18} />
+                    </span>
+                  </Link>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
         </section>
       </div>
     </main>

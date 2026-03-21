@@ -2,16 +2,16 @@ import "server-only";
 
 import JSZip from "jszip";
 import { prisma } from "./db";
-import fs from "node:fs/promises";
-import path from "node:path";
 
-type CsvCell = string | number | boolean | Date | null | undefined;
+type CsvCell = string | number | boolean | Date | Buffer | object | null | undefined;
 
 function serializeCell(value: CsvCell) {
   if (value === null || value === undefined) return "";
   if (value instanceof Date) return value.toISOString();
+  if (Buffer.isBuffer(value)) return value.toString("base64");
   if (typeof value === "boolean") return value ? "true" : "false";
   if (typeof value === "number") return Number.isFinite(value) ? String(value) : "";
+  if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 }
 
@@ -25,10 +25,27 @@ function escapeCsv(value: string) {
 function rowsToCsv(rows: Array<Record<string, any>>, columns: string[]) {
   const header = columns.map(escapeCsv).join(",");
   const lines = rows.map((row) => {
-    const values = columns.map((c) => escapeCsv(serializeCell(row[c]) ?? ""));
+    const values = columns.map((column) => escapeCsv(serializeCell(row[column])));
     return values.join(",");
   });
   return [header, ...lines].join("\n") + "\n";
+}
+
+function normalizeFolderKey(folder: string) {
+  const normalized = String(folder || "backups")
+    .replaceAll("\\", "/")
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .join("/");
+  return normalized || "backups";
+}
+
+function sanitizeBackupName(name: string) {
+  const trimmed = String(name || "").trim();
+  if (!trimmed) throw new Error("INVALID_NAME");
+  if (trimmed.includes("/") || trimmed.includes("\\")) throw new Error("INVALID_NAME");
+  return trimmed;
 }
 
 async function exportAllTablesAsCsv(zip: JSZip) {
@@ -52,6 +69,12 @@ async function exportAllTablesAsCsv(zip: JSZip) {
     orgPositions,
     orgAssignments,
     orgLinks,
+    hrProcesses,
+    hrCandidates,
+    hrProcessCandidates,
+    hrCandidateComments,
+    hrNotifications,
+    hrAuditLogs,
     accounts,
     sessions,
     verificationTokens
@@ -75,17 +98,19 @@ async function exportAllTablesAsCsv(zip: JSZip) {
     prisma.orgPosition.findMany({ orderBy: { order: "asc" } }),
     prisma.orgPositionAssignment.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.orgPositionLink.findMany({ orderBy: { order: "asc" } }),
+    prisma.hrProcess.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.hrCandidate.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.hrProcessCandidate.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.hrCandidateComment.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.hrNotification.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.hrAuditLog.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.account.findMany({ orderBy: { id: "asc" } }),
     prisma.session.findMany({ orderBy: { expires: "asc" } }),
     prisma.verificationToken.findMany({ orderBy: { expires: "asc" } })
   ]);
 
   const tables: Array<{ name: string; rows: Array<Record<string, any>>; columns: string[] }> = [
-    {
-      name: "Team",
-      rows: teams as any,
-      columns: ["id", "name", "createdAt", "updatedAt"]
-    },
+    { name: "Team", rows: teams as any, columns: ["id", "name", "createdAt", "updatedAt"] },
     {
       name: "User",
       rows: users as any,
@@ -98,24 +123,20 @@ async function exportAllTablesAsCsv(zip: JSZip) {
         "emailVerified",
         "passwordHash",
         "role",
+        "hrAddon",
         "status",
         "carryOverAnnualLeave",
+        "annualLeaveDays",
+        "homeOfficeDays",
+        "slavaDays",
         "teamId",
         "managerId",
         "createdAt",
         "updatedAt"
       ]
     },
-    {
-      name: "ActivityType",
-      rows: activityTypes as any,
-      columns: ["id", "teamId", "name", "isActive", "createdAt", "updatedAt"]
-    },
-    {
-      name: "Setting",
-      rows: settings as any,
-      columns: ["key", "value", "createdAt", "updatedAt"]
-    },
+    { name: "ActivityType", rows: activityTypes as any, columns: ["id", "teamId", "name", "isActive", "createdAt", "updatedAt"] },
+    { name: "Setting", rows: settings as any, columns: ["key", "value", "createdAt", "updatedAt"] },
     {
       name: "DailyReport",
       rows: dailyReports as any,
@@ -135,11 +156,7 @@ async function exportAllTablesAsCsv(zip: JSZip) {
         "updatedAt"
       ]
     },
-    {
-      name: "DailyReportActivity",
-      rows: dailyReportActivities as any,
-      columns: ["id", "reportId", "type", "desc", "minutes", "createdAt"]
-    },
+    { name: "DailyReportActivity", rows: dailyReportActivities as any, columns: ["id", "reportId", "type", "desc", "minutes", "createdAt"] },
     {
       name: "Task",
       rows: tasks as any,
@@ -164,16 +181,8 @@ async function exportAllTablesAsCsv(zip: JSZip) {
         "updatedAt"
       ]
     },
-    {
-      name: "TaskEvent",
-      rows: taskEvents as any,
-      columns: ["id", "taskId", "action", "actorId", "actorEmail", "actorName", "comment", "createdAt"]
-    },
-    {
-      name: "TaskComment",
-      rows: taskComments as any,
-      columns: ["id", "taskId", "authorId", "body", "createdAt"]
-    },
+    { name: "TaskEvent", rows: taskEvents as any, columns: ["id", "taskId", "action", "actorId", "actorEmail", "actorName", "comment", "createdAt"] },
+    { name: "TaskComment", rows: taskComments as any, columns: ["id", "taskId", "authorId", "body", "createdAt"] },
     {
       name: "Absence",
       rows: absences as any,
@@ -193,11 +202,7 @@ async function exportAllTablesAsCsv(zip: JSZip) {
         "updatedAt"
       ]
     },
-    {
-      name: "AbsenceEvent",
-      rows: absenceEvents as any,
-      columns: ["id", "absenceId", "action", "actorId", "actorEmail", "actorName", "comment", "createdAt"]
-    },
+    { name: "AbsenceEvent", rows: absenceEvents as any, columns: ["id", "absenceId", "action", "actorId", "actorEmail", "actorName", "comment", "createdAt"] },
     {
       name: "PerformanceEvaluation",
       rows: perfEvaluations as any,
@@ -222,11 +227,7 @@ async function exportAllTablesAsCsv(zip: JSZip) {
         "updatedAt"
       ]
     },
-    {
-      name: "PerformanceQuestion",
-      rows: perfQuestions as any,
-      columns: ["id", "qNo", "area", "description", "scale", "isActive", "createdAt", "updatedAt"]
-    },
+    { name: "PerformanceQuestion", rows: perfQuestions as any, columns: ["id", "qNo", "area", "description", "scale", "isActive", "createdAt", "updatedAt"] },
     {
       name: "PerformanceGoal",
       rows: perfGoals as any,
@@ -265,20 +266,90 @@ async function exportAllTablesAsCsv(zip: JSZip) {
       rows: perfLogs as any,
       columns: ["id", "evaluationId", "goalId", "actorId", "actorEmail", "action", "field", "oldValue", "newValue", "createdAt"]
     },
+    { name: "OrgPosition", rows: orgPositions as any, columns: ["id", "title", "description", "parentId", "order", "isActive", "createdAt", "updatedAt"] },
+    { name: "OrgPositionAssignment", rows: orgAssignments as any, columns: ["id", "positionId", "userId", "createdAt"] },
+    { name: "OrgPositionLink", rows: orgLinks as any, columns: ["id", "positionId", "label", "url", "order", "createdAt"] },
     {
-      name: "OrgPosition",
-      rows: orgPositions as any,
-      columns: ["id", "title", "description", "parentId", "order", "isActive", "createdAt", "updatedAt"]
+      name: "HrProcess",
+      rows: hrProcesses as any,
+      columns: [
+        "id",
+        "teamId",
+        "positionTitle",
+        "requestedHeadcount",
+        "priority",
+        "reason",
+        "note",
+        "status",
+        "openedById",
+        "managerId",
+        "finalApproverId",
+        "adPublishedAt",
+        "adChannel",
+        "openedAt",
+        "closedAt",
+        "cancelledAt",
+        "archivedAt",
+        "createdAt",
+        "updatedAt"
+      ]
     },
     {
-      name: "OrgPositionAssignment",
-      rows: orgAssignments as any,
-      columns: ["id", "positionId", "userId", "createdAt"]
+      name: "HrCandidate",
+      rows: hrCandidates as any,
+      columns: [
+        "id",
+        "fullName",
+        "email",
+        "phone",
+        "linkedIn",
+        "source",
+        "latestCvFileName",
+        "latestCvMimeType",
+        "latestCvData",
+        "createdById",
+        "createdAt",
+        "updatedAt"
+      ]
     },
     {
-      name: "OrgPositionLink",
-      rows: orgLinks as any,
-      columns: ["id", "positionId", "label", "url", "order", "createdAt"]
+      name: "HrProcessCandidate",
+      rows: hrProcessCandidates as any,
+      columns: [
+        "id",
+        "processId",
+        "candidateId",
+        "createdById",
+        "status",
+        "source",
+        "appliedAt",
+        "initialContactAt",
+        "hrComment",
+        "firstRoundComment",
+        "screeningResult",
+        "managerComment",
+        "finalComment",
+        "interviewScheduledAt",
+        "secondRoundCompletedAt",
+        "finalDecisionAt",
+        "archivedAt",
+        "cancelledAt",
+        "closedReason",
+        "managerProposedSlots",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    { name: "HrCandidateComment", rows: hrCandidateComments as any, columns: ["id", "processCandidateId", "actorId", "stage", "body", "createdAt"] },
+    {
+      name: "HrNotification",
+      rows: hrNotifications as any,
+      columns: ["id", "userId", "processId", "processCandidateId", "type", "title", "body", "href", "isRead", "createdAt", "readAt"]
+    },
+    {
+      name: "HrAuditLog",
+      rows: hrAuditLogs as any,
+      columns: ["id", "processId", "processCandidateId", "candidateId", "actorId", "action", "field", "oldValue", "newValue", "comment", "createdAt"]
     },
     {
       name: "Account",
@@ -298,28 +369,19 @@ async function exportAllTablesAsCsv(zip: JSZip) {
         "session_state"
       ]
     },
-    {
-      name: "Session",
-      rows: sessions as any,
-      columns: ["id", "sessionToken", "userId", "expires"]
-    },
-    {
-      name: "VerificationToken",
-      rows: verificationTokens as any,
-      columns: ["identifier", "token", "expires"]
-    }
+    { name: "Session", rows: sessions as any, columns: ["id", "sessionToken", "userId", "expires"] },
+    { name: "VerificationToken", rows: verificationTokens as any, columns: ["identifier", "token", "expires"] }
   ];
 
   for (const table of tables) {
-    const csv = rowsToCsv(table.rows, table.columns);
-    zip.file(`${table.name}.csv`, csv);
+    zip.file(`${table.name}.csv`, rowsToCsv(table.rows, table.columns));
   }
 }
 
 function isoTimestamp() {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
+  const date = new Date();
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
 }
 
 export async function createBackupZip() {
@@ -330,47 +392,71 @@ export async function createBackupZip() {
   return { filename, bytes };
 }
 
-export async function ensureDir(dirPath: string) {
-  await fs.mkdir(dirPath, { recursive: true });
+export async function ensureDir(_dirPath: string) {
+  return;
 }
 
-export async function writeBackupZipToDisk(params: { folder: string }) {
+export async function writeBackupZipToDisk(params: { folder: string; source?: string }) {
+  const folder = normalizeFolderKey(params.folder);
   const { filename, bytes } = await createBackupZip();
-  const folderAbs = path.isAbsolute(params.folder) ? params.folder : path.join(process.cwd(), params.folder);
-  await ensureDir(folderAbs);
-  const fullPath = path.join(folderAbs, filename);
-  await fs.writeFile(fullPath, bytes);
-  return { filename, fullPath, sizeBytes: bytes.byteLength };
+  const storageKey = `${folder}/${filename}`;
+
+  await prisma.backupSnapshot.create({
+    data: {
+      filename,
+      storageKey,
+      source: String(params.source || "MANUAL").trim() || "MANUAL",
+      sizeBytes: bytes.byteLength,
+      zipData: bytes
+    }
+  });
+
+  return { filename, fullPath: storageKey, sizeBytes: bytes.byteLength };
 }
 
 export async function listBackupFiles(folder: string) {
-  const folderAbs = path.isAbsolute(folder) ? folder : path.join(process.cwd(), folder);
-  try {
-    const entries = await fs.readdir(folderAbs, { withFileTypes: true });
-    const files = entries
-      .filter((e) => e.isFile() && e.name.toLowerCase().endsWith(".zip"))
-      .map((e) => e.name);
+  const folderKey = normalizeFolderKey(folder);
+  const prefix = `${folderKey}/`;
+  const rows = await prisma.backupSnapshot.findMany({
+    where: { storageKey: { startsWith: prefix } },
+    orderBy: { createdAt: "desc" },
+    select: {
+      filename: true,
+      storageKey: true,
+      sizeBytes: true,
+      createdAt: true
+    }
+  });
 
-    const stats = await Promise.all(
-      files.map(async (name) => {
-        const fullPath = path.join(folderAbs, name);
-        const st = await fs.stat(fullPath);
-        return { name, fullPath, sizeBytes: st.size, mtimeMs: st.mtimeMs };
-      })
-    );
-
-    stats.sort((a, b) => b.mtimeMs - a.mtimeMs);
-    return stats;
-  } catch {
-    return [];
-  }
+  return rows.map((row) => ({
+    name: row.filename,
+    fullPath: row.storageKey,
+    sizeBytes: row.sizeBytes,
+    mtimeMs: row.createdAt.getTime()
+  }));
 }
 
 export async function readBackupFile(params: { folder: string; name: string }) {
-  const safeName = path.basename(params.name);
-  if (safeName !== params.name) throw new Error("INVALID_NAME");
-  const folderAbs = path.isAbsolute(params.folder) ? params.folder : path.join(process.cwd(), params.folder);
-  const fullPath = path.join(folderAbs, safeName);
-  const bytes = await fs.readFile(fullPath);
-  return { filename: safeName, bytes, fullPath };
+  const folderKey = normalizeFolderKey(params.folder);
+  const filename = sanitizeBackupName(params.name);
+  const storageKey = `${folderKey}/${filename}`;
+  const snapshot = await prisma.backupSnapshot.findUnique({
+    where: { storageKey },
+    select: { filename: true, storageKey: true, zipData: true }
+  });
+  if (!snapshot) throw new Error("NOT_FOUND");
+  return { filename: snapshot.filename, bytes: Buffer.from(snapshot.zipData), fullPath: snapshot.storageKey };
+}
+
+export async function pruneStoredBackups(params: { folder: string; keepDays: number }) {
+  const folderKey = normalizeFolderKey(params.folder);
+  const keepDays = Number.isFinite(params.keepDays) ? Math.max(1, Math.floor(params.keepDays)) : 30;
+  const cutoff = new Date(Date.now() - keepDays * 24 * 60 * 60 * 1000);
+  const result = await prisma.backupSnapshot.deleteMany({
+    where: {
+      storageKey: { startsWith: `${folderKey}/` },
+      createdAt: { lt: cutoff }
+    }
+  });
+  return { deleted: result.count };
 }

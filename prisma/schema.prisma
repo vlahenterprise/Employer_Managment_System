@@ -683,3 +683,15 @@ model Setting {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model BackupSnapshot {
+  id         String   @id @default(cuid())
+  filename   String
+  storageKey String   @unique
+  source     String
+  sizeBytes  Int
+  zipData    Bytes
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+}

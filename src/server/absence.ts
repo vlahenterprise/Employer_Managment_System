@@ -2,9 +2,11 @@ import "server-only";
 
 import { prisma } from "./db";
 import { APP_TIMEZONE, getAppSettings } from "./app-settings";
-import { buildApprovalHierarchyContext, canManagerApproveEmployee, getAllowedEmployeesForManager, loadOrgUsers } from "./org";
+import { buildApprovalHierarchyContext, canManagerApproveEmployee, loadOrgUsers } from "./org";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { normalizeIsoDate } from "./iso-date";
+import { getScopedEmployeeIds, isAdminRole } from "./rbac";
+import { idSchema, isoDateSchema } from "./validation";
 
 function utcDateFromIso(iso: string) {
   const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -94,9 +96,11 @@ export async function checkAbsenceOverlap(params: {
 }) {
   const { actor } = params;
   if (!actor.teamId) return { ok: true as const, count: 0, names: [] as string[] };
-  const fromIso = normalizeIsoDate(params.fromIso);
-  const toIso = normalizeIsoDate(params.toIso);
-  if (!fromIso || !toIso) return { ok: false as const, error: "INVALID_DATE" };
+  const fromIsoParsed = isoDateSchema.safeParse(params.fromIso);
+  const toIsoParsed = isoDateSchema.safeParse(params.toIso);
+  if (!fromIsoParsed.success || !toIsoParsed.success) return { ok: false as const, error: "INVALID_DATE" };
+  const fromIso = fromIsoParsed.data;
+  const toIso = toIsoParsed.data;
 
   const from = fromZonedTime(`${fromIso}T00:00:00`, APP_TIMEZONE);
   const to = fromZonedTime(`${toIso}T23:59:59.999`, APP_TIMEZONE);
@@ -181,7 +185,9 @@ export async function submitAbsenceRequest(params: {
   return { ok: true as const, absenceId: absence.id, days, overlap: overlap.ok ? overlap : { ok: true as const, count: 0, names: [] } };
 }
 
-async function canApproveAbsence(actorId: string, employeeId: string) {
+async function canApproveAbsence(actor: { id: string; role: "ADMIN" | "HR" | "MANAGER" | "USER" }, employeeId: string) {
+  if (isAdminRole(actor.role)) return true;
+  const actorId = actor.id;
   if (!actorId || !employeeId) return false;
   if (actorId === employeeId) return false;
 
@@ -204,9 +210,11 @@ export async function getAbsenceCalendar(params: {
     includeMine?: boolean;
   };
 }) {
-  const fromIso = normalizeIsoDate(params.range.fromIso);
-  const toIsoRaw = normalizeIsoDate(params.range.toIso);
-  if (!fromIso || !toIsoRaw) return { ok: false as const, error: "INVALID_DATE" };
+  const fromIsoParsed = isoDateSchema.safeParse(params.range.fromIso);
+  const toIsoParsed = isoDateSchema.safeParse(params.range.toIso);
+  if (!fromIsoParsed.success || !toIsoParsed.success) return { ok: false as const, error: "INVALID_DATE" };
+  const fromIso = fromIsoParsed.data;
+  const toIsoRaw = toIsoParsed.data;
 
   let from = fromIso;
   let to = toIsoRaw;
@@ -216,10 +224,8 @@ export async function getAbsenceCalendar(params: {
     to = tmp;
   }
 
-  const isAdmin = params.actor.role === "ADMIN";
+  const isAdmin = isAdminRole(params.actor.role);
   const includeMine = Boolean(params.range.includeMine);
-
-  const allowedIds = isAdmin ? getAllowedEmployeesForManager(params.actor.id, await loadOrgUsers()) : null;
 
   const fromDt = fromZonedTime(`${from}T00:00:00`, APP_TIMEZONE);
   const toDt = fromZonedTime(`${to}T23:59:59.999`, APP_TIMEZONE);
@@ -237,10 +243,7 @@ export async function getAbsenceCalendar(params: {
       dateTo: { gte: fromDt },
       ...(statusFilter ? { status: statusFilter } : {}),
       ...(typeFilter ? { type: typeFilter } : {}),
-      employee: {
-        ...(teamIdFilter ? { teamId: teamIdFilter } : {}),
-        ...(allowedIds ? { id: { in: [...allowedIds] } } : {})
-      },
+      employee: teamIdFilter ? { teamId: teamIdFilter } : undefined,
       ...(!includeMine ? { employeeId: { not: params.actor.id } } : {})
     },
     orderBy: [{ dateFrom: "asc" }, { employee: { name: "asc" } }],
@@ -361,13 +364,10 @@ export async function getAbsenceRemaining(actor: { id: string }) {
 }
 
 export async function getAbsenceApprovals(actor: { id: string; role: "ADMIN" | "HR" | "MANAGER" | "USER" }) {
-  if (actor.role !== "ADMIN") return { ok: true as const, items: [] as Array<any> };
-
-  const orgUsers = await loadOrgUsers();
-  const allowedIds = getAllowedEmployeesForManager(actor.id, orgUsers);
+  if (!isAdminRole(actor.role)) return { ok: true as const, items: [] as Array<any> };
 
   const rows = await prisma.absence.findMany({
-    where: { status: "PENDING", employeeId: { in: [...allowedIds] } },
+    where: { status: "PENDING" },
     orderBy: [{ createdAt: "desc" }],
     select: {
       id: true,
@@ -379,31 +379,20 @@ export async function getAbsenceApprovals(actor: { id: string; role: "ADMIN" | "
     }
   });
 
-  const settings = await getAppSettings();
-  const approvalContext = await buildApprovalHierarchyContext({
-    allowAncestor: Boolean(Number(settings.AllowAncestorApprovalAbsence || 0)),
-    employeeIds: rows.map((row) => row.employee.id)
-  });
-
-  const items = [];
-  for (const r of rows) {
-    const canApprove = canManagerApproveEmployee(actor.id, r.employee.id, approvalContext);
-    if (!canApprove) continue;
-    items.push({
-      absenceId: r.id,
-      employee: {
-        id: r.employee.id,
-        name: r.employee.name,
-        email: r.employee.email,
-        teamName: r.employee.team?.name || ""
-      },
-      type: r.type as AbsenceType,
-      fromIso: toIsoInTz(r.dateFrom),
-      toIso: toIsoInTz(r.dateTo),
-      days: Number(r.days || 0),
-      canApprove
-    });
-  }
+  const items = rows.map((r) => ({
+    absenceId: r.id,
+    employee: {
+      id: r.employee.id,
+      name: r.employee.name,
+      email: r.employee.email,
+      teamName: r.employee.team?.name || ""
+    },
+    type: r.type as AbsenceType,
+    fromIso: toIsoInTz(r.dateFrom),
+    toIso: toIsoInTz(r.dateTo),
+    days: Number(r.days || 0),
+    canApprove: true
+  }));
 
   return { ok: true as const, items };
 }
@@ -414,9 +403,10 @@ export async function approveAbsence(params: {
   comment?: string | null;
   status: "APPROVED" | "REJECTED";
 }) {
-  if (params.actor.role !== "ADMIN") return { ok: false as const, error: "NO_ACCESS" };
-  const absenceId = String(params.absenceId || "").trim();
-  if (!absenceId) return { ok: false as const, error: "ABSENCE_NOT_FOUND" };
+  if (!isAdminRole(params.actor.role)) return { ok: false as const, error: "NO_ACCESS" };
+  const absenceIdParsed = idSchema.safeParse(params.absenceId);
+  if (!absenceIdParsed.success) return { ok: false as const, error: "ABSENCE_NOT_FOUND" };
+  const absenceId = absenceIdParsed.data;
 
   const row = await prisma.absence.findUnique({
     where: { id: absenceId },
@@ -424,7 +414,7 @@ export async function approveAbsence(params: {
   });
   if (!row) return { ok: false as const, error: "ABSENCE_NOT_FOUND" };
 
-  const can = await canApproveAbsence(params.actor.id, row.employeeId);
+  const can = await canApproveAbsence(params.actor, row.employeeId);
   if (!can) return { ok: false as const, error: "NO_ACCESS" };
 
   const comment = String(params.comment || "").trim();
@@ -458,8 +448,9 @@ export async function cancelAbsence(params: {
   absenceId: string;
   comment?: string | null;
 }) {
-  const absenceId = String(params.absenceId || "").trim();
-  if (!absenceId) return { ok: false as const, error: "ABSENCE_NOT_FOUND" };
+  const absenceIdParsed = idSchema.safeParse(params.absenceId);
+  if (!absenceIdParsed.success) return { ok: false as const, error: "ABSENCE_NOT_FOUND" };
+  const absenceId = absenceIdParsed.data;
 
   const row = await prisma.absence.findUnique({
     where: { id: absenceId },
@@ -469,7 +460,7 @@ export async function cancelAbsence(params: {
   if (row.status === "CANCELLED") return { ok: true as const };
 
   const isSelf = row.employeeId === params.actor.id;
-  const can = params.actor.role === "ADMIN" ? await canApproveAbsence(params.actor.id, row.employeeId) : false;
+  const can = isAdminRole(params.actor.role) ? await canApproveAbsence(params.actor, row.employeeId) : false;
   if (!isSelf && !can) return { ok: false as const, error: "NO_ACCESS" };
 
   const comment = String(params.comment || "").trim();
@@ -498,9 +489,9 @@ export async function cancelAbsence(params: {
   return { ok: true as const };
 }
 
-export async function getAbsenceManagerStats(actor: { id: string }) {
+export async function getAbsenceManagerStats(actor: { id: string; role: "ADMIN" | "HR" | "MANAGER" | "USER" }) {
   const orgUsers = await loadOrgUsers();
-  const allowedIds = getAllowedEmployeesForManager(actor.id, orgUsers);
+  const allowedIds = getScopedEmployeeIds({ id: actor.id, role: actor.role }, orgUsers);
 
   const [app, users] = await Promise.all([
     getAppSettings(),
