@@ -1,4 +1,18 @@
 {
+  "functions": {
+    "src/app/api/tasks/dashboard-pdf/route.ts": {
+      "includeFiles": "node_modules/@sparticuz/chromium/**/*"
+    },
+    "src/app/api/reports/dashboard-pdf/route.ts": {
+      "includeFiles": "node_modules/@sparticuz/chromium/**/*"
+    },
+    "src/app/api/performance/eval-pdf/route.ts": {
+      "includeFiles": "node_modules/@sparticuz/chromium/**/*"
+    },
+    "src/app/api/absence/export-pdf/route.ts": {
+      "includeFiles": "node_modules/@sparticuz/chromium/**/*"
+    }
+  },
   "crons": [
     {
       "path": "/api/internal/backup-cron",
