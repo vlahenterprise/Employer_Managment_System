@@ -24,46 +24,21 @@ export const THEME_SETTING_KEYS = [
 
 export const BRANDING_SETTING_KEYS = ["AppTitle", "AppSubtitle", "Logo_link", "LogoVersion", "PoweredByText"] as const;
 
-const DEFAULT_LOGO_SVG = `
-<svg xmlns="http://www.w3.org/2000/svg" width="520" height="180" viewBox="0 0 520 180" fill="none">
-  <rect width="520" height="180" rx="24" fill="transparent"/>
-  <g transform="translate(0 6)">
-    <g fill="#FF5A1F">
-      <circle cx="52" cy="54" r="34"/>
-      <circle cx="128" cy="54" r="34"/>
-      <circle cx="204" cy="54" r="34"/>
-      <circle cx="280" cy="54" r="34"/>
-    </g>
-    <g fill="#050505">
-      <path d="M40.4 34h11.7l10.2 28.8L72.5 34h11.2L67 77H56.5L40.4 34Z"/>
-      <path d="M115 34h10.8v33.6h20.1V77H115V34Z"/>
-      <path d="M199.6 34h11.6L228.5 77h-11.7l-2.9-7.8h-17.1l-2.9 7.8h-11.2l16.9-43Zm11 26.6-5.3-14.3-5.2 14.3h10.5Z"/>
-      <path d="M268 34h10.9v16.4h15.5V34h10.9V77h-10.9V60h-15.5v17H268V34Z"/>
-    </g>
-    <path d="M18 104h321" stroke="rgba(228,238,240,0.16)" stroke-width="1.5"/>
-    <g fill="#E4EEF0">
-      <path d="M22 119h15.1c6.5 0 10.8 3.4 10.8 8.8 0 4.2-2.3 7-6 8.1l7 12.2H38.8l-5.9-10.8h-1v10.8H22V119Zm14.2 10.7c1.9 0 3.1-.9 3.1-2.5 0-1.7-1.2-2.5-3.1-2.5h-4.3v5h4.3Z"/>
-      <path d="M58 119h27.7v7.3H67.8v4.1h15.9v6.8H67.8v4.4h18.1v7.4H58V119Z"/>
-      <path d="M95.8 119h10.8l12.5 16.2V119h9.7v30.1h-9.1L105.5 132v17.1h-9.7V119Z"/>
-      <path d="M141.3 119h12.6c10.7 0 17.4 5.7 17.4 15 0 9.2-6.7 15.1-17.4 15.1h-12.6V119Zm12.5 22.4c4.6 0 7.6-2.7 7.6-7.4s-3-7.4-7.6-7.4h-2.7v14.8h2.7Z"/>
-      <path d="M180.8 119h27.7v7.3h-17.9v4.1h15.9v6.8h-15.9v4.4h18.1v7.4h-27.9V119Z"/>
-      <path d="M218.6 119h10.8l12.5 16.2V119h9.7v30.1h-9.1L228.3 132v17.1h-9.7V119Z"/>
-      <path d="M264.1 119h12.8c10.3 0 16.3 4.4 16.3 11.8 0 7.4-6 12-16.3 12h-3v6.3h-9.8V119Zm12.7 16.3c3.5 0 5.5-1.5 5.5-4.3 0-2.8-2-4.3-5.5-4.3h-2.9v8.5h2.9Z"/>
-      <path d="M302 119h27.7v7.3h-17.9v4.1h15.9v6.8h-15.9v4.4H330v7.4H302V119Z"/>
-      <path d="M339.8 119h10.8l12.5 16.2V119h9.7v30.1h-9.1L349.5 132v17.1h-9.7V119Z"/>
-      <path d="M385.3 119H398c10.7 0 17.4 5.7 17.4 15 0 9.2-6.7 15.1-17.4 15.1h-12.6V119Zm12.5 22.4c4.6 0 7.6-2.7 7.6-7.4s-3-7.4-7.6-7.4h-2.7v14.8h2.7Z"/>
-      <path d="M425 119h9.8v30.1H425V119Z"/>
-      <path d="M446.3 119h10.8l12.5 16.2V119h9.7v30.1h-9.1L456 132v17.1h-9.7V119Z"/>
-    </g>
-  </g>
-</svg>
-`.trim();
+const DEFAULT_LOGO_URL = "/branding/vlah-enterprise-dark.svg";
 
-function svgToDataUri(svg: string) {
-  return `data:image/svg+xml,${encodeURIComponent(svg).replace(/%0A/g, "").replace(/%20/g, " ")}`;
+function normalizeLogoUrl(url: string | undefined | null) {
+  const s = String(url ?? "").trim();
+  if (!s) return "";
+  const driveMatch = s.match(/drive\.google\.com\/file\/d\/([^/]+)/i);
+  if (driveMatch?.[1]) return `https://lh3.googleusercontent.com/d/${driveMatch[1]}`;
+  const openMatch = s.match(/drive\.google\.com\/open\?id=([^&]+)/i);
+  if (openMatch?.[1]) return `https://lh3.googleusercontent.com/d/${openMatch[1]}`;
+  const ucMatch = s.match(/drive\.google\.com\/uc\?[^#]*id=([^&]+)/i);
+  if (ucMatch?.[1]) return `https://lh3.googleusercontent.com/d/${ucMatch[1]}`;
+  const idMatch = s.match(/[?&]id=([^&]+)/i);
+  if (idMatch?.[1]) return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+  return s;
 }
-
-const DEFAULT_LOGO_DATA_URI = svgToDataUri(DEFAULT_LOGO_SVG);
 
 const getAllSettingsRowsCached = unstable_cache(
   async () =>
@@ -127,10 +102,10 @@ export async function getBrandingSettings() {
   const title = map.AppTitle?.trim() || "Employer Management System";
   const subtitle = map.AppSubtitle?.trim() || "Internal HR and operations platform";
   const logoVersion = map.LogoVersion?.trim() || "";
-  const logoUrl = map.Logo_link?.trim() || DEFAULT_LOGO_DATA_URI;
+  const logoUrl = normalizeLogoUrl(map.Logo_link) || DEFAULT_LOGO_URL;
   const poweredByText = map.PoweredByText?.trim() || "Powered by VLAH ENTERPRISE";
   const resolvedLogoUrl =
-    logoUrl.startsWith("data:") || !logoVersion ? logoUrl : `${logoUrl}?v=${encodeURIComponent(logoVersion)}`;
+    (logoUrl.startsWith("data:") || !logoVersion) ? logoUrl : `${logoUrl}?v=${encodeURIComponent(logoVersion)}`;
 
   return {
     title,
