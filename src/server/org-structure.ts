@@ -1,8 +1,6 @@
 import "server-only";
 
 import type { OrgLinkType } from "@prisma/client";
-import { unstable_cache } from "next/cache";
-import { ORG_STRUCTURE_CACHE_TAG, ORG_USERS_CACHE_TAG } from "./cache-tags";
 import { prisma } from "./db";
 import { buildOrgDepthMap, getOrgNodeLevel, normalizeOrgSearchText } from "@/lib/org-system";
 
@@ -56,71 +54,58 @@ export type OrgSystemNode = {
   people: OrgSystemPerson[];
 };
 
-const loadOrgPositionsCached = unstable_cache(
-  async () =>
-    prisma.orgPosition.findMany({
-      orderBy: [{ order: "asc" }, { title: "asc" }],
-      include: {
-        links: { orderBy: [{ order: "asc" }, { createdAt: "asc" }] },
-        assignees: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                position: true,
-                team: { select: { name: true } }
-              }
+async function loadOrgPositions() {
+  return prisma.orgPosition.findMany({
+    orderBy: [{ order: "asc" }, { title: "asc" }],
+    include: {
+      links: { orderBy: [{ order: "asc" }, { createdAt: "asc" }] },
+      assignees: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              position: true,
+              team: { select: { name: true } }
             }
           }
         }
       }
-    }),
-  ["org-structure:positions"],
-  { tags: [ORG_STRUCTURE_CACHE_TAG] }
-);
+    }
+  });
+}
 
-const loadGlobalLinksCached = unstable_cache(
-  async () => prisma.orgGlobalLink.findMany({ orderBy: [{ order: "asc" }, { createdAt: "asc" }] }),
-  ["org-structure:global-links"],
-  { tags: [ORG_STRUCTURE_CACHE_TAG] }
-);
+async function loadGlobalLinks() {
+  return prisma.orgGlobalLink.findMany({ orderBy: [{ order: "asc" }, { createdAt: "asc" }] });
+}
 
-const loadOrgChartUsersCached = unstable_cache(
-  async () =>
-    prisma.user.findMany({
-      where: { status: "ACTIVE" },
-      orderBy: { name: "asc" },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        position: true,
-        managerId: true,
-        team: { select: { name: true } }
-      }
-    }),
-  ["org-structure:chart-users"],
-  { tags: [ORG_USERS_CACHE_TAG] }
-);
+async function loadOrgChartUsers() {
+  return prisma.user.findMany({
+    where: { status: "ACTIVE" },
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      position: true,
+      managerId: true,
+      team: { select: { name: true } }
+    }
+  });
+}
 
-const loadOrgPickerPositionsCached = unstable_cache(
-  async () => prisma.orgPosition.findMany({ orderBy: [{ order: "asc" }, { title: "asc" }], select: { id: true, title: true } }),
-  ["org-structure:picker-positions"],
-  { tags: [ORG_STRUCTURE_CACHE_TAG] }
-);
+async function loadOrgPickerPositions() {
+  return prisma.orgPosition.findMany({ orderBy: [{ order: "asc" }, { title: "asc" }], select: { id: true, title: true } });
+}
 
-const loadOrgPickerUsersCached = unstable_cache(
-  async () =>
-    prisma.user.findMany({
-      where: { status: "ACTIVE" },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true, email: true, status: true }
-    }),
-  ["org-structure:picker-users"],
-  { tags: [ORG_USERS_CACHE_TAG] }
-);
+async function loadOrgPickerUsers() {
+  return prisma.user.findMany({
+    where: { status: "ACTIVE" },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, email: true, status: true }
+  });
+}
 
 function normalizeKey(value: string | null | undefined) {
   return normalizeOrgSearchText(value);
@@ -149,8 +134,8 @@ function sortPeople(people: OrgSystemPerson[]) {
 }
 
 function buildPositionFallbackUsers(params: {
-  positions: Awaited<ReturnType<typeof loadOrgPositionsCached>>;
-  activeUsers: Awaited<ReturnType<typeof loadOrgChartUsersCached>>;
+  positions: Awaited<ReturnType<typeof loadOrgPositions>>;
+  activeUsers: Awaited<ReturnType<typeof loadOrgChartUsers>>;
 }) {
   const assignedUserIds = new Set<string>();
   const byPositionId = new Map<string, OrgSystemPerson[]>();
@@ -195,7 +180,7 @@ function buildPositionFallbackUsers(params: {
 }
 
 export async function getOrgStructure() {
-  const [rows, globalRows] = await Promise.all([loadOrgPositionsCached(), loadGlobalLinksCached()]);
+  const [rows, globalRows] = await Promise.all([loadOrgPositions(), loadGlobalLinks()]);
 
   const nodes: OrgStructureNode[] = rows.map((row) => ({
     id: row.id,
@@ -215,9 +200,9 @@ export async function getOrgStructure() {
 
 export async function getUserOrgStructure() {
   const [positions, activeUsers, globalRows] = await Promise.all([
-    loadOrgPositionsCached(),
-    loadOrgChartUsersCached(),
-    loadGlobalLinksCached()
+    loadOrgPositions(),
+    loadOrgChartUsers(),
+    loadGlobalLinks()
   ]);
 
   const depthById = buildOrgDepthMap(positions.map((position) => ({ id: position.id, parentId: position.parentId ?? null })));
@@ -247,7 +232,7 @@ export async function getUserOrgStructure() {
 }
 
 export async function getOrgPickers() {
-  const [positions, users] = await Promise.all([loadOrgPickerPositionsCached(), loadOrgPickerUsersCached()]);
+  const [positions, users] = await Promise.all([loadOrgPickerPositions(), loadOrgPickerUsers()]);
 
   return {
     positions,
@@ -268,8 +253,8 @@ export async function getPositionResourceFallbackByUserId(userId: string) {
   }
 
   const [positions, globalRows, user] = await Promise.all([
-    loadOrgPositionsCached(),
-    loadGlobalLinksCached(),
+    loadOrgPositions(),
+    loadGlobalLinks(),
     prisma.user.findUnique({
       where: { id },
       select: { id: true, position: true }
