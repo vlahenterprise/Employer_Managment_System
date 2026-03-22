@@ -4,7 +4,7 @@ import { prisma } from "@/server/db";
 import { requireActiveUser } from "@/server/current-user";
 import { getReportsDashboard, getReportsGrid } from "@/server/reports";
 import { deleteDailyReportRedirectAction } from "../actions";
-import { buildChartPalette, getBrandingSettings, getThemeCssVars } from "@/server/settings";
+import { getBrandingSettings } from "@/server/settings";
 import { getRequestLang } from "@/i18n/server";
 import { getI18n } from "@/i18n";
 import ReportsCharts from "./ReportsCharts";
@@ -40,8 +40,6 @@ export default async function ReportsManagerPage({
 }) {
   const user = await requireActiveUser();
   const branding = await getBrandingSettings();
-  const theme = await getThemeCssVars();
-  const palette = buildChartPalette(theme as any);
   const lang = getRequestLang();
   const t = getI18n(lang);
 

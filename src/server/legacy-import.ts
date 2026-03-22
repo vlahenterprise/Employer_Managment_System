@@ -89,14 +89,6 @@ function idxOf(map: Map<string, number>, ...names: string[]) {
   return null;
 }
 
-function pad2(n: number) {
-  return String(n).padStart(2, "0");
-}
-
-function isoFromUtcDate(d: Date) {
-  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
-}
-
 function parseSerialDate(value: string) {
   const s = String(value ?? "").trim();
   if (!/^-?\d+(?:\.\d+)?$/.test(s)) return null;

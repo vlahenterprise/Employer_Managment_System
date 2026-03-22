@@ -50,10 +50,6 @@ function businessDaysByYear(fromIso: string, toIso: string, year: number) {
   return count;
 }
 
-function todayIsoInTz() {
-  return formatInTimeZone(new Date(), APP_TIMEZONE, "yyyy-MM-dd");
-}
-
 function toIsoInTz(d: Date | null | undefined) {
   if (!d) return "";
   return formatInTimeZone(d, APP_TIMEZONE, "yyyy-MM-dd");

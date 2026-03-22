@@ -71,17 +71,6 @@ function isoToDate(iso: string) {
   return new Date(Date.UTC(y, mo, d));
 }
 
-function isoFromUtcDate(d: Date) {
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
-}
-
-function addDaysIso(iso: string, days: number) {
-  const d = isoToDate(iso);
-  if (!d) return "";
-  d.setUTCDate(d.getUTCDate() + days);
-  return isoFromUtcDate(d);
-}
-
 function diffDaysIso(startIso: string, endIso: string) {
   const a = isoToDate(startIso);
   const b = isoToDate(endIso);

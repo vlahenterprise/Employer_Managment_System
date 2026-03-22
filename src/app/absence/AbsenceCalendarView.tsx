@@ -71,7 +71,6 @@ function isoFromMonthEnd(d: Date) {
 function weekdayLabels(lang: Lang) {
   const locale = lang === "sr" ? "sr-RS" : "en-GB";
   const fmt = new Intl.DateTimeFormat(locale, { weekday: "short", timeZone: "UTC" });
-  const monday = new Date(Date.UTC(2024, 0, 1)); // 2024-01-01 is Monday
   return Array.from({ length: 7 }).map((_, i) => fmt.format(new Date(Date.UTC(2024, 0, 1 + i))).toUpperCase());
 }
 
@@ -127,7 +126,6 @@ export default function AbsenceCalendarView(props: {
   const searchParams = useSearchParams();
 
   const monthStart = useMemo(() => monthStartFromIso(props.fromIso || props.toIso), [props.fromIso, props.toIso]);
-  const monthEnd = useMemo(() => endOfMonthUtc(monthStart), [monthStart]);
   const monthStartIso = useMemo(() => isoFromMonthStart(monthStart), [monthStart]);
   const monthEndIso = useMemo(() => isoFromMonthEnd(monthStart), [monthStart]);
   const todayIso = useMemo(() => todayIsoInTz(props.timeZone), [props.timeZone]);

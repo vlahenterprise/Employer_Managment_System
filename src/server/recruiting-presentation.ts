@@ -1,10 +1,29 @@
-import "server-only";
-
 import type { HrCandidateStatus, OnboardingItemOwner, OnboardingStatus } from "@prisma/client";
 
 type Lang = "sr" | "en";
 
 type Tone = "approved" | "pending" | "review" | "progress" | "rejected" | "muted";
+
+const ACTIVE_CANDIDATE_STATUSES = new Set([
+  "NEW_APPLICANT",
+  "HR_SCREENING",
+  "SENT_TO_MANAGER",
+  "WAITING_MANAGER_REVIEW",
+  "INTERVIEW_SCHEDULED",
+  "SECOND_ROUND_COMPLETED",
+  "WAITING_FINAL_APPROVAL",
+  "APPROVED_FOR_EMPLOYMENT"
+]);
+
+const TALENT_POOL_CANDIDATE_STATUSES = new Set(["ARCHIVED", "CANCELED", "REJECTED_FINAL", "REJECTED_BY_MANAGER", "REJECTED_BY_HR"]);
+
+export function isActiveCandidateStatus(status: HrCandidateStatus | string | null | undefined) {
+  return ACTIVE_CANDIDATE_STATUSES.has(String(status || "").toUpperCase());
+}
+
+export function isTalentPoolCandidateStatus(status: HrCandidateStatus | string | null | undefined) {
+  return TALENT_POOL_CANDIDATE_STATUSES.has(String(status || "").toUpperCase());
+}
 
 export function getCandidateStageOptions(lang: Lang) {
   const options = [

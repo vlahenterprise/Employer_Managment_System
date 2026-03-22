@@ -3,7 +3,7 @@ import "server-only";
 import type { OnboardingItemOwner, OnboardingStatus, UserRole } from "@prisma/client";
 import { prisma } from "./db";
 import { getAllSettingsMap } from "./settings";
-import { booleanish, idSchema, optionalTextSchema, requiredTextSchema } from "./validation";
+import { idSchema, optionalTextSchema, requiredTextSchema } from "./validation";
 import { canViewEmployeeProfile, getScopedEmployeeIds, hasHrAddon, isManagerRole } from "./rbac";
 import { loadOrgUsers } from "./org";
 import { getPositionResourceFallbackByPositionId, getPositionResourceFallbackByUserId } from "./org-structure";
@@ -894,7 +894,7 @@ export async function addOnboardingItem(params: {
 
   const titleParsed = requiredTextSchema(180, "TITLE_REQUIRED").safeParse(params.title);
   if (!titleParsed.success) return { ok: false as const, error: titleParsed.error.issues[0]?.message || "TITLE_REQUIRED" };
-  const maxOrder = detail.onboarding.items.reduce((max, item, index) => Math.max(max, index), -1);
+  const maxOrder = detail.onboarding.items.reduce((max, _item, index) => Math.max(max, index), -1);
 
   await prisma.onboardingItem.create({
     data: {

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { requireActiveUser } from "@/server/current-user";
-import { getBrandingSettings } from "@/server/settings";
 import { getTeamWorkspace } from "@/server/team";
 import { getRequestLang } from "@/i18n/server";
 import UserMenu from "../dashboard/UserMenu";
@@ -13,13 +12,15 @@ function copy(lang: "sr" | "en") {
       subtitle: "Pregled ljudi, izveštaja, taskova i aktivnih procesa u timu.",
       back: "Dashboard",
       noAccess: "Tim pregled je dostupan samo menadžerima.",
-      missingReports: "Missing reports",
-      overdueTasks: "Overdue tasks",
-      absentToday: "Absent today",
-      activeOnboarding: "Active onboarding",
-      employees: "Employees",
-      report: "Today report",
-      profile: "Profile",
+      missingReports: "Nedostaju izveštaji",
+      overdueTasks: "Zakasneli taskovi",
+      absentToday: "Odsutni danas",
+      activeOnboarding: "Aktivan onboarding",
+      employees: "Zaposleni",
+      report: "Današnji izveštaj",
+      profile: "Profil",
+      reportSubmitted: "Predat",
+      reportMissing: "Nedostaje",
       noValue: "—"
     };
   }
@@ -42,7 +43,6 @@ function copy(lang: "sr" | "en") {
 
 export default async function TeamPage() {
   const user = await requireActiveUser();
-  const branding = await getBrandingSettings();
   const lang = getRequestLang();
   const c = copy(lang);
   const workspace = await getTeamWorkspace({ id: user.id, role: user.role });
@@ -64,10 +64,6 @@ export default async function TeamPage() {
           <div className="page-topbar-main">
             <div className="header">
               <div className="brand">
-                {branding.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
-                ) : null}
                 <div>
                   <h1 className="brand-title">{c.title}</h1>
                   <p className="muted">{c.subtitle}</p>
@@ -128,7 +124,7 @@ export default async function TeamPage() {
                 <div className="grid4 team-summary-grid">
                   <div className="item item-compact">
                     <div className="muted small">{c.report}</div>
-                    <div className="item-title">{member.reportSubmittedToday ? "Submitted" : "Missing"}</div>
+                    <div className="item-title">{member.reportSubmittedToday ? c.reportSubmitted : c.reportMissing}</div>
                   </div>
                   <div className="item item-compact">
                     <div className="muted small">{c.overdueTasks}</div>

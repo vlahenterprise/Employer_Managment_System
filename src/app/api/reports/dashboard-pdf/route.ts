@@ -24,10 +24,6 @@ function fmtMin(minutes: number) {
   return `${h}h ${String(mm).padStart(2, "0")}m`;
 }
 
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
-}
-
 function hexToRgb(hex: string) {
   const m = String(hex || "").trim().replace("#", "");
   const normalized =
@@ -179,8 +175,6 @@ export async function GET(req: Request) {
   const font2 = (theme as any)["--color-font-secondary"] as string | undefined;
   const dark1 = (theme as any)["--color-dark-1"] as string | undefined;
   const dark2 = (theme as any)["--color-dark-2"] as string | undefined;
-  const light2 = (theme as any)["--color-light-2"] as string | undefined;
-
   const targetLabelParts: string[] = [];
   if (!isManagerRole(actor.role) && !hasHrAddon({ role: actor.role, hrAddon: actor.hrAddon ?? false })) {
     targetLabelParts.push(actor.name || actor.email);

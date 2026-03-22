@@ -2,7 +2,6 @@ import Link from "next/link";
 import { LabelWithTooltip } from "@/components/Tooltip";
 import { requireActiveUser } from "@/server/current-user";
 import { getCandidatesWorkspace } from "@/server/candidates";
-import { getBrandingSettings } from "@/server/settings";
 import { getRequestLang } from "@/i18n/server";
 import UserMenu from "../dashboard/UserMenu";
 import { IconArrowLeft, IconArrowRight, IconCheckCircle, IconSparkles, IconUsers } from "@/components/icons";
@@ -25,6 +24,7 @@ function copy(lang: "sr" | "en") {
       reset: "Resetuj",
       listTitle: "Aktivni kandidati",
       listHint: "Svaka kartica pokazuje gde je kandidat sada, ko je sledeći na potezu i koja je naredna akcija.",
+      listMeta: (start: number, end: number, total: number) => `${start}–${end} od ${total} kandidata`,
       open: "Otvori detalj",
       empty: "Nema kandidata za izabrane filtere.",
       total: "Ukupno kandidata",
@@ -58,6 +58,7 @@ function copy(lang: "sr" | "en") {
     reset: "Reset",
     listTitle: "Active candidates",
     listHint: "Each card shows the current stage, who owns the next move, and the recommended next action.",
+    listMeta: (start: number, end: number, total: number) => `${start}–${end} of ${total} candidates`,
     open: "Open detail",
     empty: "No candidates for the current filters.",
     total: "Total candidates",
@@ -88,17 +89,24 @@ function getToneClass(tone: ReturnType<typeof getCandidateStageMeta>["tone"]) {
 export default async function CandidatesPage({
   searchParams
 }: {
-  searchParams: { query?: string; stage?: string };
+  searchParams: { query?: string; stage?: string; page?: string };
 }) {
   const user = await requireActiveUser();
-  const branding = await getBrandingSettings();
   const lang = getRequestLang();
   const c = copy(lang);
   const locale = lang === "sr" ? "sr-RS" : "en-GB";
   const data = await getCandidatesWorkspace(
     { id: user.id, role: user.role, hrAddon: user.hrAddon },
-    { query: searchParams.query, stage: searchParams.stage }
+    { query: searchParams.query, stage: searchParams.stage, pagination: { page: searchParams.page, defaultPageSize: 24 } }
   );
+
+  function pageHref(page: number) {
+    const params = new URLSearchParams();
+    if (searchParams.query) params.set("query", searchParams.query);
+    if (searchParams.stage) params.set("stage", searchParams.stage);
+    if (page > 1) params.set("page", String(page));
+    return `/candidates${params.toString() ? `?${params.toString()}` : ""}`;
+  }
 
   if (!data.ok) {
     return (
@@ -111,19 +119,7 @@ export default async function CandidatesPage({
   }
 
   const stageOptions = getCandidateStageOptions(lang);
-  const metrics = {
-    total: data.items.length,
-    screening: data.items.filter((candidate) => {
-      const status = String(candidate.applications[0]?.status || "").toUpperCase();
-      return status === "NEW_APPLICANT" || status === "HR_SCREENING";
-    }).length,
-    managerReview: data.items.filter((candidate) => {
-      const status = String(candidate.applications[0]?.status || "").toUpperCase();
-      return status === "SENT_TO_MANAGER" || status === "WAITING_MANAGER_REVIEW";
-    }).length,
-    finalApproval: data.items.filter((candidate) => String(candidate.applications[0]?.status || "").toUpperCase() === "WAITING_FINAL_APPROVAL").length,
-    approved: data.items.filter((candidate) => String(candidate.applications[0]?.status || "").toUpperCase() === "APPROVED_FOR_EMPLOYMENT").length
-  };
+  const metrics = data.metrics;
 
   const hasFilters = Boolean(String(searchParams.query || "").trim() || String(searchParams.stage || "").trim());
 
@@ -134,10 +130,6 @@ export default async function CandidatesPage({
           <div className="page-topbar-main stack">
             <div className="header">
               <div className="brand">
-                {branding.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
-                ) : null}
                 <div>
                   <h1 className="brand-title">{c.title}</h1>
                   <p className="muted">{c.subtitle}</p>
@@ -256,7 +248,10 @@ export default async function CandidatesPage({
           <div className="section-head">
             <div className="section-copy">
               <h2 className="h2">{c.listTitle}</h2>
-              <p className="muted small">{c.listHint}</p>
+              <p className="muted small">
+                {c.listHint}
+                {data.meta.total > 0 ? ` · ${c.listMeta(data.meta.start, data.meta.end, data.meta.total)}` : ""}
+              </p>
             </div>
             <div className="pills">
               <span className="pill pill-blue">
@@ -315,6 +310,27 @@ export default async function CandidatesPage({
               </div>
             ) : null}
           </div>
+          {data.meta.pageCount > 1 ? (
+            <div className="inline" style={{ justifyContent: "space-between" }}>
+              <div className="muted small">
+                {data.meta.page} / {data.meta.pageCount}
+              </div>
+              <div className="inline">
+                {data.meta.hasPrev ? (
+                  <Link className="button button-secondary" href={pageHref(data.meta.page - 1)} aria-label="Previous page">
+                    <IconArrowLeft size={18} />
+                  </Link>
+                ) : null}
+                {data.meta.hasNext ? (
+                  <Link className="button button-secondary" href={pageHref(data.meta.page + 1)} aria-label="Next page">
+                    <span style={{ display: "inline-flex", transform: "rotate(180deg)" }}>
+                      <IconArrowLeft size={18} />
+                    </span>
+                  </Link>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
         </section>
       </div>
     </main>

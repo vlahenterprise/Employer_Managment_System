@@ -167,7 +167,6 @@ export async function getTaskPickers(actor: { id: string; role: "ADMIN" | "HR" |
 
 export async function getTaskDashboard(actor: { id: string; email: string; role: "ADMIN" | "HR" | "MANAGER" | "USER" }, filtersRaw: TaskFilters): Promise<TaskDashboard> {
   const canManage = isManagerRole(actor.role);
-  const isAdmin = isAdminRole(actor.role);
   const f = { ...filtersRaw };
 
   if (!canManage) {

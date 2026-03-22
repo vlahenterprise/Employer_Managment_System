@@ -1,7 +1,9 @@
 import "server-only";
 
 import { prisma } from "./db";
+import { buildPaginationMeta, normalizePagination, type PaginationInput } from "./pagination";
 import { hasHrAddon } from "./rbac";
+import { isActiveCandidateStatus, isTalentPoolCandidateStatus } from "./recruiting-presentation";
 
 export type CandidateActor = {
   id: string;
@@ -15,13 +17,18 @@ function cleanText(value: string | null | undefined) {
 
 export async function getCandidatesWorkspace(
   actor: CandidateActor,
-  filters: { query?: string | null; stage?: string | null; owner?: string | null } = {}
+  filters: { query?: string | null; stage?: string | null; owner?: string | null; pagination?: PaginationInput } = {}
 ) {
   if (!hasHrAddon(actor)) return { ok: false as const, error: "NO_ACCESS" };
 
   const query = cleanText(filters.query).toLowerCase();
   const stage = cleanText(filters.stage).toUpperCase();
   const owner = cleanText(filters.owner);
+  const pagination = normalizePagination({
+    ...filters.pagination,
+    defaultPageSize: 24,
+    maxPageSize: 60
+  });
 
   const rows = await prisma.hrCandidate.findMany({
     orderBy: [{ updatedAt: "desc" }],
@@ -58,6 +65,7 @@ export async function getCandidatesWorkspace(
 
   const filtered = rows.filter((candidate) => {
     const latest = candidate.applications[0] || null;
+    if (!latest || !isActiveCandidateStatus(latest.status)) return false;
     const haystack = [
       candidate.fullName,
       candidate.email,
@@ -82,7 +90,32 @@ export async function getCandidatesWorkspace(
     return true;
   });
 
-  return { ok: true as const, items: filtered };
+  const total = filtered.length;
+  const metrics = {
+    total,
+    screening: filtered.filter((candidate) => {
+      const status = String(candidate.applications[0]?.status || "").toUpperCase();
+      return status === "NEW_APPLICANT" || status === "HR_SCREENING";
+    }).length,
+    managerReview: filtered.filter((candidate) => {
+      const status = String(candidate.applications[0]?.status || "").toUpperCase();
+      return status === "SENT_TO_MANAGER" || status === "WAITING_MANAGER_REVIEW";
+    }).length,
+    finalApproval: filtered.filter(
+      (candidate) => String(candidate.applications[0]?.status || "").toUpperCase() === "WAITING_FINAL_APPROVAL"
+    ).length,
+    approved: filtered.filter(
+      (candidate) => String(candidate.applications[0]?.status || "").toUpperCase() === "APPROVED_FOR_EMPLOYMENT"
+    ).length
+  };
+  const pageItems = filtered.slice(pagination.skip, pagination.skip + pagination.take);
+
+  return {
+    ok: true as const,
+    items: pageItems,
+    meta: buildPaginationMeta(total, pagination),
+    metrics
+  };
 }
 
 export async function getCandidateDetail(actor: CandidateActor, candidateId: string) {
@@ -154,22 +187,20 @@ export async function getCandidateDetail(actor: CandidateActor, candidateId: str
   return { ok: true as const, candidate };
 }
 
-export async function getTalentPool(actor: CandidateActor, tag?: string | null) {
+export async function getTalentPool(
+  actor: CandidateActor,
+  filters: { tag?: string | null; query?: string | null; pagination?: PaginationInput } = {}
+) {
   if (!hasHrAddon(actor)) return { ok: false as const, error: "NO_ACCESS" };
-  const cleanTag = cleanText(tag);
+  const cleanTag = cleanText(filters.tag);
+  const query = cleanText(filters.query).toLowerCase();
+  const pagination = normalizePagination({
+    ...filters.pagination,
+    defaultPageSize: 24,
+    maxPageSize: 60
+  });
+
   const items = await prisma.hrCandidate.findMany({
-    where: {
-      OR: [
-        { talentPoolTag: cleanTag || undefined },
-        {
-          applications: {
-            some: {
-              status: "ARCHIVED"
-            }
-          }
-        }
-      ]
-    },
     orderBy: [{ updatedAt: "desc" }],
     select: {
       id: true,
@@ -193,5 +224,44 @@ export async function getTalentPool(actor: CandidateActor, tag?: string | null) 
     }
   });
 
-  return { ok: true as const, items };
+  const filtered = items.filter((candidate) => {
+    const latest = candidate.applications[0] || null;
+    const inPool = Boolean(candidate.talentPoolTag) || isTalentPoolCandidateStatus(latest?.status);
+    if (!inPool) return false;
+    if (cleanTag && cleanText(candidate.talentPoolTag).toLowerCase() !== cleanTag.toLowerCase()) return false;
+
+    if (query) {
+      const haystack = [
+        candidate.fullName,
+        candidate.email,
+        candidate.phone,
+        candidate.source,
+        candidate.talentPoolTag,
+        latest?.process?.positionTitle,
+        latest?.process?.team?.name,
+        latest?.closedReason
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      if (!haystack.includes(query)) return false;
+    }
+
+    return true;
+  });
+
+  const total = filtered.length;
+  const metrics = {
+    total,
+    tagged: filtered.filter((candidate) => Boolean(candidate.talentPoolTag)).length,
+    reusable: filtered.filter((candidate) => Boolean(candidate.cvDriveUrl)).length
+  };
+  const pageItems = filtered.slice(pagination.skip, pagination.skip + pagination.take);
+
+  return {
+    ok: true as const,
+    items: pageItems,
+    meta: buildPaginationMeta(total, pagination),
+    metrics
+  };
 }

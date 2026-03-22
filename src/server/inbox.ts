@@ -39,12 +39,6 @@ function todayIso() {
   return formatInTimeZone(new Date(), APP_TIMEZONE, "yyyy-MM-dd");
 }
 
-function currentQuarterLabel(now: Date) {
-  const year = now.getUTCFullYear();
-  const quarter = Math.floor(now.getUTCMonth() / 3) + 1;
-  return `${year}-Q${quarter}`;
-}
-
 function pushUnique(target: InboxItem[], item: InboxItem) {
   if (target.some((existing) => existing.id === item.id)) return;
   target.push(item);

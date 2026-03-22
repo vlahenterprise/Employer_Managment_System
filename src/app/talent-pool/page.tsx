@@ -2,7 +2,6 @@ import Link from "next/link";
 import { LabelWithTooltip } from "@/components/Tooltip";
 import { requireActiveUser } from "@/server/current-user";
 import { getTalentPool } from "@/server/candidates";
-import { getBrandingSettings } from "@/server/settings";
 import { getRequestLang } from "@/i18n/server";
 import UserMenu from "../dashboard/UserMenu";
 import { IconArrowLeft, IconArrowRight, IconSparkles, IconUsers } from "@/components/icons";
@@ -19,6 +18,11 @@ function copy(lang: "sr" | "en") {
       introText: "Ovde čuvamo kandidate koje vredi ponovo aktivirati bez novog unosa svih podataka.",
       listTitle: "Kandidati za ponovno aktiviranje",
       listHint: "Pregledaj poslednju poziciju, razlog zatvaranja i CV link kako bi HR brzo odlučio da li kandidata vraća u novi proces.",
+      listMeta: (start: number, end: number, total: number) => `${start}–${end} od ${total} kandidata`,
+      search: "Pretraga",
+      searchHint: "Ime, email, telefon, tag, pozicija ili razlog zatvaranja.",
+      apply: "Primeni filtere",
+      reset: "Resetuj",
       open: "Otvori detalj",
       empty: "Još nema kandidata u talent pool-u.",
       lastRole: "Poslednja pozicija",
@@ -37,6 +41,11 @@ function copy(lang: "sr" | "en") {
     introText: "This is where we keep candidates worth reusing later without re-entering all the data.",
     listTitle: "Candidates ready to reuse",
     listHint: "Review the latest role, closing reason, and CV link so HR can quickly decide whether to reopen the candidate.",
+    listMeta: (start: number, end: number, total: number) => `${start}–${end} of ${total} candidates`,
+    search: "Search",
+    searchHint: "Name, email, phone, tag, position, or closing reason.",
+    apply: "Apply filters",
+    reset: "Reset",
     open: "Open detail",
     empty: "No candidates in the talent pool yet.",
     lastRole: "Latest role",
@@ -50,13 +59,27 @@ function copy(lang: "sr" | "en") {
 export default async function TalentPoolPage({
   searchParams
 }: {
-  searchParams: { tag?: string };
+  searchParams: { tag?: string; query?: string; page?: string };
 }) {
   const user = await requireActiveUser();
-  const branding = await getBrandingSettings();
   const lang = getRequestLang();
   const c = copy(lang);
-  const pool = await getTalentPool({ id: user.id, role: user.role, hrAddon: user.hrAddon }, searchParams.tag);
+  const pool = await getTalentPool(
+    { id: user.id, role: user.role, hrAddon: user.hrAddon },
+    {
+      tag: searchParams.tag,
+      query: searchParams.query,
+      pagination: { page: searchParams.page, defaultPageSize: 24 }
+    }
+  );
+
+  function pageHref(page: number) {
+    const params = new URLSearchParams();
+    if (searchParams.tag) params.set("tag", searchParams.tag);
+    if (searchParams.query) params.set("query", searchParams.query);
+    if (page > 1) params.set("page", String(page));
+    return `/talent-pool${params.toString() ? `?${params.toString()}` : ""}`;
+  }
 
   if (!pool.ok) {
     return (
@@ -68,8 +91,8 @@ export default async function TalentPoolPage({
     );
   }
 
-  const reusableCount = pool.items.filter((candidate) => candidate.cvDriveUrl).length;
-  const taggedCount = pool.items.filter((candidate) => candidate.talentPoolTag).length;
+  const reusableCount = pool.metrics.reusable;
+  const taggedCount = pool.metrics.tagged;
 
   return (
     <main className="page">
@@ -78,10 +101,6 @@ export default async function TalentPoolPage({
           <div className="page-topbar-main stack">
             <div className="header">
               <div className="brand">
-                {branding.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
-                ) : null}
                 <div>
                   <h1 className="brand-title">{c.title}</h1>
                   <p className="muted">{c.subtitle}</p>
@@ -121,7 +140,7 @@ export default async function TalentPoolPage({
               <IconUsers size={18} />
             </div>
             <div>
-              <div className="kpi-value">{pool.items.length}</div>
+              <div className="kpi-value">{pool.metrics.total}</div>
               <div className="kpi-label">{c.listTitle}</div>
             </div>
           </div>
@@ -151,8 +170,37 @@ export default async function TalentPoolPage({
               <h2 className="h2">
                 <LabelWithTooltip label={c.listTitle} tooltip={c.listHint} />
               </h2>
+              <p className="muted small">
+                {pool.meta.total > 0 ? c.listMeta(pool.meta.start, pool.meta.end, pool.meta.total) : c.listHint}
+              </p>
             </div>
           </div>
+
+          <form className="grid3" method="get" action="/talent-pool">
+            <label className="field">
+              <span className="label">
+                <LabelWithTooltip label={c.search} tooltip={c.searchHint} />
+              </span>
+              <input className="input" name="query" type="text" defaultValue={searchParams.query || ""} />
+            </label>
+            <label className="field">
+              <span className="label">{c.tag}</span>
+              <input className="input" name="tag" type="text" defaultValue={searchParams.tag || ""} />
+            </label>
+            <div className="field field-actions">
+              <span className="label"> </span>
+              <div className="inline">
+                <button className="button" type="submit">
+                  {c.apply}
+                </button>
+                {(searchParams.tag || searchParams.query) ? (
+                  <Link className="button button-secondary" href="/talent-pool">
+                    {c.reset}
+                  </Link>
+                ) : null}
+              </div>
+            </div>
+          </form>
 
           <div className="list">
             {pool.items.map((candidate) => {
@@ -192,6 +240,27 @@ export default async function TalentPoolPage({
             })}
             {pool.items.length === 0 ? <div className="muted small">{c.empty}</div> : null}
           </div>
+          {pool.meta.pageCount > 1 ? (
+            <div className="inline" style={{ justifyContent: "space-between" }}>
+              <div className="muted small">
+                {pool.meta.page} / {pool.meta.pageCount}
+              </div>
+              <div className="inline">
+                {pool.meta.hasPrev ? (
+                  <Link className="button button-secondary" href={pageHref(pool.meta.page - 1)} aria-label="Previous page">
+                    <IconArrowLeft size={18} />
+                  </Link>
+                ) : null}
+                {pool.meta.hasNext ? (
+                  <Link className="button button-secondary" href={pageHref(pool.meta.page + 1)} aria-label="Next page">
+                    <span style={{ display: "inline-flex", transform: "rotate(180deg)" }}>
+                      <IconArrowLeft size={18} />
+                    </span>
+                  </Link>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
         </section>
       </div>
     </main>

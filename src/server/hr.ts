@@ -91,17 +91,6 @@ function isVisibleThroughManagerChain(actorId: string, managerId: string | null 
   return buildManagerChain(managerId, managerOf).includes(actorId);
 }
 
-function pickPrimaryManager(teamId: string | null | undefined, users: Awaited<ReturnType<typeof loadOrgUsers>>) {
-  if (!teamId) return null;
-  const teamManagers = users.filter(
-    (user) => user.status === "ACTIVE" && user.teamId === teamId && isManagerRole(user.role)
-  );
-  if (teamManagers.length === 0) return null;
-  const ids = new Set(teamManagers.map((user) => user.id));
-  const highest = teamManagers.filter((user) => !user.managerId || !ids.has(user.managerId));
-  return (highest[0] || teamManagers[0]) ?? null;
-}
-
 function pickFinalApprover(managerId: string | null | undefined, managerOf: Map<string, string | null>) {
   if (!managerId) return null;
   return managerOf.get(managerId) ?? null;
