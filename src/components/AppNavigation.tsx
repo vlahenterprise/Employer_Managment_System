@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { NavItem } from "@/server/navigation";
 import {
+  IconArrowRight,
   IconBriefcase,
   IconCalendar,
   IconCheckCircle,
@@ -88,6 +89,33 @@ export default function AppNavigation({
     .filter((entry) => entry.items.length > 0);
 
   const activeItem = items.find((item) => isActive(item));
+  const activeGroupKey = groupedItems
+    .filter((section) => section.items.some((item) => isActive(item)))
+    .map((section) => section.group)
+    .join("|");
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(
+      order.map((group) => [
+        group,
+        group === "work" || group === "personal" || activeGroupKey.split("|").includes(group)
+      ])
+    )
+  );
+
+  useEffect(() => {
+    const activeGroups = new Set(activeGroupKey ? activeGroupKey.split("|") : []);
+    setOpenGroups((current) => {
+      let changed = false;
+      const next = { ...current };
+      for (const group of activeGroups) {
+        if (!next[group]) {
+          next[group] = true;
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [pathname, activeGroupKey]);
 
   function renderNavLink(item: NavItem) {
     const Icon = navIconByHref[item.href as keyof typeof navIconByHref] ?? IconSparkles;
@@ -159,10 +187,28 @@ export default function AppNavigation({
           <nav className="app-nav" aria-label="Primary">
             {groupedItems.map((section) => (
               <section key={section.group} className="app-nav-section">
-                <div className="app-nav-group-label" aria-hidden="true">
-                  {section.label}
+                <button
+                  type="button"
+                  className={`app-nav-group-button${openGroups[section.group] ? " is-open" : ""}`}
+                  aria-expanded={openGroups[section.group] ? "true" : "false"}
+                  onClick={() =>
+                    setOpenGroups((current) => ({
+                      ...current,
+                      [section.group]: !current[section.group]
+                    }))
+                  }
+                >
+                  <span className="app-nav-group-label">{section.label}</span>
+                  <span className="app-nav-group-meta">
+                    <span className="app-nav-group-count">{section.items.length}</span>
+                    <span className="app-nav-group-caret" aria-hidden="true">
+                      <IconArrowRight size={12} />
+                    </span>
+                  </span>
+                </button>
+                <div className={`app-nav-links${openGroups[section.group] ? " is-open" : ""}`}>
+                  {section.items.map(renderNavLink)}
                 </div>
-                <div className="app-nav-links">{section.items.map(renderNavLink)}</div>
               </section>
             ))}
           </nav>

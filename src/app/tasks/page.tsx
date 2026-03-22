@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { requireActiveUser } from "@/server/current-user";
-import { getBrandingSettings } from "@/server/settings";
 import UserMenu from "../dashboard/UserMenu";
 import { getRequestLang } from "@/i18n/server";
 import { getI18n } from "@/i18n";
@@ -36,7 +35,6 @@ export default async function TasksPage({
   };
 }) {
   const user = await requireActiveUser();
-  const branding = await getBrandingSettings();
   const lang = getRequestLang();
   const t = getI18n(lang);
 
@@ -149,15 +147,9 @@ export default async function TasksPage({
         <div className="page-topbar">
           <div className="page-topbar-main">
             <div className="header">
-              <div className="brand">
-                {branding.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
-                ) : null}
-                <div>
-                  <h1 className="brand-title">{t.tasks.title}</h1>
-                  <p className="muted">{t.tasks.subtitle}</p>
-                </div>
+              <div>
+                <h1 className="brand-title">{t.tasks.title}</h1>
+                <p className="muted">{t.tasks.subtitle}</p>
               </div>
               <div className="inline">
                 <Link className="button button-secondary" href="/dashboard">

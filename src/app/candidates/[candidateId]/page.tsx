@@ -2,7 +2,6 @@ import Link from "next/link";
 import { LabelWithTooltip } from "@/components/Tooltip";
 import { requireActiveUser } from "@/server/current-user";
 import { getCandidateDetail } from "@/server/candidates";
-import { getBrandingSettings } from "@/server/settings";
 import { getRequestLang } from "@/i18n/server";
 import UserMenu from "../../dashboard/UserMenu";
 import { IconArrowLeft, IconArrowRight, IconCalendar, IconPdf, IconUsers } from "@/components/icons";
@@ -82,7 +81,6 @@ export default async function CandidateDetailPage({
   params: { candidateId: string };
 }) {
   const user = await requireActiveUser();
-  const branding = await getBrandingSettings();
   const lang = getRequestLang();
   const c = copy(lang);
   const locale = lang === "sr" ? "sr-RS" : "en-GB";
@@ -108,15 +106,9 @@ export default async function CandidateDetailPage({
         <div className="page-topbar">
           <div className="page-topbar-main stack">
             <div className="header">
-              <div className="brand">
-                {branding.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
-                ) : null}
-                <div>
-                  <h1 className="brand-title">{candidate.fullName}</h1>
-                  <p className="muted">{candidate.email || candidate.phone || c.noValue}</p>
-                </div>
+              <div>
+                <h1 className="brand-title">{candidate.fullName}</h1>
+                <p className="muted">{candidate.email || candidate.phone || c.noValue}</p>
               </div>
               <div className="inline">
                 <Link className="button button-secondary" href="/candidates">

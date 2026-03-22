@@ -54,7 +54,26 @@ test("tooltip flips above when there is not enough space below", () => {
   });
 
   assert.equal(position.placement, "top");
-  assert.ok(position.top < 720);
+  assert.ok(position.top <= 720 - 116 - 12);
+  assert.ok(position.top >= 16);
+});
+
+test("tooltip bottom placement is clamped when viewport is short", () => {
+  const position = getTooltipPosition({
+    triggerRect: {
+      top: 20,
+      left: 140,
+      width: 20,
+      height: 20,
+      right: 160,
+      bottom: 40
+    },
+    viewportWidth: 360,
+    viewportHeight: 140
+  });
+
+  assert.equal(position.placement, "bottom");
+  assert.equal(position.top, 16);
 });
 
 test("tooltip helper is stable across 100 rapid calculations", () => {

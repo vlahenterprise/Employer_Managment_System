@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { LabelWithTooltip } from "@/components/Tooltip";
 import { requireActiveUser } from "@/server/current-user";
-import { getBrandingSettings } from "@/server/settings";
 import UserMenu from "../../dashboard/UserMenu";
 import { getRequestLang } from "@/i18n/server";
 import { getI18n, type Lang } from "@/i18n";
@@ -187,7 +186,6 @@ export default async function PerformanceEvalPage({
   searchParams: { success?: string; error?: string };
 }) {
   const user = await requireActiveUser();
-  const branding = await getBrandingSettings();
   const lang = getRequestLang();
   const t = getI18n(lang);
 
@@ -198,15 +196,9 @@ export default async function PerformanceEvalPage({
       <main className="page">
         <div className="card stack">
           <div className="header">
-            <div className="brand">
-              {branding.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
-              ) : null}
-              <div>
-                <h1 className="brand-title">{t.performance.title}</h1>
-                <p className="muted">{t.performance.subtitle}</p>
-              </div>
+            <div>
+              <h1 className="brand-title">{t.performance.title}</h1>
+              <p className="muted">{t.performance.subtitle}</p>
             </div>
             <div className="inline">
               <Link className="button button-secondary" href="/performance">
@@ -297,18 +289,12 @@ export default async function PerformanceEvalPage({
         <div className="page-topbar">
           <div className="page-topbar-main">
             <div className="header">
-              <div className="brand">
-                {branding.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
-                ) : null}
-                <div>
-                  <h1 className="brand-title">{t.performance.detailTitle}</h1>
-                  <p className="muted">
-                    {e.employee.name} · {e.periodLabel} · {t.performance.status}: {e.status} ·{" "}
-                    {e.locked ? t.performance.locked : t.performance.unlocked}
-                  </p>
-                </div>
+              <div>
+                <h1 className="brand-title">{t.performance.detailTitle}</h1>
+                <p className="muted">
+                  {e.employee.name} · {e.periodLabel} · {t.performance.status}: {e.status} ·{" "}
+                  {e.locked ? t.performance.locked : t.performance.unlocked}
+                </p>
               </div>
               <div className="inline">
                 <Link className="button button-secondary" href="/performance">

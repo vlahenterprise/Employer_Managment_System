@@ -271,6 +271,13 @@ function getDashboardCopy(lang: "sr" | "en") {
   };
 }
 
+function getHeroContent(copy: ReturnType<typeof getDashboardCopy>, mode: Awaited<ReturnType<typeof getHomeDashboard>>["mode"]) {
+  if (mode === "manager") return { title: copy.hero.managerTitle, text: copy.hero.managerText };
+  if (mode === "hr") return { title: copy.hero.hrTitle, text: copy.hero.hrText };
+  if (mode === "admin") return { title: copy.hero.adminTitle, text: copy.hero.adminText };
+  return { title: copy.hero.userTitle, text: copy.hero.userText };
+}
+
 function formatMinutes(totalMinutes: number) {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
@@ -655,6 +662,7 @@ export default async function DashboardPage() {
   const summaryCards = getSummaryCards({ lang, copy, home });
   const visibilityRows = getVisibilityRows({ lang, copy, home, hasHrAccess, hasAdminAccess });
   const quickActions = getQuickActions({ home, copy, hasManagementPanel, hasHrAccess, hasAdminAccess });
+  const hero = getHeroContent(copy, home.mode);
 
   return (
     <main className="page">
@@ -688,16 +696,9 @@ export default async function DashboardPage() {
         <section className="panel stack dashboard-hero">
           <div className="dashboard-hero-main">
             <div className="stack dashboard-hero-copy">
-              <div className="small muted">
-                {lang === "sr" ? "Najbitnije stavke za današnji rad" : "Most important items for today"}
-              </div>
               <div>
-                <h2 className="h2">{copy.focusTitle}</h2>
-                <p className="muted">
-                  {lang === "sr"
-                    ? "Početna je svedena na ono što traži tvoju pažnju odmah: status rada, prioriteti i brze akcije."
-                    : "Home is reduced to what needs your attention first: work status, priorities, and quick actions."}
-                </p>
+                <h2 className="h2">{hero.title}</h2>
+                <p className="muted">{hero.text}</p>
               </div>
             </div>
 

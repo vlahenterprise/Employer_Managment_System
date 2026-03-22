@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { LabelWithTooltip } from "@/components/Tooltip";
 import { requireActiveUser } from "@/server/current-user";
-import { getBrandingSettings } from "@/server/settings";
 import { getEmployeeProfile } from "@/server/profile";
 import { getRequestLang } from "@/i18n/server";
 import UserMenu from "../dashboard/UserMenu";
@@ -80,7 +79,6 @@ export default async function ProfilePage({
   searchParams: { userId?: string };
 }) {
   const user = await requireActiveUser();
-  const branding = await getBrandingSettings();
   const lang = getRequestLang();
   const c = copy(lang);
   const profile = await getEmployeeProfile(
@@ -116,15 +114,9 @@ export default async function ProfilePage({
         <div className="page-topbar">
           <div className="page-topbar-main">
             <div className="header">
-              <div className="brand">
-                {branding.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
-                ) : null}
-                <div>
-                  <h1 className="brand-title">{target.name}</h1>
-                  <p className="muted">{c.subtitle}</p>
-                </div>
+              <div>
+                <h1 className="brand-title">{target.name}</h1>
+                <p className="muted">{c.subtitle}</p>
               </div>
               <Link className="button button-secondary" href={profile.isSelf ? "/dashboard" : "/team"}>
                 <IconArrowLeft size={18} /> {c.back}

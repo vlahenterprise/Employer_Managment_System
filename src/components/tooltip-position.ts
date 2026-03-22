@@ -41,18 +41,24 @@ export function getTooltipPosition(params: {
   } = params;
 
   const width = clamp(preferredWidth, 220, Math.max(220, viewportWidth - margin * 2));
+  const estimatedHeight = preferredHeight;
   const triggerCenter = triggerRect.left + triggerRect.width / 2;
   const maxLeft = Math.max(margin, viewportWidth - margin - width);
   const left = clamp(triggerCenter - width / 2, margin, maxLeft);
   const arrowLeft = clamp(triggerCenter - left, 20, width - 20);
-  const canPlaceAbove = triggerRect.top >= preferredHeight + margin + offset;
-  const shouldPlaceAbove = triggerRect.bottom + preferredHeight + offset > viewportHeight - margin && canPlaceAbove;
+  const canPlaceAbove = triggerRect.top >= estimatedHeight + margin + offset;
+  const canPlaceBelow = triggerRect.bottom + estimatedHeight + offset <= viewportHeight - margin;
+  const shouldPlaceAbove = !canPlaceBelow && canPlaceAbove;
+  const unclampedTop = shouldPlaceAbove
+    ? triggerRect.top - estimatedHeight - offset
+    : triggerRect.bottom + offset;
+  const top = clamp(unclampedTop, margin, Math.max(margin, viewportHeight - margin - estimatedHeight));
 
   return {
     left,
     width,
     arrowLeft,
     placement: shouldPlaceAbove ? "top" : "bottom",
-    top: shouldPlaceAbove ? triggerRect.top - offset : triggerRect.bottom + offset
+    top
   };
 }

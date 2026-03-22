@@ -2,7 +2,6 @@ import Link from "next/link";
 import { requireActiveUser } from "@/server/current-user";
 import { getActivityTypesForTeam } from "@/server/reports";
 import { getAppSettings } from "@/server/app-settings";
-import { getBrandingSettings } from "@/server/settings";
 import ReportEntry from "./ReportEntry";
 import UserMenu from "../dashboard/UserMenu";
 import { getRequestLang } from "@/i18n/server";
@@ -12,7 +11,6 @@ import { isManagerRole } from "@/server/rbac";
 
 export default async function ReportsPage() {
   const user = await requireActiveUser();
-  const branding = await getBrandingSettings();
   const lang = getRequestLang();
   const t = getI18n(lang);
   const settings = await getAppSettings();
@@ -25,15 +23,9 @@ export default async function ReportsPage() {
         <div className="page-topbar">
           <div className="page-topbar-main">
             <div className="header">
-              <div className="brand">
-                {branding.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
-                ) : null}
-                <div>
-                  <h1 className="brand-title">{t.reports.entryTitle}</h1>
-                  <p className="muted">{t.reports.rules(settings.MinDayActivtyDuration, settings.MaxDayActivtyDuration, settings.MaxActivitiesPerDay)}</p>
-                </div>
+              <div>
+                <h1 className="brand-title">{t.reports.entryTitle}</h1>
+                <p className="muted">{t.reports.rules(settings.MinDayActivtyDuration, settings.MaxDayActivtyDuration, settings.MaxActivitiesPerDay)}</p>
               </div>
               <div className="inline">
                 <Link className="button button-secondary" href="/dashboard">

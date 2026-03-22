@@ -348,8 +348,8 @@ p {
   top: 18px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 18px 14px 14px;
+  gap: 12px;
+  padding: 16px 12px 12px;
   border-radius: var(--radius-xl);
   background:
     linear-gradient(180deg, rgba(255 255 255 / 0.05) 0%, rgba(255 255 255 / 0.015) 100%),
@@ -369,8 +369,8 @@ p {
 }
 
 .app-nav-logo {
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
   object-fit: contain;
   border-radius: 0;
   filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.38));
@@ -448,6 +448,22 @@ p {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition:
+    max-height 180ms ease,
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+
+.app-nav-links.is-open {
+  max-height: 640px;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
 .app-nav-access {
@@ -456,14 +472,59 @@ p {
   gap: 10px;
 }
 
+.app-nav-group-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 8px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.app-nav-group-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-nav-group-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+  color: rgba(var(--color-light-2-rgb) / 0.72);
+  background: rgba(255 255 255 / 0.04);
+}
+
+.app-nav-group-caret {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(var(--color-light-2-rgb) / 0.52);
+  transition: transform 160ms ease, color 160ms ease;
+}
+
+.app-nav-group-button.is-open .app-nav-group-caret {
+  transform: rotate(90deg);
+  color: rgba(var(--color-light-2-rgb) / 0.82);
+}
+
 .app-nav-link {
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: flex-start;
   gap: 10px;
-  min-height: 40px;
-  padding: 9px 11px;
+  min-height: 38px;
+  padding: 8px 10px;
   border-radius: 16px;
   text-decoration: none;
   color: rgba(var(--color-light-2-rgb) / 0.92);
@@ -480,8 +541,8 @@ p {
 }
 
 .app-nav-link-icon {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 10px;
   display: inline-flex;
   align-items: center;
@@ -1409,7 +1470,7 @@ p {
 
 .help-tooltip-card {
   position: fixed;
-  z-index: 100;
+  z-index: 120;
   width: min(360px, calc(100vw - 24px));
   padding: 12px 14px;
   border-radius: var(--radius-md);
@@ -1420,6 +1481,7 @@ p {
   color: rgba(var(--color-light-2-rgb) / 0.96);
   font-size: 12.5px;
   line-height: 1.45;
+  overflow-wrap: anywhere;
   box-shadow:
     0 18px 46px rgba(0, 0, 0, 0.46),
     var(--shadow-inset);
@@ -3527,7 +3589,7 @@ p {
 }
 
 .grid2.hr-main-grid {
-  grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
 .hr-main-grid {
