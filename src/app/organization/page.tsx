@@ -82,7 +82,10 @@ export default async function OrganizationPage() {
               zoomOut: t.org.zoomOut,
               zoomReset: t.org.zoomReset,
               zoomHelp: t.org.zoomHelp,
-              levelLegend: t.org.levelLegend
+              levelLegend: t.org.levelLegend,
+              fitToScreen: t.org.fitToScreen,
+              fullscreen: t.org.fullscreen,
+              exitFullscreen: t.org.exitFullscreen
             }}
           />
         </section>

@@ -665,7 +665,10 @@ export const I18N = {
       zoomReset: "Reset",
       zoomHelp:
         "Prikaz je sada širi i raspoređen po nivoima hijerarhije. Koristi zoom da lakše pregledaš celu strukturu bez gomilanja kartica jedne ispod drugih.",
-      levelLegend: "Nivoi pozicija"
+      levelLegend: "Nivoi pozicija",
+      fitToScreen: "Prilagodi ekranu",
+      fullscreen: "Puni ekran",
+      exitFullscreen: "Izađi iz punog ekrana"
     },
     modules: {
       tasksTitle: "Zadaci",
@@ -1336,7 +1339,10 @@ export const I18N = {
       zoomReset: "Reset",
       zoomHelp:
         "The chart now spreads more horizontally by org level. Use zoom to review the whole structure more comfortably without oversized stacked cards.",
-      levelLegend: "Position levels"
+      levelLegend: "Position levels",
+      fitToScreen: "Fit to screen",
+      fullscreen: "Full screen",
+      exitFullscreen: "Exit full screen"
     },
     modules: {
       tasksTitle: "Tasks",

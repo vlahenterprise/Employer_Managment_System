@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { groupOrgDocuments, normalizeOrgSearchText } from "@/lib/org-system";
 import { LabelWithTooltip } from "@/components/Tooltip";
 
@@ -82,6 +82,9 @@ type OrgLabels = {
   zoomReset: string;
   zoomHelp: string;
   levelLegend: string;
+  fitToScreen: string;
+  fullscreen: string;
+  exitFullscreen: string;
 };
 
 function levelLabel(level: OrgNode["level"], labels: OrgLabels) {
@@ -104,13 +107,18 @@ function sortNodes(nodes: OrgNode[]) {
   return [...nodes].sort((a, b) => a.order - b.order || a.title.localeCompare(b.title));
 }
 
+const ORG_SCALE_STEPS = [0.75, 0.85, 1, 1.15, 1.3] as const;
+
 export default function OrgChart(props: {
   nodes: OrgNode[];
   globalLinks: OrgDocument[];
   canEdit: boolean;
   labels: OrgLabels;
 }) {
-  const scaleSteps = [0.75, 0.85, 1, 1.15, 1.3];
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const treeRef = useRef<HTMLDivElement | null>(null);
+  const nodeRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const nodesById = useMemo(() => new Map(props.nodes.map((node) => [node.id, node] as const)), [props.nodes]);
 
   const childMap = useMemo(() => {
@@ -134,11 +142,22 @@ export default function OrgChart(props: {
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [scaleIndex, setScaleIndex] = useState(2);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     if (!selectedId && roots[0]?.id) setSelectedId(roots[0].id);
     if (selectedId && !nodesById.has(selectedId)) setSelectedId(roots[0]?.id ?? null);
   }, [nodesById, roots, selectedId]);
+
+  useEffect(() => {
+    function syncFullscreenState() {
+      setIsFullscreen(document.fullscreenElement === containerRef.current);
+    }
+
+    syncFullscreenState();
+    document.addEventListener("fullscreenchange", syncFullscreenState);
+    return () => document.removeEventListener("fullscreenchange", syncFullscreenState);
+  }, []);
 
   const selected = selectedId ? nodesById.get(selectedId) ?? null : null;
 
@@ -211,12 +230,63 @@ export default function OrgChart(props: {
 
   const selectedGroups = useMemo(() => groupOrgDocuments(selected?.documents ?? []), [selected]);
   const globalGroups = useMemo(() => groupOrgDocuments(props.globalLinks), [props.globalLinks]);
-  const scale = scaleSteps[scaleIndex] ?? 1;
+  const scale = ORG_SCALE_STEPS[scaleIndex] ?? 1;
   const scalePercent = Math.round(scale * 100);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    const node = nodeRefs.current[selectedId];
+    if (!node) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      node.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedId, scaleIndex]);
 
   function openPosition(positionId: string, documentId?: string | null) {
     setSelectedId(positionId);
     setSelectedDocumentId(documentId ?? null);
+  }
+
+  const fitToScreen = useCallback(() => {
+    const viewport = viewportRef.current;
+    const tree = treeRef.current;
+    if (!viewport || !tree) {
+      setScaleIndex(2);
+      return;
+    }
+
+    const availableWidth = Math.max(viewport.clientWidth - 32, 0);
+    const baseWidth = tree.scrollWidth / scale;
+    const fittingIndex = ORG_SCALE_STEPS.reduce<number>((best, candidate, index) => {
+      return candidate * baseWidth <= availableWidth ? index : best;
+    }, -1);
+
+    setScaleIndex(fittingIndex >= 0 ? fittingIndex : 0);
+  }, [scale]);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const timer = window.setTimeout(() => {
+      fitToScreen();
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [fitToScreen, isFullscreen]);
+
+  async function toggleFullscreen() {
+    const container = containerRef.current;
+    if (!container || typeof document === "undefined") return;
+
+    if (document.fullscreenElement === container) {
+      await document.exitFullscreen();
+      return;
+    }
+
+    if (container.requestFullscreen) {
+      await container.requestFullscreen();
+    }
   }
 
   function renderDocumentSection(title: string, documents: OrgDocument[]) {
@@ -248,6 +318,9 @@ export default function OrgChart(props: {
     return (
       <div key={node.id} className={`org-branch org-branch-${node.level}`}>
         <button
+          ref={(element) => {
+            nodeRefs.current[node.id] = element;
+          }}
           type="button"
           className={`org-node org-node-${node.level}${selectedId === node.id ? " is-active" : ""}`}
           onClick={() => openPosition(node.id)}
@@ -281,7 +354,7 @@ export default function OrgChart(props: {
   }
 
   return (
-    <div className="org-system stack">
+    <div ref={containerRef} className={`org-system stack${isFullscreen ? " is-fullscreen" : ""}`}>
       <section className="org-toolbar">
         <div className="field">
           <span className="label">
@@ -320,13 +393,19 @@ export default function OrgChart(props: {
             <button type="button" className="button button-secondary" onClick={() => setScaleIndex(2)}>
               {props.labels.zoomReset}
             </button>
+            <button type="button" className="button button-secondary" onClick={fitToScreen}>
+              {props.labels.fitToScreen}
+            </button>
             <button
               type="button"
               className="button button-secondary"
-              onClick={() => setScaleIndex((value) => Math.min(scaleSteps.length - 1, value + 1))}
-              disabled={scaleIndex === scaleSteps.length - 1}
+              onClick={() => setScaleIndex((value) => Math.min(ORG_SCALE_STEPS.length - 1, value + 1))}
+              disabled={scaleIndex === ORG_SCALE_STEPS.length - 1}
             >
               + {props.labels.zoomIn}
+            </button>
+            <button type="button" className="button button-secondary" onClick={toggleFullscreen}>
+              {isFullscreen ? props.labels.exitFullscreen : props.labels.fullscreen}
             </button>
             {query ? (
               <button type="button" className="button button-secondary" onClick={() => setQuery("")}>
@@ -365,8 +444,10 @@ export default function OrgChart(props: {
             </section>
           ) : null}
 
-          <div className="org-tree-viewport">
-            <div className="org-tree">{roots.map((node) => renderBranch(node))}</div>
+          <div ref={viewportRef} className="org-tree-viewport">
+            <div ref={treeRef} className="org-tree">
+              {roots.map((node) => renderBranch(node))}
+            </div>
           </div>
         </div>
 
