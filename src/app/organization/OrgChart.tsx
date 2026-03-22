@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { groupOrgDocuments, normalizeOrgSearchText } from "@/lib/org-system";
 import { LabelWithTooltip } from "@/components/Tooltip";
@@ -76,6 +77,11 @@ type OrgLabels = {
   openDocument: string;
   globalResources: string;
   matches: string;
+  zoomIn: string;
+  zoomOut: string;
+  zoomReset: string;
+  zoomHelp: string;
+  levelLegend: string;
 };
 
 function levelLabel(level: OrgNode["level"], labels: OrgLabels) {
@@ -104,6 +110,7 @@ export default function OrgChart(props: {
   canEdit: boolean;
   labels: OrgLabels;
 }) {
+  const scaleSteps = [0.75, 0.85, 1, 1.15, 1.3];
   const nodesById = useMemo(() => new Map(props.nodes.map((node) => [node.id, node] as const)), [props.nodes]);
 
   const childMap = useMemo(() => {
@@ -126,6 +133,7 @@ export default function OrgChart(props: {
   const [selectedId, setSelectedId] = useState<string | null>(roots[0]?.id ?? null);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [scaleIndex, setScaleIndex] = useState(2);
 
   useEffect(() => {
     if (!selectedId && roots[0]?.id) setSelectedId(roots[0].id);
@@ -203,6 +211,8 @@ export default function OrgChart(props: {
 
   const selectedGroups = useMemo(() => groupOrgDocuments(selected?.documents ?? []), [selected]);
   const globalGroups = useMemo(() => groupOrgDocuments(props.globalLinks), [props.globalLinks]);
+  const scale = scaleSteps[scaleIndex] ?? 1;
+  const scalePercent = Math.round(scale * 100);
 
   function openPosition(positionId: string, documentId?: string | null) {
     setSelectedId(positionId);
@@ -286,15 +296,49 @@ export default function OrgChart(props: {
           />
           <div className="muted small">{props.labels.searchHint}</div>
         </div>
-        {query ? (
-          <button type="button" className="button button-secondary" onClick={() => setQuery("")}>
-            {props.labels.clearSearch}
-          </button>
-        ) : null}
+        <div className="org-toolbar-controls">
+          <div className="org-level-legend">
+            <span className="org-level-legend-title">
+              <LabelWithTooltip label={props.labels.levelLegend} tooltip={props.labels.zoomHelp} />
+            </span>
+            <span className="org-level-pill org-level-pill-executive">{props.labels.executive}</span>
+            <span className="org-level-pill org-level-pill-manager">{props.labels.manager}</span>
+            <span className="org-level-pill org-level-pill-lead">{props.labels.lead}</span>
+            <span className="org-level-pill org-level-pill-employee">{props.labels.employee}</span>
+          </div>
+
+          <div className="org-zoom-controls">
+            <span className="org-zoom-value">{scalePercent}%</span>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => setScaleIndex((value) => Math.max(0, value - 1))}
+              disabled={scaleIndex === 0}
+            >
+              − {props.labels.zoomOut}
+            </button>
+            <button type="button" className="button button-secondary" onClick={() => setScaleIndex(2)}>
+              {props.labels.zoomReset}
+            </button>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => setScaleIndex((value) => Math.min(scaleSteps.length - 1, value + 1))}
+              disabled={scaleIndex === scaleSteps.length - 1}
+            >
+              + {props.labels.zoomIn}
+            </button>
+            {query ? (
+              <button type="button" className="button button-secondary" onClick={() => setQuery("")}>
+                {props.labels.clearSearch}
+              </button>
+            ) : null}
+          </div>
+        </div>
       </section>
 
       <div className="org-layout">
-        <div className="org-tree-shell">
+        <div className="org-tree-shell" style={{ "--org-scale": String(scale) } as CSSProperties}>
           {query ? (
             <section className="org-search-results">
               <div className="org-section-title">{props.labels.matches}</div>
@@ -321,7 +365,9 @@ export default function OrgChart(props: {
             </section>
           ) : null}
 
-          <div className="org-tree">{roots.map((node) => renderBranch(node))}</div>
+          <div className="org-tree-viewport">
+            <div className="org-tree">{roots.map((node) => renderBranch(node))}</div>
+          </div>
         </div>
 
         <aside className="org-detail">

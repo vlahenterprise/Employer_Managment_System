@@ -2,6 +2,7 @@ import Link from "next/link";
 import AdminShell from "@/components/AdminShell";
 import { requireAdminUser } from "@/server/current-user";
 import { getOrgPickers, getOrgStructure } from "@/server/org-structure";
+import { normalizeOrgSearchText } from "@/lib/org-system";
 import {
   addOrgAssignmentAction,
   addOrgGlobalLinkAction,
@@ -77,7 +78,7 @@ function typeLabel(lang: "sr" | "en", type: string) {
 export default async function AdminOrgStructurePage({
   searchParams
 }: {
-  searchParams: { success?: string; error?: string };
+  searchParams: { success?: string; error?: string; query?: string; focus?: string };
 }) {
   const user = await requireAdminUser();
   const lang = getRequestLang();
@@ -87,9 +88,52 @@ export default async function AdminOrgStructurePage({
 
   const success = searchParams.success ? decodeURIComponent(searchParams.success) : null;
   const error = searchParams.error ? decodeURIComponent(searchParams.error) : null;
+  const query = searchParams.query ? decodeURIComponent(searchParams.query).trim() : "";
+  const focus = searchParams.focus ?? "all";
 
   const positions = [...nodes].sort((a, b) => a.order - b.order || a.title.localeCompare(b.title));
   const positionOptions = [{ id: "", title: "(root)" }, ...pickers.positions];
+  const filteredPositions = positions.filter((position) => {
+    const queryNeedle = normalizeOrgSearchText(query);
+    const matchesQuery =
+      !queryNeedle ||
+      normalizeOrgSearchText(position.title).includes(queryNeedle) ||
+      normalizeOrgSearchText(position.description).includes(queryNeedle) ||
+      position.users.some(
+        (userRow) =>
+          normalizeOrgSearchText(userRow.name).includes(queryNeedle) ||
+          normalizeOrgSearchText(userRow.email).includes(queryNeedle)
+      ) ||
+      position.links.some(
+        (link) =>
+          normalizeOrgSearchText(link.label).includes(queryNeedle) ||
+          normalizeOrgSearchText(link.description).includes(queryNeedle) ||
+          normalizeOrgSearchText(link.url).includes(queryNeedle)
+      );
+
+    if (!matchesQuery) return false;
+    if (focus === "needsDocs") return position.links.length === 0;
+    if (focus === "needsPeople") return position.users.length === 0;
+    if (focus === "inactive") return !position.isActive;
+    return true;
+  });
+  const positionsWithoutDocs = positions.filter((position) => position.links.length === 0).length;
+  const positionsWithoutPeople = positions.filter((position) => position.users.length === 0).length;
+  const inactivePositions = positions.filter((position) => !position.isActive).length;
+  const focusOptions =
+    lang === "sr"
+      ? [
+          { value: "all", label: "Sve pozicije" },
+          { value: "needsDocs", label: "Bez dokumentacije" },
+          { value: "needsPeople", label: "Bez dodeljenih ljudi" },
+          { value: "inactive", label: "Neaktivne" }
+        ]
+      : [
+          { value: "all", label: "All positions" },
+          { value: "needsDocs", label: "Missing documents" },
+          { value: "needsPeople", label: "Missing people" },
+          { value: "inactive", label: "Inactive" }
+        ];
 
   return (
     <AdminShell
@@ -253,6 +297,72 @@ export default async function AdminOrgStructurePage({
         </section>
 
         <section className="panel stack">
+          <div className="section-head">
+            <div>
+              <h2 className="h2">
+                {lang === "sr" ? "Brzo upravljanje org strukturom" : "Quick org management"}
+              </h2>
+              <div className="muted small">
+                {lang === "sr"
+                  ? "Filtriraj pozicije koje još nemaju ljude ili Drive dokumentaciju i brže pronađi šta treba da dopuniš."
+                  : "Filter positions that still miss people or Drive documents so you can fill gaps faster."}
+              </div>
+            </div>
+            <div className="pills">
+              <span className="pill">
+                {lang === "sr" ? "Ukupno" : "Total"} · {positions.length}
+              </span>
+              <span className="pill">
+                {lang === "sr" ? "Bez dokumenata" : "Missing docs"} · {positionsWithoutDocs}
+              </span>
+              <span className="pill">
+                {lang === "sr" ? "Bez ljudi" : "Missing people"} · {positionsWithoutPeople}
+              </span>
+              <span className="pill">
+                {lang === "sr" ? "Neaktivne" : "Inactive"} · {inactivePositions}
+              </span>
+            </div>
+          </div>
+
+          <form className="grid2" method="get">
+            <label className="field">
+              <span className="label">{lang === "sr" ? "Pretraga" : "Search"}</span>
+              <input
+                className="input"
+                name="query"
+                type="search"
+                defaultValue={query}
+                placeholder={
+                  lang === "sr"
+                    ? "Pozicija, zaposleni, dokument ili Drive link..."
+                    : "Position, employee, document, or Drive link..."
+                }
+              />
+            </label>
+            <label className="field">
+              <span className="label">{lang === "sr" ? "Fokus" : "Focus"}</span>
+              <select className="input" name="focus" defaultValue={focus}>
+                {focusOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="inline">
+              <button className="button" type="submit">
+                {lang === "sr" ? "Primeni filtere" : "Apply filters"}
+              </button>
+              {(query || focus !== "all") ? (
+                <Link className="button button-secondary" href="/admin/org-structure">
+                  {lang === "sr" ? "Očisti" : "Clear"}
+                </Link>
+              ) : null}
+            </div>
+          </form>
+        </section>
+
+        <section className="panel stack">
           <h2 className="h2">
             <LabelWithTooltip
               label={t.admin.org.listTitle}
@@ -264,7 +374,7 @@ export default async function AdminOrgStructurePage({
             />
           </h2>
           <div className="list">
-            {positions.map((p) => {
+            {filteredPositions.map((p) => {
               const assignedIds = new Set(p.users.map((u) => u.id));
               return (
                 <details key={p.id} className="item stack">
@@ -433,6 +543,13 @@ export default async function AdminOrgStructurePage({
               );
             })}
             {positions.length === 0 ? <div className="muted">{t.admin.org.empty}</div> : null}
+            {positions.length > 0 && filteredPositions.length === 0 ? (
+              <div className="muted">
+                {lang === "sr"
+                  ? "Nema pozicija za izabranu pretragu i fokus filter."
+                  : "No positions match the selected search and focus filter."}
+              </div>
+            ) : null}
           </div>
         </section>
     </AdminShell>

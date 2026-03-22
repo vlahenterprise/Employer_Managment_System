@@ -77,7 +77,12 @@ export default async function OrganizationPage() {
               documentsHelp: t.org.documentsHelp,
               openDocument: t.org.openDocument,
               globalResources: t.org.globalResources,
-              matches: t.org.matches
+              matches: t.org.matches,
+              zoomIn: t.org.zoomIn,
+              zoomOut: t.org.zoomOut,
+              zoomReset: t.org.zoomReset,
+              zoomHelp: t.org.zoomHelp,
+              levelLegend: t.org.levelLegend
             }}
           />
         </section>

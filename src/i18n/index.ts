@@ -659,7 +659,13 @@ export const I18N = {
         "Dokumenti su Drive linkovi povezani sa pozicijom ili sa globalnim procesima. Klik vodi direktno na dokument bez čuvanja fajla u aplikaciji.",
       openDocument: "Otvori Drive dokument",
       globalResources: "Globalni resursi",
-      matches: "Rezultati pretrage"
+      matches: "Rezultati pretrage",
+      zoomIn: "Uvećaj",
+      zoomOut: "Umanji",
+      zoomReset: "Reset",
+      zoomHelp:
+        "Prikaz je sada širi i raspoređen po nivoima hijerarhije. Koristi zoom da lakše pregledaš celu strukturu bez gomilanja kartica jedne ispod drugih.",
+      levelLegend: "Nivoi pozicija"
     },
     modules: {
       tasksTitle: "Zadaci",
@@ -1324,7 +1330,13 @@ export const I18N = {
         "Documents are Drive links connected either to the selected position or to company-wide processes. The app stores links only, not the files themselves.",
       openDocument: "Open Drive document",
       globalResources: "Global resources",
-      matches: "Search results"
+      matches: "Search results",
+      zoomIn: "Zoom in",
+      zoomOut: "Zoom out",
+      zoomReset: "Reset",
+      zoomHelp:
+        "The chart now spreads more horizontally by org level. Use zoom to review the whole structure more comfortably without oversized stacked cards.",
+      levelLegend: "Position levels"
     },
     modules: {
       tasksTitle: "Tasks",
