@@ -191,6 +191,11 @@ model User {
   onboardingsAsManager Onboarding[] @relation("OnboardingManager")
   onboardingsAsHrOwner Onboarding[] @relation("OnboardingHrOwner")
   completedOnboardingItems OnboardingItem[] @relation("OnboardingCompletedBy")
+  createdOnboardingTemplates OnboardingTemplate[] @relation("OnboardingTemplateCreatedBy")
+  mentoredOnboardingTemplateSteps OnboardingTemplateStep[] @relation("OnboardingTemplateMentor")
+  mentoredOnboardingItems OnboardingItem[] @relation("OnboardingMentor")
+  hrConfirmedOnboardingItems OnboardingItem[] @relation("OnboardingHrConfirmedBy")
+  managerConfirmedOnboardingItems OnboardingItem[] @relation("OnboardingManagerConfirmedBy")
 
   @@index([managerId])
   @@index([teamId])
@@ -213,6 +218,8 @@ model OrgPosition {
   children  OrgPosition[] @relation("OrgPositionTree")
   links     OrgPositionLink[]
   assignees OrgPositionAssignment[]
+  templates OnboardingTemplate[]
+  onboardings Onboarding[]
 
   @@index([parentId])
   @@index([parentId, order])
@@ -266,6 +273,47 @@ model OrgGlobalLink {
 
   @@index([type])
   @@index([order])
+}
+
+model OnboardingTemplate {
+  id          String   @id @default(cuid())
+  positionId  String   @unique
+  title       String?
+  description String?
+  isActive    Boolean  @default(true)
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  position   OrgPosition             @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  createdBy  User?                   @relation("OnboardingTemplateCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  steps      OnboardingTemplateStep[]
+  onboardings Onboarding[]
+
+  @@index([isActive])
+}
+
+model OnboardingTemplateStep {
+  id                          String              @id @default(cuid())
+  templateId                  String
+  title                       String
+  description                 String?
+  ownerType                   OnboardingItemOwner @default(SHARED)
+  dueOffsetDays               Int?
+  mentorId                    String?
+  hrConfirmationRequired      Boolean             @default(true)
+  managerConfirmationRequired Boolean             @default(true)
+  links                       Json?
+  order                       Int                 @default(0)
+  createdAt                   DateTime            @default(now())
+  updatedAt                   DateTime            @updatedAt
+
+  template OnboardingTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  mentor   User?              @relation("OnboardingTemplateMentor", fields: [mentorId], references: [id], onDelete: SetNull)
+  items    OnboardingItem[]   @relation("OnboardingTemplateStepItems")
+
+  @@index([templateId, order])
+  @@index([mentorId])
 }
 
 model Account {
@@ -697,6 +745,8 @@ model Onboarding {
   processId           String?
   candidateId         String?
   employeeId          String?
+  positionId          String?
+  templateId          String?
   teamId              String?
   managerId           String?
   hrOwnerId           String?
@@ -712,6 +762,8 @@ model Onboarding {
   process     HrProcess?        @relation(fields: [processId], references: [id], onDelete: SetNull)
   candidate   HrCandidate?      @relation(fields: [candidateId], references: [id], onDelete: SetNull)
   employee    User?             @relation("OnboardingEmployee", fields: [employeeId], references: [id], onDelete: SetNull)
+  position    OrgPosition?      @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  template    OnboardingTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   team        Team?             @relation(fields: [teamId], references: [id], onDelete: SetNull)
   manager     User?             @relation("OnboardingManager", fields: [managerId], references: [id], onDelete: SetNull)
   hrOwner     User?             @relation("OnboardingHrOwner", fields: [hrOwnerId], references: [id], onDelete: SetNull)
@@ -720,6 +772,8 @@ model Onboarding {
   @@index([processId])
   @@index([candidateId])
   @@index([employeeId, status])
+  @@index([positionId, status])
+  @@index([templateId])
   @@index([managerId, status])
   @@index([hrOwnerId, status])
   @@index([teamId, status])
@@ -728,22 +782,39 @@ model Onboarding {
 model OnboardingItem {
   id            String              @id @default(cuid())
   onboardingId  String
+  templateStepId String?
   title         String
   description   String?
   ownerType     OnboardingItemOwner @default(SHARED)
   driveUrl      String?
+  links         Json?
+  dueDate       DateTime?
+  mentorId      String?
+  hrConfirmationRequired Boolean @default(false)
+  managerConfirmationRequired Boolean @default(false)
   isCompleted   Boolean             @default(false)
   completedAt   DateTime?
   completedById String?
+  hrConfirmedAt DateTime?
+  hrConfirmedById String?
+  managerConfirmedAt DateTime?
+  managerConfirmedById String?
   order         Int                 @default(0)
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 
-  onboarding   Onboarding @relation(fields: [onboardingId], references: [id], onDelete: Cascade)
-  completedBy  User?      @relation("OnboardingCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  onboarding         Onboarding               @relation(fields: [onboardingId], references: [id], onDelete: Cascade)
+  templateStep       OnboardingTemplateStep?  @relation("OnboardingTemplateStepItems", fields: [templateStepId], references: [id], onDelete: SetNull)
+  mentor             User?                    @relation("OnboardingMentor", fields: [mentorId], references: [id], onDelete: SetNull)
+  completedBy        User?                    @relation("OnboardingCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  hrConfirmedBy      User?                    @relation("OnboardingHrConfirmedBy", fields: [hrConfirmedById], references: [id], onDelete: SetNull)
+  managerConfirmedBy User?                    @relation("OnboardingManagerConfirmedBy", fields: [managerConfirmedById], references: [id], onDelete: SetNull)
 
   @@index([onboardingId, order])
+  @@index([templateStepId])
   @@index([ownerType, isCompleted])
+  @@index([mentorId])
+  @@index([dueDate])
 }
 
 model HrCandidateComment {

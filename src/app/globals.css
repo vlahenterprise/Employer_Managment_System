@@ -4225,12 +4225,88 @@ code {
     font-size: 10px;
   }
 
-  .app-powered {
-    left: 50%;
-    transform: translateX(-50%);
-    text-align: center;
-    letter-spacing: 0.2em;
-    font-size: 10px;
+.app-powered {
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  letter-spacing: 0.2em;
+  font-size: 10px;
+}
+}
+
+.onboarding-template-grid {
+  align-items: stretch;
+}
+
+.onboarding-template-grid .entity-card,
+.onboarding-phase-card,
+.onboarding-standalone-panel,
+.onboarding-assignment-panel {
+  background:
+    linear-gradient(180deg, rgba(255 255 255 / 0.035) 0%, rgba(255 255 255 / 0.015) 100%),
+    rgba(0 0 0 / 0.26);
+  border: 1px solid rgba(var(--color-light-2-rgb) / 0.08);
+  box-shadow: var(--shadow-inset);
+}
+
+.onboarding-template-grid .entity-card .item-top {
+  align-items: flex-start;
+}
+
+.onboarding-template-grid .entity-card .item-title {
+  font-size: 16px;
+}
+
+.onboarding-template-grid .detail-list {
+  min-height: 84px;
+}
+
+.onboarding-standalone-panel,
+.onboarding-assignment-panel {
+  border-radius: var(--radius-lg);
+  padding: 18px;
+}
+
+.onboarding-phase-list {
+  gap: 16px;
+}
+
+.onboarding-phase-card {
+  gap: 14px;
+  border-radius: var(--radius-lg);
+  padding: 18px;
+}
+
+.onboarding-phase-card .item-top {
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.onboarding-phase-editor {
+  padding-top: 6px;
+  border-top: 1px dashed rgba(var(--color-light-2-rgb) / 0.08);
+}
+
+.onboarding-phase-actions {
+  flex-wrap: wrap;
+}
+
+.onboarding-template-flags {
+  align-items: end;
+}
+
+.onboarding-phase-add {
+  border-style: dashed;
+}
+
+.onboarding-phase-card .inline .button {
+  max-width: 100%;
+}
+
+@media (max-width: 960px) {
+  .onboarding-template-grid,
+  .onboarding-phase-list {
+    grid-template-columns: 1fr;
   }
 }
 

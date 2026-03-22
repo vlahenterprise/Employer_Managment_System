@@ -73,8 +73,8 @@ function copy(lang: "sr" | "en") {
       waitingOn: "Na potezu je",
       nextAction: "Sledeći korak",
       systemStatus: "Sistemski status",
-      candidateBase: "Baza kandidata",
-      candidateBaseHint: "Istorija prijava i ponovna upotreba postojećih kandidata.",
+      candidateBase: "Kandidati i talent pool",
+      candidateBaseHint: "Baza kandidata je izdvojena u zaseban modul da HR ekran ostane fokusiran na procese i sledeće korake.",
       notifications: "Notifikacije",
       openProcess: "Otvori proces",
       positionTitle: "Pozicija",
@@ -154,8 +154,8 @@ function copy(lang: "sr" | "en") {
     waitingOn: "Waiting on",
     nextAction: "Next action",
     systemStatus: "System status",
-    candidateBase: "Candidate base",
-    candidateBaseHint: "Application history and reuse of existing candidates.",
+    candidateBase: "Candidates and talent pool",
+    candidateBaseHint: "The candidate base lives in its own module so the HR screen can stay focused on workflows and next actions.",
     notifications: "Notifications",
     openProcess: "Open process",
     positionTitle: "Position",
@@ -793,45 +793,7 @@ export default async function HrPage({
           </div>
         </section>
 
-        <div className="grid2 hr-main-grid">
-          <section className="panel stack">
-            <div className="section-copy">
-              <h2 className="h2">
-                <LabelWithTooltip
-                  label={c.candidateBase}
-                  tooltip={
-                    lang === "sr"
-                      ? "Kandidati ostaju sačuvani i kada nisu aktivni u trenutnom procesu, da HR može lakše da ih vrati u rad ili proveri istoriju."
-                      : "Candidates remain reusable even when they are not active in the current process, so HR can bring them back later or check their history."
-                  }
-              />
-            </h2>
-              <p className="muted small">{c.candidateBaseHint}</p>
-            </div>
-            <div className="list">
-              {dashboard.candidates.map((candidate) => (
-                <div key={candidate.id} className="item stack">
-                  <div className="item-top">
-                    <div>
-                      <div className="item-title">{candidate.fullName}</div>
-                      <div className="muted small">
-                        {candidate.email || c.noValue} · {candidate.phone || c.noValue} · {candidate.source || c.noValue}
-                      </div>
-                    </div>
-                    <span className="pill">{candidate.latestCvFileName || "CV"}</span>
-                  </div>
-                  <div className="muted small">
-                    {candidate.applications
-                      .map((application) => `${application.process.positionTitle} · ${application.process.team?.name || c.noValue} · ${application.status}`)
-                      .join(" • ")}
-                  </div>
-                </div>
-              ))}
-              {dashboard.candidates.length === 0 ? <div className="muted small">{c.noCandidates}</div> : null}
-            </div>
-        </section>
-
-        <section className="panel stack">
+        <section className="panel stack hr-processes-panel">
           <div className="section-copy">
             <h2 className="h2">
               <LabelWithTooltip
@@ -927,7 +889,6 @@ export default async function HrPage({
             {dashboard.processes.length === 0 ? <div className="muted small">{c.noProcesses}</div> : null}
           </div>
         </section>
-      </div>
     </main>
   );
 }

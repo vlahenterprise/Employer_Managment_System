@@ -3,7 +3,21 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireActiveUser } from "@/server/current-user";
-import { addOnboardingItem, toggleOnboardingItem, updateOnboarding } from "@/server/onboarding";
+import { booleanish } from "@/server/validation";
+import {
+  addOnboardingItem,
+  addOnboardingTemplateStep,
+  assignOnboardingProcess,
+  confirmOnboardingItem,
+  createOrGetOnboardingTemplate,
+  deleteOnboardingTemplateStep,
+  toggleOnboardingItem,
+  updateOnboarding,
+  updateOnboardingItem,
+  updateOnboardingTemplate,
+  updateOnboardingTemplateStep,
+  type OnboardingActor
+} from "@/server/onboarding";
 
 function actorPayload(user: Awaited<ReturnType<typeof requireActiveUser>>) {
   return {
@@ -13,7 +27,7 @@ function actorPayload(user: Awaited<ReturnType<typeof requireActiveUser>>) {
     role: user.role,
     hrAddon: user.hrAddon,
     adminAddon: user.adminAddon
-  } as const;
+  } satisfies OnboardingActor;
 }
 
 function redirectError(path: string, message: string): never {
@@ -22,6 +36,12 @@ function redirectError(path: string, message: string): never {
 
 function redirectSuccess(path: string, message: string): never {
   redirect(`${path}?success=${encodeURIComponent(message)}`);
+}
+
+function refreshOnboardingPaths(targetPath?: string) {
+  revalidatePath("/onboarding");
+  revalidatePath("/profile");
+  if (targetPath) revalidatePath(targetPath);
 }
 
 export async function updateOnboardingAction(formData: FormData) {
@@ -39,9 +59,107 @@ export async function updateOnboardingAction(formData: FormData) {
     onboardingDocsUrl: String(formData.get("onboardingDocsUrl") ?? "").trim() || null
   });
   if (!res.ok) redirectError(`/onboarding/${onboardingId}`, res.error);
-  revalidatePath("/onboarding");
-  revalidatePath(`/onboarding/${onboardingId}`);
+  refreshOnboardingPaths(`/onboarding/${onboardingId}`);
   redirectSuccess(`/onboarding/${onboardingId}`, "ONBOARDING_UPDATED");
+}
+
+export async function createOnboardingTemplateAction(formData: FormData) {
+  const user = await requireActiveUser();
+  const res = await createOrGetOnboardingTemplate({
+    actor: actorPayload(user),
+    positionId: String(formData.get("positionId") ?? "").trim()
+  });
+  if (!res.ok) redirectError("/onboarding", res.error);
+  revalidatePath("/onboarding");
+  redirect(`/onboarding/templates/${res.id}`);
+}
+
+export async function updateOnboardingTemplateAction(formData: FormData) {
+  const user = await requireActiveUser();
+  const templateId = String(formData.get("templateId") ?? "").trim();
+  const res = await updateOnboardingTemplate({
+    actor: actorPayload(user),
+    templateId,
+    title: String(formData.get("title") ?? "").trim() || null,
+    description: String(formData.get("description") ?? "").trim() || null,
+    isActive: formData.get("isActive") != null
+  });
+  if (!res.ok) redirectError(`/onboarding/templates/${templateId}`, res.error);
+  revalidatePath("/onboarding");
+  revalidatePath(`/onboarding/templates/${templateId}`);
+  redirectSuccess(`/onboarding/templates/${templateId}`, "TEMPLATE_UPDATED");
+}
+
+export async function addOnboardingTemplateStepAction(formData: FormData) {
+  const user = await requireActiveUser();
+  const templateId = String(formData.get("templateId") ?? "").trim();
+  const res = await addOnboardingTemplateStep({
+    actor: actorPayload(user),
+    templateId,
+    title: String(formData.get("title") ?? "").trim(),
+    description: String(formData.get("description") ?? "").trim() || null,
+    ownerType: String(formData.get("ownerType") ?? "SHARED").trim().toUpperCase() as any,
+    dueOffsetDays: Number(formData.get("dueOffsetDays") ?? ""),
+    mentorId: String(formData.get("mentorId") ?? "").trim() || null,
+    linksText: String(formData.get("linksText") ?? "").trim() || null,
+    hrConfirmationRequired: formData.get("hrConfirmationRequired") != null,
+    managerConfirmationRequired: formData.get("managerConfirmationRequired") != null
+  });
+  if (!res.ok) redirectError(`/onboarding/templates/${templateId}`, res.error);
+  revalidatePath("/onboarding");
+  revalidatePath(`/onboarding/templates/${templateId}`);
+  redirectSuccess(`/onboarding/templates/${templateId}`, "TEMPLATE_STEP_ADDED");
+}
+
+export async function updateOnboardingTemplateStepAction(formData: FormData) {
+  const user = await requireActiveUser();
+  const templateId = String(formData.get("templateId") ?? "").trim();
+  const res = await updateOnboardingTemplateStep({
+    actor: actorPayload(user),
+    stepId: String(formData.get("stepId") ?? "").trim(),
+    title: String(formData.get("title") ?? "").trim(),
+    description: String(formData.get("description") ?? "").trim() || null,
+    ownerType: String(formData.get("ownerType") ?? "SHARED").trim().toUpperCase() as any,
+    dueOffsetDays: Number(formData.get("dueOffsetDays") ?? ""),
+    mentorId: String(formData.get("mentorId") ?? "").trim() || null,
+    linksText: String(formData.get("linksText") ?? "").trim() || null,
+    hrConfirmationRequired: formData.get("hrConfirmationRequired") != null,
+    managerConfirmationRequired: formData.get("managerConfirmationRequired") != null,
+    order: Number(formData.get("order") ?? "")
+  });
+  if (!res.ok) redirectError(`/onboarding/templates/${templateId}`, res.error);
+  revalidatePath("/onboarding");
+  revalidatePath(`/onboarding/templates/${templateId}`);
+  redirectSuccess(`/onboarding/templates/${templateId}`, "TEMPLATE_STEP_UPDATED");
+}
+
+export async function deleteOnboardingTemplateStepAction(formData: FormData) {
+  const user = await requireActiveUser();
+  const templateId = String(formData.get("templateId") ?? "").trim();
+  const res = await deleteOnboardingTemplateStep({
+    actor: actorPayload(user),
+    stepId: String(formData.get("stepId") ?? "").trim()
+  });
+  if (!res.ok) redirectError(`/onboarding/templates/${templateId}`, res.error);
+  revalidatePath("/onboarding");
+  revalidatePath(`/onboarding/templates/${templateId}`);
+  redirectSuccess(`/onboarding/templates/${templateId}`, "TEMPLATE_STEP_DELETED");
+}
+
+export async function assignOnboardingProcessAction(formData: FormData) {
+  const user = await requireActiveUser();
+  const onboardingId = String(formData.get("onboardingId") ?? "").trim() || null;
+  const res = await assignOnboardingProcess({
+    actor: actorPayload(user),
+    onboardingId,
+    templateId: String(formData.get("templateId") ?? "").trim(),
+    employeeId: String(formData.get("employeeId") ?? "").trim(),
+    startDate: String(formData.get("startDate") ?? "").trim() || null,
+    status: String(formData.get("status") ?? "ACTIVE").trim().toUpperCase() as any
+  });
+  if (!res.ok) redirectError("/onboarding", res.error);
+  refreshOnboardingPaths("/onboarding");
+  redirectSuccess(`/onboarding/${res.id}`, "ONBOARDING_ASSIGNED");
 }
 
 export async function addOnboardingItemAction(formData: FormData) {
@@ -53,12 +171,38 @@ export async function addOnboardingItemAction(formData: FormData) {
     title: String(formData.get("title") ?? "").trim(),
     description: String(formData.get("description") ?? "").trim() || null,
     ownerType: String(formData.get("ownerType") ?? "SHARED").trim().toUpperCase() as any,
-    driveUrl: String(formData.get("driveUrl") ?? "").trim() || null
+    driveUrl: String(formData.get("driveUrl") ?? "").trim() || null,
+    dueDate: String(formData.get("dueDate") ?? "").trim() || null,
+    mentorId: String(formData.get("mentorId") ?? "").trim() || null,
+    linksText: String(formData.get("linksText") ?? "").trim() || null,
+    hrConfirmationRequired: formData.get("hrConfirmationRequired") != null,
+    managerConfirmationRequired: formData.get("managerConfirmationRequired") != null
   });
   if (!res.ok) redirectError(`/onboarding/${onboardingId}`, res.error);
-  revalidatePath("/onboarding");
-  revalidatePath(`/onboarding/${onboardingId}`);
+  refreshOnboardingPaths(`/onboarding/${onboardingId}`);
   redirectSuccess(`/onboarding/${onboardingId}`, "ITEM_ADDED");
+}
+
+export async function updateOnboardingItemAction(formData: FormData) {
+  const user = await requireActiveUser();
+  const onboardingId = String(formData.get("onboardingId") ?? "").trim();
+  const res = await updateOnboardingItem({
+    actor: actorPayload(user),
+    onboardingId,
+    itemId: String(formData.get("itemId") ?? "").trim(),
+    title: String(formData.get("title") ?? "").trim(),
+    description: String(formData.get("description") ?? "").trim() || null,
+    ownerType: String(formData.get("ownerType") ?? "SHARED").trim().toUpperCase() as any,
+    driveUrl: String(formData.get("driveUrl") ?? "").trim() || null,
+    dueDate: String(formData.get("dueDate") ?? "").trim() || null,
+    mentorId: String(formData.get("mentorId") ?? "").trim() || null,
+    linksText: String(formData.get("linksText") ?? "").trim() || null,
+    hrConfirmationRequired: formData.get("hrConfirmationRequired") != null,
+    managerConfirmationRequired: formData.get("managerConfirmationRequired") != null
+  });
+  if (!res.ok) redirectError(`/onboarding/${onboardingId}`, res.error);
+  refreshOnboardingPaths(`/onboarding/${onboardingId}`);
+  redirectSuccess(`/onboarding/${onboardingId}`, "ITEM_UPDATED");
 }
 
 export async function toggleOnboardingItemAction(formData: FormData) {
@@ -71,7 +215,21 @@ export async function toggleOnboardingItemAction(formData: FormData) {
     completed: formData.get("completed") != null
   });
   if (!res.ok) redirectError(`/onboarding/${onboardingId}`, res.error);
-  revalidatePath("/onboarding");
-  revalidatePath(`/onboarding/${onboardingId}`);
+  refreshOnboardingPaths(`/onboarding/${onboardingId}`);
+  redirectSuccess(`/onboarding/${onboardingId}`, "ITEM_UPDATED");
+}
+
+export async function confirmOnboardingItemAction(formData: FormData) {
+  const user = await requireActiveUser();
+  const onboardingId = String(formData.get("onboardingId") ?? "").trim();
+  const res = await confirmOnboardingItem({
+    actor: actorPayload(user),
+    onboardingId,
+    itemId: String(formData.get("itemId") ?? "").trim(),
+    kind: String(formData.get("kind") ?? "").trim().toUpperCase() as "HR" | "MANAGER",
+    confirmed: booleanish(formData.get("confirmed"))
+  });
+  if (!res.ok) redirectError(`/onboarding/${onboardingId}`, res.error);
+  refreshOnboardingPaths(`/onboarding/${onboardingId}`);
   redirectSuccess(`/onboarding/${onboardingId}`, "ITEM_UPDATED");
 }

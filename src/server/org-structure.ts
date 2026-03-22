@@ -282,3 +282,29 @@ export async function getPositionResourceFallbackByUserId(userId: string) {
     globalLinks: globalRows.map(mapOrgLink)
   };
 }
+
+export async function getPositionResourceFallbackByPositionId(positionId: string) {
+  const id = String(positionId || "").trim();
+  if (!id) {
+    return {
+      positionTitle: null,
+      jobDescriptionUrl: null,
+      workInstructionsUrl: null,
+      positionDocuments: [] as OrgAdminLink[],
+      globalLinks: [] as OrgGlobalResource[]
+    };
+  }
+
+  const [positions, globalRows] = await Promise.all([loadOrgPositions(), loadGlobalLinks()]);
+  const position = positions.find((entry) => entry.id === id);
+  const documents = position ? position.links.map(mapOrgLink) : [];
+  const firstByType = (type: OrgLinkType) => documents.find((document) => document.type === type)?.url ?? null;
+
+  return {
+    positionTitle: position?.title ?? null,
+    jobDescriptionUrl: firstByType("JOB_DESCRIPTION"),
+    workInstructionsUrl: firstByType("WORK_INSTRUCTIONS"),
+    positionDocuments: documents,
+    globalLinks: globalRows.map(mapOrgLink)
+  };
+}
