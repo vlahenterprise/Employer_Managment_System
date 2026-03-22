@@ -1,8 +1,8 @@
 import "server-only";
 
-import type { OrgLinkType } from "@prisma/client";
+import type { OrgLinkType, OrgPositionTier } from "@prisma/client";
 import { prisma } from "./db";
-import { buildOrgDepthMap, getOrgNodeLevel, normalizeOrgSearchText } from "@/lib/org-system";
+import { mapOrgTierToNodeLevel, normalizeOrgSearchText } from "@/lib/org-system";
 
 export type OrgAdminLink = {
   id: string;
@@ -19,6 +19,7 @@ export type OrgStructureNode = {
   subtitle?: string | null;
   description: string | null;
   parentId: string | null;
+  tier: OrgPositionTier;
   order: number;
   isActive: boolean;
   links: OrgAdminLink[];
@@ -49,7 +50,7 @@ export type OrgSystemNode = {
   parentId: string | null;
   order: number;
   isActive: boolean;
-  level: "executive" | "manager" | "lead" | "employee";
+  level: "director" | "manager" | "lead" | "supervisor" | "staff";
   documents: OrgAdminLink[];
   people: OrgSystemPerson[];
 };
@@ -96,7 +97,10 @@ async function loadOrgChartUsers() {
 }
 
 async function loadOrgPickerPositions() {
-  return prisma.orgPosition.findMany({ orderBy: [{ order: "asc" }, { title: "asc" }], select: { id: true, title: true } });
+  return prisma.orgPosition.findMany({
+    orderBy: [{ order: "asc" }, { title: "asc" }],
+    select: { id: true, title: true, tier: true, order: true, parentId: true }
+  });
 }
 
 async function loadOrgPickerUsers() {
@@ -187,10 +191,11 @@ export async function getOrgStructure() {
     title: row.title,
     description: row.description ?? null,
     parentId: row.parentId ?? null,
-    order: row.order,
-    isActive: row.isActive,
-    links: row.links.map(mapOrgLink),
-    users: row.assignees.map((a) => ({ id: a.user.id, name: a.user.name, email: a.user.email, assignmentId: a.id }))
+      order: row.order,
+      tier: row.tier,
+      isActive: row.isActive,
+      links: row.links.map(mapOrgLink),
+      users: row.assignees.map((a) => ({ id: a.user.id, name: a.user.name, email: a.user.email, assignmentId: a.id }))
   }));
 
   const globalLinks = globalRows.map(mapOrgLink);
@@ -205,7 +210,6 @@ export async function getUserOrgStructure() {
     loadGlobalLinks()
   ]);
 
-  const depthById = buildOrgDepthMap(positions.map((position) => ({ id: position.id, parentId: position.parentId ?? null })));
   const peopleByPositionId = buildPositionFallbackUsers({ positions, activeUsers });
 
   const nodes: OrgSystemNode[] = positions
@@ -217,7 +221,7 @@ export async function getUserOrgStructure() {
       parentId: position.parentId ?? null,
       order: position.order,
       isActive: position.isActive,
-      level: getOrgNodeLevel(depthById.get(position.id) ?? 0),
+      level: mapOrgTierToNodeLevel(position.tier),
       documents: position.links.map(mapOrgLink),
       people: sortPeople(peopleByPositionId.get(position.id) ?? [])
     }));

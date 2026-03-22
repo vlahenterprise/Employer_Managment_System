@@ -35,7 +35,7 @@ type OrgNode = {
   parentId: string | null;
   order: number;
   isActive: boolean;
-  level: "executive" | "manager" | "lead" | "employee";
+  level: "director" | "manager" | "lead" | "supervisor" | "staff";
   documents: OrgDocument[];
   people: OrgPerson[];
 };
@@ -61,10 +61,11 @@ type OrgLabels = {
   searchHint: string;
   clearSearch: string;
   noSearchResults: string;
-  executive: string;
+  director: string;
   manager: string;
   lead: string;
-  employee: string;
+  supervisor: string;
+  staff: string;
   jobDescription: string;
   workInstructions: string;
   positionProcesses: string;
@@ -82,6 +83,7 @@ type OrgLabels = {
   zoomReset: string;
   zoomHelp: string;
   levelLegend: string;
+  levelOverview: string;
   fitToScreen: string;
   fullscreen: string;
   exitFullscreen: string;
@@ -90,16 +92,20 @@ type OrgLabels = {
   directReports: string;
   linkedDocuments: string;
   childPositions: string;
+  hierarchyPath: string;
+  selectedLevel: string;
+  noChildren: string;
   noParent: string;
   quickSummary: string;
   relatedResources: string;
 };
 
 function levelLabel(level: OrgNode["level"], labels: OrgLabels) {
-  if (level === "executive") return labels.executive;
+  if (level === "director") return labels.director;
   if (level === "manager") return labels.manager;
   if (level === "lead") return labels.lead;
-  return labels.employee;
+  if (level === "supervisor") return labels.supervisor;
+  return labels.staff;
 }
 
 function resourceTypeLabel(type: OrgDocument["type"], labels: OrgLabels) {
@@ -178,8 +184,37 @@ export default function OrgChart(props: {
 
   const selected = selectedId ? nodesById.get(selectedId) ?? null : null;
   const selectedParent = selected?.parentId ? nodesById.get(selected.parentId) ?? null : null;
-  const selectedChildren = selected ? childMap.get(selected.id) ?? [] : [];
+  const selectedChildren = useMemo(() => {
+    return selected ? childMap.get(selected.id) ?? [] : [];
+  }, [childMap, selected]);
   const selectedDocumentTotal = (selected?.documents.length ?? 0) + props.globalLinks.length;
+  const selectedPath = useMemo(() => {
+    if (!selected) return [];
+    const path: OrgNode[] = [];
+    const seen = new Set<string>();
+    let current: OrgNode | undefined | null = selected;
+    while (current && !seen.has(current.id)) {
+      path.unshift(current);
+      seen.add(current.id);
+      current = current.parentId ? nodesById.get(current.parentId) ?? null : null;
+    }
+    return path;
+  }, [nodesById, selected]);
+  const selectedChildrenByLevel = useMemo(() => {
+    return selectedChildren.reduce(
+      (acc, child) => {
+        acc[child.level].push(child);
+        return acc;
+      },
+      {
+        director: [] as OrgNode[],
+        manager: [] as OrgNode[],
+        lead: [] as OrgNode[],
+        supervisor: [] as OrgNode[],
+        staff: [] as OrgNode[]
+      }
+    );
+  }, [selectedChildren]);
 
   const searchResults = useMemo<SearchResult[]>(() => {
     const needle = normalizeOrgSearchText(query);
@@ -252,6 +287,16 @@ export default function OrgChart(props: {
   const globalGroups = useMemo(() => groupOrgDocuments(props.globalLinks), [props.globalLinks]);
   const scale = ORG_SCALE_STEPS[scaleIndex] ?? 1;
   const scalePercent = Math.round(scale * 100);
+  const levelOverview = useMemo(
+    () => [
+      { level: "director" as const, label: props.labels.director, count: nodeIdsByLevel.director.length },
+      { level: "manager" as const, label: props.labels.manager, count: nodeIdsByLevel.manager.length },
+      { level: "lead" as const, label: props.labels.lead, count: nodeIdsByLevel.lead.length },
+      { level: "supervisor" as const, label: props.labels.supervisor, count: nodeIdsByLevel.supervisor.length },
+      { level: "staff" as const, label: props.labels.staff, count: nodeIdsByLevel.staff.length }
+    ],
+    [nodeIdsByLevel, props.labels.director, props.labels.lead, props.labels.manager, props.labels.staff, props.labels.supervisor]
+  );
 
   useEffect(() => {
     if (!selectedId) return;
@@ -345,6 +390,7 @@ export default function OrgChart(props: {
       <div key={node.id} className={`org-branch org-branch-${node.level}`}>
         {node.parentId ? (
           <div className="org-branch-connector" aria-hidden="true">
+            <span className="org-branch-connector-dot" />
             <span className="org-branch-connector-line" />
             <span className="org-branch-connector-arrow" />
           </div>
@@ -380,6 +426,7 @@ export default function OrgChart(props: {
           <div className={`org-children${children.length === 1 ? " is-single" : ""}`}>
             <div className="org-children-stem" aria-hidden="true">
               <span className="org-children-stem-dot" />
+              <span className="org-children-stem-arrow" />
             </div>
             <div className="org-children-grid">{children.map((child) => renderBranch(child))}</div>
           </div>
@@ -409,25 +456,54 @@ export default function OrgChart(props: {
             <span className="org-level-legend-title">
               <LabelWithTooltip label={props.labels.levelLegend} tooltip={props.labels.zoomHelp} />
             </span>
-            <span className="org-level-pill org-level-pill-executive">{props.labels.executive}</span>
+            <span className="org-level-pill org-level-pill-director">{props.labels.director}</span>
             <span className="org-level-pill org-level-pill-manager">{props.labels.manager}</span>
             <span className="org-level-pill org-level-pill-lead">{props.labels.lead}</span>
-            <span className="org-level-pill org-level-pill-employee">{props.labels.employee}</span>
+            <span className="org-level-pill org-level-pill-supervisor">{props.labels.supervisor}</span>
+            <span className="org-level-pill org-level-pill-staff">{props.labels.staff}</span>
           </div>
 
           <div className="org-level-jumps">
             <span className="org-level-jumps-title">{props.labels.jumpToLevel}</span>
-            <button type="button" className="button button-secondary" onClick={() => jumpToLevel("executive")}>
-              {props.labels.executive}
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => jumpToLevel("director")}
+              disabled={nodeIdsByLevel.director.length === 0}
+            >
+              {props.labels.director}
             </button>
-            <button type="button" className="button button-secondary" onClick={() => jumpToLevel("manager")}>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => jumpToLevel("manager")}
+              disabled={nodeIdsByLevel.manager.length === 0}
+            >
               {props.labels.manager}
             </button>
-            <button type="button" className="button button-secondary" onClick={() => jumpToLevel("lead")}>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => jumpToLevel("lead")}
+              disabled={nodeIdsByLevel.lead.length === 0}
+            >
               {props.labels.lead}
             </button>
-            <button type="button" className="button button-secondary" onClick={() => jumpToLevel("employee")}>
-              {props.labels.employee}
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => jumpToLevel("supervisor")}
+              disabled={nodeIdsByLevel.supervisor.length === 0}
+            >
+              {props.labels.supervisor}
+            </button>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => jumpToLevel("staff")}
+              disabled={nodeIdsByLevel.staff.length === 0}
+            >
+              {props.labels.staff}
             </button>
           </div>
 
@@ -465,6 +541,22 @@ export default function OrgChart(props: {
             ) : null}
           </div>
         </div>
+      </section>
+
+      <section className="org-overview-grid">
+        {levelOverview.map((item) => (
+          <button
+            key={item.level}
+            type="button"
+            className={`org-overview-card org-overview-card-${item.level}`}
+            onClick={() => jumpToLevel(item.level)}
+            disabled={item.count === 0}
+          >
+            <span className="org-overview-label">{item.label}</span>
+            <strong>{item.count}</strong>
+            <span className="org-overview-meta">{props.labels.levelOverview}</span>
+          </button>
+        ))}
       </section>
 
       <div className="org-layout">
@@ -522,6 +614,10 @@ export default function OrgChart(props: {
                 <div className="org-section-title">{props.labels.quickSummary}</div>
                 <div className="org-detail-metrics">
                   <div className="org-detail-metric">
+                    <span className="org-detail-metric-label">{props.labels.selectedLevel}</span>
+                    <strong>{levelLabel(selected.level, props.labels)}</strong>
+                  </div>
+                  <div className="org-detail-metric">
                     <span className="org-detail-metric-label">{props.labels.people}</span>
                     <strong>{selected.people.length}</strong>
                   </div>
@@ -538,26 +634,58 @@ export default function OrgChart(props: {
 
               <div className="org-detail-meta-grid">
                 <div className="org-detail-meta-card">
+                  <div className="org-section-title">{props.labels.hierarchyPath}</div>
+                  {selectedPath.length > 0 ? (
+                    <div className="org-detail-breadcrumb">
+                      {selectedPath.map((node, index) => (
+                        <button
+                          key={node.id}
+                          type="button"
+                          className={`org-detail-breadcrumb-item${node.id === selected.id ? " is-active" : ""}`}
+                          onClick={() => openPosition(node.id)}
+                        >
+                          <span>{node.title}</span>
+                          {index < selectedPath.length - 1 ? <span className="org-detail-breadcrumb-sep">→</span> : null}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="org-detail-meta-empty">—</div>
+                  )}
+                </div>
+                <div className="org-detail-meta-card">
                   <div className="org-section-title">{props.labels.reportsTo}</div>
                   <div className="org-detail-meta-value">{selectedParent?.title ?? props.labels.noParent}</div>
                 </div>
                 <div className="org-detail-meta-card">
                   <div className="org-section-title">{props.labels.childPositions}</div>
                   {selectedChildren.length > 0 ? (
-                    <div className="org-detail-chip-list">
-                      {selectedChildren.map((child) => (
-                        <button
-                          key={child.id}
-                          type="button"
-                          className="org-detail-chip"
-                          onClick={() => openPosition(child.id)}
-                        >
-                          {child.title}
-                        </button>
-                      ))}
+                    <div className="org-detail-group-list">
+                      {levelOverview.map((group) =>
+                        selectedChildrenByLevel[group.level].length > 0 ? (
+                          <div key={group.level} className="org-detail-group">
+                            <div className="org-detail-group-head">
+                              <span className={`org-level-pill org-level-pill-${group.level}`}>{group.label}</span>
+                              <strong>{selectedChildrenByLevel[group.level].length}</strong>
+                            </div>
+                            <div className="org-detail-chip-list">
+                              {selectedChildrenByLevel[group.level].map((child) => (
+                                <button
+                                  key={child.id}
+                                  type="button"
+                                  className="org-detail-chip"
+                                  onClick={() => openPosition(child.id)}
+                                >
+                                  {child.title}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null
+                      )}
                     </div>
                   ) : (
-                    <div className="org-detail-meta-empty">—</div>
+                    <div className="org-detail-meta-empty">{props.labels.noChildren}</div>
                   )}
                 </div>
               </div>

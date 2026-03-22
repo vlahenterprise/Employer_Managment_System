@@ -116,6 +116,14 @@ enum OrgLinkType {
   GLOBAL_INSTRUCTION
 }
 
+enum OrgPositionTier {
+  DIRECTOR
+  MANAGER
+  LEAD
+  SUPERVISOR
+  STAFF
+}
+
 model Team {
   id        String   @id @default(cuid())
   name      String   @unique
@@ -195,6 +203,7 @@ model OrgPosition {
   title       String
   description String?
   parentId    String?
+  tier        OrgPositionTier @default(STAFF)
   order       Int      @default(0)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
@@ -208,6 +217,8 @@ model OrgPosition {
   @@index([parentId])
   @@index([parentId, order])
   @@index([order])
+  @@index([tier])
+  @@index([tier, order])
   @@index([isActive])
 }
 

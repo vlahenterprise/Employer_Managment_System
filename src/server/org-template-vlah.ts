@@ -1,4 +1,5 @@
 import { prisma } from "@/server/db";
+import { inferOrgPositionTier } from "@/lib/org-system";
 
 type OrgTemplateNode = {
   key: string;
@@ -358,6 +359,7 @@ export async function importVlahOrgTemplate(options?: {
             title: node.title,
             description: node.description,
             parentId,
+            tier: inferOrgPositionTier(node.title),
             order: node.order,
             isActive: true
           }

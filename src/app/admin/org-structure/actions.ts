@@ -6,7 +6,7 @@ import { ORG_STRUCTURE_CACHE_TAG } from "@/server/cache-tags";
 import { prisma } from "@/server/db";
 import { requireAdminUser } from "@/server/current-user";
 import { importVlahOrgTemplate } from "@/server/org-template-vlah";
-import type { OrgLinkType } from "@prisma/client";
+import type { OrgLinkType, OrgPositionTier } from "@prisma/client";
 
 function redirectError(message: string): never {
   redirect(`/admin/org-structure?error=${encodeURIComponent(message)}`);
@@ -43,6 +43,14 @@ function normalizeOrgLinkType(value: FormDataEntryValue | null): OrgLinkType {
   return "POSITION_INSTRUCTION";
 }
 
+function normalizeOrgTier(value: FormDataEntryValue | null): OrgPositionTier {
+  const tier = String(value ?? "").trim().toUpperCase();
+  if (tier === "DIRECTOR" || tier === "MANAGER" || tier === "LEAD" || tier === "SUPERVISOR" || tier === "STAFF") {
+    return tier;
+  }
+  return "STAFF";
+}
+
 export async function createOrgPositionAction(formData: FormData) {
   await requireAdminUser();
 
@@ -50,13 +58,14 @@ export async function createOrgPositionAction(formData: FormData) {
   const description = String(formData.get("description") ?? "").trim() || null;
   const parentIdRaw = String(formData.get("parentId") ?? "").trim();
   const parentId = parentIdRaw || null;
+  const tier = normalizeOrgTier(formData.get("tier"));
   const order = Math.max(0, Math.floor(Number(formData.get("order") ?? 0)));
   const isActive = String(formData.get("isActive") ?? "1") === "1";
 
   if (!title) redirectError("Naziv pozicije je obavezan.");
 
   await prisma.orgPosition.create({
-    data: { title, description, parentId, order, isActive }
+    data: { title, description, parentId, tier, order, isActive }
   });
 
   revalidateOrgPages();
@@ -71,6 +80,7 @@ export async function updateOrgPositionAction(formData: FormData) {
   const description = String(formData.get("description") ?? "").trim() || null;
   const parentIdRaw = String(formData.get("parentId") ?? "").trim();
   const parentId = parentIdRaw || null;
+  const tier = normalizeOrgTier(formData.get("tier"));
   const order = Math.max(0, Math.floor(Number(formData.get("order") ?? 0)));
   const isActive = String(formData.get("isActive") ?? "1") === "1";
 
@@ -80,7 +90,7 @@ export async function updateOrgPositionAction(formData: FormData) {
 
   await prisma.orgPosition.update({
     where: { id },
-    data: { title, description, parentId, order, isActive }
+    data: { title, description, parentId, tier, order, isActive }
   });
 
   revalidateOrgPages();

@@ -1,4 +1,7 @@
-export type OrgNodeLevel = "executive" | "manager" | "lead" | "employee";
+export type OrgNodeLevel = "director" | "manager" | "lead" | "supervisor" | "staff";
+export type OrgPositionTierValue = "DIRECTOR" | "MANAGER" | "LEAD" | "SUPERVISOR" | "STAFF";
+
+export const ORG_TIER_ORDER: OrgPositionTierValue[] = ["DIRECTOR", "MANAGER", "LEAD", "SUPERVISOR", "STAFF"];
 
 export type OrgDocumentLike = {
   type:
@@ -38,10 +41,40 @@ export function buildOrgDepthMap(rows: Array<{ id: string; parentId: string | nu
 }
 
 export function getOrgNodeLevel(depth: number): OrgNodeLevel {
-  if (depth <= 0) return "executive";
+  if (depth <= 0) return "director";
   if (depth === 1) return "manager";
   if (depth === 2) return "lead";
-  return "employee";
+  if (depth === 3) return "supervisor";
+  return "staff";
+}
+
+export function mapOrgTierToNodeLevel(tier: OrgPositionTierValue | null | undefined): OrgNodeLevel {
+  if (tier === "DIRECTOR") return "director";
+  if (tier === "MANAGER") return "manager";
+  if (tier === "LEAD") return "lead";
+  if (tier === "SUPERVISOR") return "supervisor";
+  return "staff";
+}
+
+export function inferOrgPositionTier(title: string | null | undefined): OrgPositionTierValue {
+  const value = normalizeOrgSearchText(title);
+  if (!value) return "STAFF";
+  if (value.includes("generalni direktor") || value.includes("ceo")) return "DIRECTOR";
+  if (
+    value.includes("menadžer") ||
+    value.includes("menadzer") ||
+    value.includes("manager") ||
+    value.includes("direktor") ||
+    value.includes("director") ||
+    value === "coo"
+  ) {
+    return "MANAGER";
+  }
+  if (value.includes("supervizor") || value.includes("supervisor")) return "SUPERVISOR";
+  if (value.includes("rukovodilac") || value.includes("lider") || value.includes("leader") || value.includes("team lead")) {
+    return "LEAD";
+  }
+  return "STAFF";
 }
 
 export function groupOrgNodeIdsByLevel<T extends { id: string; level: OrgNodeLevel }>(nodes: T[]) {
@@ -51,10 +84,11 @@ export function groupOrgNodeIdsByLevel<T extends { id: string; level: OrgNodeLev
       return acc;
     },
     {
-      executive: [] as string[],
+      director: [] as string[],
       manager: [] as string[],
       lead: [] as string[],
-      employee: [] as string[]
+      supervisor: [] as string[],
+      staff: [] as string[]
     }
   );
 }
@@ -68,4 +102,26 @@ export function groupOrgDocuments<T extends OrgDocumentLike>(documents: T[]) {
     globalProcesses: documents.filter((document) => document.type === "GLOBAL_PROCESS"),
     globalInstructions: documents.filter((document) => document.type === "GLOBAL_INSTRUCTION")
   };
+}
+
+export function buildOrgPathMap<T extends { id: string; title: string; parentId: string | null }>(rows: T[]) {
+  const byId = new Map(rows.map((row) => [row.id, row] as const));
+  const cache = new Map<string, string[]>();
+
+  function resolvePath(id: string, seen = new Set<string>()): string[] {
+    if (cache.has(id)) return cache.get(id) ?? [];
+    const row = byId.get(id);
+    if (!row) return [];
+    if (seen.has(id)) return [row.title];
+
+    const nextSeen = new Set(seen);
+    nextSeen.add(id);
+    const parentPath = row.parentId ? resolvePath(row.parentId, nextSeen) : [];
+    const path = [...parentPath, row.title];
+    cache.set(id, path);
+    return path;
+  }
+
+  for (const row of rows) resolvePath(row.id);
+  return cache;
 }
