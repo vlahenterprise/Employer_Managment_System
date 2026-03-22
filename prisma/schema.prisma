@@ -107,6 +107,15 @@ enum OnboardingItemOwner {
   SHARED
 }
 
+enum OrgLinkType {
+  JOB_DESCRIPTION
+  WORK_INSTRUCTIONS
+  POSITION_PROCESS
+  POSITION_INSTRUCTION
+  GLOBAL_PROCESS
+  GLOBAL_INSTRUCTION
+}
+
 model Team {
   id        String   @id @default(cuid())
   name      String   @unique
@@ -219,13 +228,32 @@ model OrgPositionLink {
   id         String   @id @default(cuid())
   positionId String
   label      String
+  description String?
   url        String
+  type       OrgLinkType @default(POSITION_INSTRUCTION)
   order      Int      @default(0)
   createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   position OrgPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
 
   @@index([positionId])
+  @@index([positionId, type])
+  @@index([type])
+  @@index([order])
+}
+
+model OrgGlobalLink {
+  id          String      @id @default(cuid())
+  label       String
+  description String?
+  url         String
+  type        OrgLinkType @default(GLOBAL_INSTRUCTION)
+  order       Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([type])
   @@index([order])
 }
 

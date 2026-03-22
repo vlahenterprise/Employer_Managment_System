@@ -5,6 +5,7 @@ import { prisma } from "./db";
 import { getAllSettingsMap } from "./settings";
 import { canViewEmployeeProfile, getScopedEmployeeIds, hasHrAddon, isManagerRole } from "./rbac";
 import { loadOrgUsers } from "./org";
+import { getPositionResourceFallbackByUserId } from "./org-structure";
 
 type OnboardingActor = {
   id: string;
@@ -238,15 +239,27 @@ export async function getOnboardingDetail(actor: OnboardingActor, onboardingId: 
     canViewEmployeeProfile(actor, targetId, orgUsers);
   if (!canView) return { ok: false as const, error: "NO_ACCESS" };
 
-  const users = await prisma.user.findMany({
-    where: { status: "ACTIVE" },
-    orderBy: [{ name: "asc" }],
-    select: { id: true, name: true, email: true }
-  });
+  const [users, orgResources] = await Promise.all([
+    prisma.user.findMany({
+      where: { status: "ACTIVE" },
+      orderBy: [{ name: "asc" }],
+      select: { id: true, name: true, email: true }
+    }),
+    onboarding.employee?.id
+      ? getPositionResourceFallbackByUserId(onboarding.employee.id)
+      : Promise.resolve<Awaited<ReturnType<typeof getPositionResourceFallbackByUserId>>>({
+          positionTitle: onboarding.employee?.position ?? null,
+          jobDescriptionUrl: null,
+          workInstructionsUrl: null,
+          positionDocuments: [],
+          globalLinks: []
+        })
+  ]);
 
   return {
     ok: true as const,
     onboarding,
+    orgResources,
     users,
     permissions: {
       canEdit: canEditOnboarding(actor, onboarding),

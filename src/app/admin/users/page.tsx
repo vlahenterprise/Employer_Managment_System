@@ -204,8 +204,8 @@ export default async function AdminUsersPage({
                     label="Job description Drive URL"
                     tooltip={
                       lang === "sr"
-                        ? "Ovde ide Google Drive link ka opisu posla. Dokument ostaje na Drive-u, a u aplikaciji čuvamo samo URL."
-                        : "Use a Google Drive link to the job description. The document stays in Drive while the app stores only the URL."
+                        ? "Primarno se održava kroz Admin → Org struktura za samu poziciju. Ovo polje koristi samo ako želiš lični override za konkretnog zaposlenog."
+                        : "Primary job description links should live in Admin → Org structure for the position itself. Use this field only as a per-user override."
                     }
                   />
                 </span>
@@ -218,8 +218,8 @@ export default async function AdminUsersPage({
                     label="Work instructions Drive URL"
                     tooltip={
                       lang === "sr"
-                        ? "Ovde dodaj Drive link ka radnim instrukcijama za ovu poziciju ili zaposlenog."
-                        : "Use this for the Google Drive link to work instructions for this position or employee."
+                        ? "Primarno se održava kroz Admin → Org struktura. Ovde dodaj samo ako za ovog zaposlenog postoji posebna verzija instrukcija."
+                        : "Primary work instructions should be maintained through Admin → Org structure. Use this only when a user needs a special override."
                     }
                   />
                 </span>

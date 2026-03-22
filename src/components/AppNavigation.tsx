@@ -22,6 +22,7 @@ import {
 
 const navIconByHref = {
   "/dashboard": IconHome,
+  "/organization": IconUsers,
   "/team": IconUsers,
   "/tasks": IconTasks,
   "/reports": IconReport,

@@ -105,7 +105,10 @@ export default async function ProfilePage({
 
   const target = profile.user;
   const summary = profile.summary;
+  const orgDocs = profile.orgResources;
   const locale = lang === "sr" ? "sr-RS" : "en-GB";
+  const jobDescriptionUrl = target.jobDescriptionUrl || orgDocs.jobDescriptionUrl;
+  const workInstructionsUrl = target.workInstructionsUrl || orgDocs.workInstructionsUrl;
 
   return (
     <main className="page">
@@ -250,23 +253,26 @@ export default async function ProfilePage({
                 label={c.links}
                 tooltip={
                   lang === "sr"
-                    ? "Važni Drive linkovi za posao i radne instrukcije. Dokumenti ostaju na Drive-u, a profil čuva samo reference."
-                    : "Important Drive links for the role and instructions. Documents stay in Drive while the profile stores only the references."
+                    ? "Važni Drive linkovi za poziciju. Primarno se održavaju u Admin → Org struktura, a profil ovde prikazuje najrelevantnije reference."
+                    : "Important Drive links for the role. They are primarily maintained in Admin → Org structure, while the profile shows the most relevant references here."
                 }
               />
             </h2>
             <div className="list">
-              {target.jobDescriptionUrl ? (
-                <a className="button button-secondary" href={target.jobDescriptionUrl} target="_blank" rel="noreferrer">
+              {jobDescriptionUrl ? (
+                <a className="button button-secondary" href={jobDescriptionUrl} target="_blank" rel="noreferrer">
                   {c.jobDescription}
                 </a>
               ) : null}
-              {target.workInstructionsUrl ? (
-                <a className="button button-secondary" href={target.workInstructionsUrl} target="_blank" rel="noreferrer">
+              {workInstructionsUrl ? (
+                <a className="button button-secondary" href={workInstructionsUrl} target="_blank" rel="noreferrer">
                   {c.workInstructions}
                 </a>
               ) : null}
-              {!target.jobDescriptionUrl && !target.workInstructionsUrl ? <div className="muted small">{c.noValue}</div> : null}
+              <Link className="button button-secondary" href="/organization">
+                ORG System <IconArrowRight size={18} />
+              </Link>
+              {!jobDescriptionUrl && !workInstructionsUrl ? <div className="muted small">{c.noValue}</div> : null}
             </div>
           </section>
         </div>

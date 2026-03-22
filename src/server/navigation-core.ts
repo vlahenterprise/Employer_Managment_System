@@ -23,7 +23,14 @@ function navLabel(lang: Lang, sr: string, en: string) {
 
 export function getPrimaryNavigation(actor: NavigationActor, lang: Lang) {
   const items: NavItem[] = [
-    { href: "/dashboard", label: navLabel(lang, "Početna", "Home"), match: ["/dashboard"], group: "work" }
+    { href: "/dashboard", label: navLabel(lang, "Početna", "Home"), match: ["/dashboard"], group: "work" },
+    {
+      href: "/organization",
+      label: "ORG System",
+      shortLabel: "ORG",
+      match: ["/organization"],
+      group: "work"
+    }
   ];
 
   if (isManagerRole(actor.role)) {

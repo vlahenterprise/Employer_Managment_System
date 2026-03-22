@@ -5,6 +5,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { ORG_STRUCTURE_CACHE_TAG } from "@/server/cache-tags";
 import { prisma } from "@/server/db";
 import { requireAdminUser } from "@/server/current-user";
+import type { OrgLinkType } from "@prisma/client";
 
 function redirectError(message: string): never {
   redirect(`/admin/org-structure?error=${encodeURIComponent(message)}`);
@@ -16,6 +17,21 @@ function redirectSuccess(message: string): never {
 
 function revalidateOrgStructureData() {
   revalidateTag(ORG_STRUCTURE_CACHE_TAG);
+}
+
+function normalizeOrgLinkType(value: FormDataEntryValue | null): OrgLinkType {
+  const type = String(value ?? "").trim().toUpperCase();
+  if (
+    type === "JOB_DESCRIPTION" ||
+    type === "WORK_INSTRUCTIONS" ||
+    type === "POSITION_PROCESS" ||
+    type === "POSITION_INSTRUCTION" ||
+    type === "GLOBAL_PROCESS" ||
+    type === "GLOBAL_INSTRUCTION"
+  ) {
+    return type;
+  }
+  return "POSITION_INSTRUCTION";
 }
 
 export async function createOrgPositionAction(formData: FormData) {
@@ -85,20 +101,44 @@ export async function addOrgLinkAction(formData: FormData) {
 
   const positionId = String(formData.get("positionId") ?? "").trim();
   const label = String(formData.get("label") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim() || null;
   const url = String(formData.get("url") ?? "").trim();
+  const type = normalizeOrgLinkType(formData.get("type"));
   const order = Math.max(0, Math.floor(Number(formData.get("order") ?? 0)));
 
   if (!positionId) redirectError("Nedostaje positionId.");
   if (!label || !url) redirectError("Link label i URL su obavezni.");
 
   await prisma.orgPositionLink.create({
-    data: { positionId, label, url, order }
+    data: { positionId, label, description, url, type, order }
   });
 
   revalidatePath("/admin/org-structure");
   revalidatePath("/organization");
   revalidateOrgStructureData();
   redirectSuccess("Link je dodat.");
+}
+
+export async function addOrgGlobalLinkAction(formData: FormData) {
+  await requireAdminUser();
+
+  const label = String(formData.get("label") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim() || null;
+  const url = String(formData.get("url") ?? "").trim();
+  const type = normalizeOrgLinkType(formData.get("type"));
+  const order = Math.max(0, Math.floor(Number(formData.get("order") ?? 0)));
+
+  if (!label || !url) redirectError("Naziv i URL globalnog resursa su obavezni.");
+  if (!String(type).startsWith("GLOBAL_")) redirectError("Globalni resurs mora biti globalnog tipa.");
+
+  await prisma.orgGlobalLink.create({
+    data: { label, description, url, type, order }
+  });
+
+  revalidatePath("/admin/org-structure");
+  revalidatePath("/organization");
+  revalidateOrgStructureData();
+  redirectSuccess("Globalni resurs je dodat.");
 }
 
 export async function deleteOrgLinkAction(formData: FormData) {
@@ -113,6 +153,20 @@ export async function deleteOrgLinkAction(formData: FormData) {
   revalidatePath("/organization");
   revalidateOrgStructureData();
   redirectSuccess("Link je obrisan.");
+}
+
+export async function deleteOrgGlobalLinkAction(formData: FormData) {
+  await requireAdminUser();
+
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) redirectError("Nedostaje globalni link ID.");
+
+  await prisma.orgGlobalLink.delete({ where: { id } });
+
+  revalidatePath("/admin/org-structure");
+  revalidatePath("/organization");
+  revalidateOrgStructureData();
+  redirectSuccess("Globalni resurs je obrisan.");
 }
 
 export async function addOrgAssignmentAction(formData: FormData) {

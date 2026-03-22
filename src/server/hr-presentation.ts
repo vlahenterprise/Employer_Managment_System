@@ -1,5 +1,3 @@
-import "server-only";
-
 import type { HrCandidateStatus, HrProcessStatus } from "@prisma/client";
 
 export type HrStageKey =

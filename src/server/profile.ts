@@ -5,6 +5,7 @@ import { canViewEmployeeProfile, getAccessSummary, hasHrAddon, isManagerRole } f
 import { loadOrgUsers } from "./org";
 import { formatInTimeZone } from "@/server/time";
 import { APP_TIMEZONE } from "./app-settings";
+import { getPositionResourceFallbackByUserId } from "./org-structure";
 
 export type ProfileActor = {
   id: string;
@@ -61,7 +62,7 @@ export async function getEmployeeProfile(actor: ProfileActor, targetUserId?: str
 
   if (!user) return { ok: false as const, error: "NOT_FOUND" };
 
-  const [taskCounts, latestReport, absenceSummary, activeAbsence] = await Promise.all([
+  const [taskCounts, latestReport, absenceSummary, activeAbsence, orgResources] = await Promise.all([
     prisma.task.groupBy({
       by: ["status"],
       where: {
@@ -89,7 +90,8 @@ export async function getEmployeeProfile(actor: ProfileActor, targetUserId?: str
       },
       orderBy: [{ dateTo: "asc" }],
       select: { id: true, type: true, dateFrom: true, dateTo: true }
-    })
+    }),
+    getPositionResourceFallbackByUserId(user.id)
   ]);
 
   const openTasks = taskCounts.reduce((sum, item) => sum + item._count._all, 0);
@@ -106,6 +108,7 @@ export async function getEmployeeProfile(actor: ProfileActor, targetUserId?: str
   return {
     ok: true as const,
     user,
+    orgResources,
     access: getAccessSummary(user),
     isSelf: actor.id === user.id,
     canSeeManagerScope: hasHrAddon(actor) || isManagerRole(actor.role),

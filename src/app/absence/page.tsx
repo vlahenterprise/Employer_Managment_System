@@ -2,7 +2,6 @@ import Link from "next/link";
 import { LabelWithTooltip } from "@/components/Tooltip";
 import { prisma } from "@/server/db";
 import { requireActiveUser } from "@/server/current-user";
-import { getBrandingSettings } from "@/server/settings";
 import UserMenu from "../dashboard/UserMenu";
 import { getRequestLang } from "@/i18n/server";
 import { getI18n } from "@/i18n";
@@ -61,7 +60,6 @@ export default async function AbsencePage({
   };
 }) {
   const user = await requireActiveUser();
-  const branding = await getBrandingSettings();
   const lang = getRequestLang();
   const t = getI18n(lang);
 
@@ -140,15 +138,9 @@ export default async function AbsencePage({
         <div className="page-topbar">
           <div className="page-topbar-main">
             <div className="header">
-              <div className="brand">
-                {branding.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
-                ) : null}
-                <div>
-                  <h1 className="brand-title">{t.absence.title}</h1>
-                  <p className="muted">{t.absence.subtitle}</p>
-                </div>
+              <div>
+                <h1 className="brand-title">{t.absence.title}</h1>
+                <p className="muted">{t.absence.subtitle}</p>
               </div>
               <div className="inline">
                 <Link className="button button-secondary" href="/dashboard">

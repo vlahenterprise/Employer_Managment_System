@@ -19,6 +19,7 @@ test("navigation stays unique across supported access combinations", () => {
     const hrefs = items.map((item) => item.href);
     assert.equal(new Set(hrefs).size, hrefs.length, `duplicate hrefs for ${JSON.stringify(actor)}`);
     assert.equal(hrefs[0], "/dashboard");
+    assert.ok(hrefs.includes("/organization"));
     assert.ok(hrefs.includes("/profile"));
     assert.ok(hrefs.includes("/inbox"));
 
@@ -63,6 +64,7 @@ test("navigation remains deterministic under 100 repeated access builds", async 
     const hrefs = items.map((item) => item.href);
     assert.equal(new Set(hrefs).size, hrefs.length);
     assert.ok(hrefs.includes("/dashboard"));
+    assert.ok(hrefs.includes("/organization"));
   }
 });
 

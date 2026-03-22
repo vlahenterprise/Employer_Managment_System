@@ -2,7 +2,6 @@ import Link from "next/link";
 import { LabelWithTooltip } from "@/components/Tooltip";
 import { getRequestLang } from "@/i18n/server";
 import { requireActiveUser } from "@/server/current-user";
-import { getBrandingSettings } from "@/server/settings";
 import { getHrProcessDetail } from "@/server/hr";
 import { getCandidateStageSummary, getProcessWorkflowSummary, type HrNextActionKey, type HrStageKey, type HrWaitingOnKey } from "@/server/hr-presentation";
 import UserMenu from "../../dashboard/UserMenu";
@@ -294,7 +293,6 @@ export default async function HrProcessPage({
   const user = await requireActiveUser();
   const lang = getRequestLang();
   const c = copy(lang);
-  const branding = await getBrandingSettings();
 
   const detail = await getHrProcessDetail(
     {
@@ -345,15 +343,9 @@ export default async function HrProcessPage({
       <div className="card stack">
         <div className="page-topbar">
           <div className="page-topbar-main stack">
-            <div className="brand">
-              {branding.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
-              ) : null}
-              <div>
-                <h1 className="brand-title">{process.positionTitle}</h1>
-                <p className="muted">{c.subtitle}</p>
-              </div>
+            <div>
+              <h1 className="brand-title">{process.positionTitle}</h1>
+              <p className="muted">{c.subtitle}</p>
             </div>
             <div className="inline">
               <Link className="button button-secondary" href="/hr">

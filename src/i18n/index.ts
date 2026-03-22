@@ -605,7 +605,7 @@ export const I18N = {
         emptyFiles: "Nema backup fajlova još."
       },
       org: {
-        subtitle: "Organizaciona struktura i pozicije.",
+        subtitle: "Organizaciona struktura, pozicije i Drive dokumenta.",
         viewChart: "Prikaži chart",
         createTitle: "Nova pozicija",
         title: "Naziv",
@@ -628,15 +628,38 @@ export const I18N = {
       }
     },
     org: {
-      title: "Organizacija",
-      subtitle: "Struktura, pozicije i vezani resursi.",
+      title: "ORG System",
+      subtitle: "Kompanijska struktura, pozicije i sva ključna Drive dokumentacija na jednom mestu.",
       people: "Zaposleni",
-      links: "Linkovi",
       noAssignees: "Nema dodeljenih.",
-      noLinks: "Nema linkova.",
-      manageHint: "Uredi opis i linkove u Admin → Org struktura (naziv pozicije mora da se poklopi sa poljem Pozicija kod usera).",
+      manageHint: "Uredi pozicije i Drive dokumenta u Admin → Org struktura.",
       select: "Izaberi poziciju.",
-      edit: "Uredi strukturu"
+      edit: "Uredi strukturu",
+      search: "Pretraga pozicija i instrukcija",
+      searchHelp:
+        "Pretragom možeš da pronađeš poziciju, kolegu, opis posla, instrukciju ili globalni proces. Klik na rezultat otvara tačno odgovarajuću karticu.",
+      searchPlaceholder: "Traži poziciju, kolegu, proces ili instrukciju...",
+      searchHint: "Pretraga radi preko naziva pozicije, ljudi i Drive resursa vezanih za pozicije ili globalne procese.",
+      clearSearch: "Očisti pretragu",
+      noSearchResults: "Nema rezultata za ovu pretragu.",
+      executive: "CEO / vrh hijerarhije",
+      manager: "Menadžment",
+      lead: "Lider / team lead",
+      employee: "Pozicija / tim",
+      jobDescription: "Opis posla",
+      workInstructions: "Radne instrukcije",
+      positionProcesses: "Procesi vezani za poziciju",
+      positionInstructions: "Specifične instrukcije pozicije",
+      globalProcesses: "Globalni procesi",
+      globalInstructions: "Globalne instrukcije",
+      noDocuments: "Za ovu poziciju još nema dodatih Drive dokumenata.",
+      peopleHelp:
+        "Ljudi su grupisani po poziciji. Kada više zaposlenih radi istu poziciju, prikazani su u istoj kartici jedan ispod drugog.",
+      documentsHelp:
+        "Dokumenti su Drive linkovi povezani sa pozicijom ili sa globalnim procesima. Klik vodi direktno na dokument bez čuvanja fajla u aplikaciji.",
+      openDocument: "Otvori Drive dokument",
+      globalResources: "Globalni resursi",
+      matches: "Rezultati pretrage"
     },
     modules: {
       tasksTitle: "Zadaci",
@@ -1247,7 +1270,7 @@ export const I18N = {
         emptyFiles: "No backup files yet."
       },
       org: {
-        subtitle: "Organization structure and positions.",
+        subtitle: "Organization structure, positions, and Drive resources.",
         viewChart: "View chart",
         createTitle: "New position",
         title: "Title",
@@ -1270,15 +1293,38 @@ export const I18N = {
       }
     },
     org: {
-      title: "Organization",
-      subtitle: "Structure, positions and resources.",
+      title: "ORG System",
+      subtitle: "Company structure, positions, and key Drive documentation in one place.",
       people: "People",
-      links: "Links",
       noAssignees: "No assignees.",
-      noLinks: "No links.",
-      manageHint: "Edit description and links in Admin → Org structure (position title must match the user's Position field).",
+      manageHint: "Edit positions and Drive resources in Admin → Org structure.",
       select: "Select a position.",
-      edit: "Edit structure"
+      edit: "Edit structure",
+      search: "Search positions and instructions",
+      searchHelp:
+        "Use search to find a position, colleague, job description, instruction, or global process. Selecting a result opens the exact relevant panel.",
+      searchPlaceholder: "Search for a position, colleague, process, or instruction...",
+      searchHint: "Search works across position titles, people, and Drive resources linked to positions or global processes.",
+      clearSearch: "Clear search",
+      noSearchResults: "No results for this search.",
+      executive: "CEO / executive",
+      manager: "Management",
+      lead: "Lead / team lead",
+      employee: "Position / team",
+      jobDescription: "Job description",
+      workInstructions: "Work instructions",
+      positionProcesses: "Position processes",
+      positionInstructions: "Position instructions",
+      globalProcesses: "Global processes",
+      globalInstructions: "Global instructions",
+      noDocuments: "No additional Drive documents are linked to this position yet.",
+      peopleHelp:
+        "People are grouped by position. When multiple employees share the same position, they appear in the same card one below another.",
+      documentsHelp:
+        "Documents are Drive links connected either to the selected position or to company-wide processes. The app stores links only, not the files themselves.",
+      openDocument: "Open Drive document",
+      globalResources: "Global resources",
+      matches: "Search results"
     },
     modules: {
       tasksTitle: "Tasks",

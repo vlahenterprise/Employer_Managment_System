@@ -69,6 +69,7 @@ async function exportAllTablesAsCsv(zip: JSZip) {
     orgPositions,
     orgAssignments,
     orgLinks,
+    orgGlobalLinks,
     hrProcesses,
     hrCandidates,
     hrProcessCandidates,
@@ -98,6 +99,7 @@ async function exportAllTablesAsCsv(zip: JSZip) {
     prisma.orgPosition.findMany({ orderBy: { order: "asc" } }),
     prisma.orgPositionAssignment.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.orgPositionLink.findMany({ orderBy: { order: "asc" } }),
+    prisma.orgGlobalLink.findMany({ orderBy: { order: "asc" } }),
     prisma.hrProcess.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.hrCandidate.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.hrProcessCandidate.findMany({ orderBy: { createdAt: "asc" } }),
@@ -268,7 +270,16 @@ async function exportAllTablesAsCsv(zip: JSZip) {
     },
     { name: "OrgPosition", rows: orgPositions as any, columns: ["id", "title", "description", "parentId", "order", "isActive", "createdAt", "updatedAt"] },
     { name: "OrgPositionAssignment", rows: orgAssignments as any, columns: ["id", "positionId", "userId", "createdAt"] },
-    { name: "OrgPositionLink", rows: orgLinks as any, columns: ["id", "positionId", "label", "url", "order", "createdAt"] },
+    {
+      name: "OrgPositionLink",
+      rows: orgLinks as any,
+      columns: ["id", "positionId", "label", "description", "url", "type", "order", "createdAt", "updatedAt"]
+    },
+    {
+      name: "OrgGlobalLink",
+      rows: orgGlobalLinks as any,
+      columns: ["id", "label", "description", "url", "type", "order", "createdAt", "updatedAt"]
+    },
     {
       name: "HrProcess",
       rows: hrProcesses as any,

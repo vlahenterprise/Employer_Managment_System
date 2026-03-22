@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { LabelWithTooltip } from "@/components/Tooltip";
 import { requireActiveUser } from "@/server/current-user";
-import { getBrandingSettings } from "@/server/settings";
 import { getOnboardingDetail } from "@/server/onboarding";
 import { getRequestLang } from "@/i18n/server";
 import UserMenu from "../../dashboard/UserMenu";
@@ -33,6 +32,7 @@ function copy(lang: "sr" | "en") {
       team: "Tim",
       manager: "Menadžer",
       hrOwner: "HR vlasnik",
+      profileHint: "Ovde vidiš ko je uključen u onboarding i koje su osnovne reference za posao i svakodnevni rad.",
       completed: "Završeno",
       markDone: "Označi kao gotovo",
       title: "Naslov",
@@ -42,6 +42,8 @@ function copy(lang: "sr" | "en") {
       progress: "Napredak",
       nextOwner: "Sledeći fokus",
       documents: "Dokumenti",
+      orgSystem: "ORG System",
+      documentsHint: "Opis posla i radne instrukcije prvo se održavaju kroz Admin → Org structure, a onboarding ih po potrebi koristi kao fallback.",
       noValue: "—"
     };
   }
@@ -67,6 +69,7 @@ function copy(lang: "sr" | "en") {
     team: "Team",
     manager: "Manager",
     hrOwner: "HR owner",
+    profileHint: "See who owns the onboarding and which job references support the person during the first weeks.",
     completed: "Completed",
     markDone: "Mark done",
     title: "Title",
@@ -76,6 +79,8 @@ function copy(lang: "sr" | "en") {
     progress: "Progress",
     nextOwner: "Next focus",
     documents: "Documents",
+    orgSystem: "ORG System",
+    documentsHint: "Job descriptions and work instructions are primarily maintained in Admin → Org structure, and onboarding uses them as a fallback when needed.",
     noValue: "—"
   };
 }
@@ -88,7 +93,6 @@ export default async function OnboardingDetailPage({
   searchParams: { success?: string; error?: string };
 }) {
   const user = await requireActiveUser();
-  const branding = await getBrandingSettings();
   const lang = getRequestLang();
   const c = copy(lang);
   const detail = await getOnboardingDetail(
@@ -120,6 +124,16 @@ export default async function OnboardingDetailPage({
     ? Math.round((onboarding.items.filter((item) => item.isCompleted).length / onboarding.items.length) * 100)
     : 0;
   const status = getOnboardingStatusMeta(onboarding.status, lang);
+  const jobDescriptionUrl =
+    onboarding.jobDescriptionUrl ||
+    onboarding.employee?.jobDescriptionUrl ||
+    detail.orgResources.jobDescriptionUrl ||
+    null;
+  const workInstructionsUrl =
+    onboarding.workInstructionsUrl ||
+    onboarding.employee?.workInstructionsUrl ||
+    detail.orgResources.workInstructionsUrl ||
+    null;
 
   return (
     <main className="page">
@@ -127,15 +141,9 @@ export default async function OnboardingDetailPage({
         <div className="page-topbar">
           <div className="page-topbar-main stack">
             <div className="header">
-              <div className="brand">
-                {branding.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
-                ) : null}
-                <div>
-                  <h1 className="brand-title">{onboarding.employee?.name || onboarding.candidate?.fullName || "Onboarding"}</h1>
-                  <p className="muted">{status.label}</p>
-                </div>
+              <div>
+                <h1 className="brand-title">{onboarding.employee?.name || onboarding.candidate?.fullName || "Onboarding"}</h1>
+                <p className="muted">{status.label}</p>
               </div>
               <Link className="button button-secondary" href="/onboarding">
                 <IconArrowLeft size={18} /> {c.back}
@@ -266,7 +274,9 @@ export default async function OnboardingDetailPage({
           <section className="panel stack">
             <div className="section-head">
               <div className="section-copy">
-                <h2 className="h2">{c.profile}</h2>
+                <h2 className="h2">
+                  <LabelWithTooltip label={c.profile} tooltip={c.profileHint} />
+                </h2>
               </div>
             </div>
             <div className="detail-list detail-list-compact">
@@ -275,14 +285,19 @@ export default async function OnboardingDetailPage({
               <div><strong>{c.manager}:</strong> {onboarding.manager?.name || c.noValue}</div>
               <div><strong>{c.hrOwner}:</strong> {onboarding.hrOwner?.name || c.noValue}</div>
             </div>
+            <div className="stack">
+              <div className="small muted">
+                <LabelWithTooltip label={c.documents} tooltip={c.documentsHint} />
+              </div>
+            </div>
             <div className="inline">
-              {onboarding.jobDescriptionUrl || onboarding.employee?.jobDescriptionUrl ? (
-                <a className="button button-secondary" href={onboarding.jobDescriptionUrl || onboarding.employee?.jobDescriptionUrl || "#"} target="_blank" rel="noreferrer">
+              {jobDescriptionUrl ? (
+                <a className="button button-secondary" href={jobDescriptionUrl} target="_blank" rel="noreferrer">
                   <IconPdf size={18} /> {lang === "sr" ? "Opis posla" : "Job description"}
                 </a>
               ) : null}
-              {onboarding.workInstructionsUrl || onboarding.employee?.workInstructionsUrl ? (
-                <a className="button button-secondary" href={onboarding.workInstructionsUrl || onboarding.employee?.workInstructionsUrl || "#"} target="_blank" rel="noreferrer">
+              {workInstructionsUrl ? (
+                <a className="button button-secondary" href={workInstructionsUrl} target="_blank" rel="noreferrer">
                   <IconPdf size={18} /> {lang === "sr" ? "Radne instrukcije" : "Work instructions"}
                 </a>
               ) : null}
@@ -291,6 +306,9 @@ export default async function OnboardingDetailPage({
                   <IconPdf size={18} /> {c.documents}
                 </a>
               ) : null}
+              <Link className="button button-secondary" href="/organization">
+                <IconUsers size={18} /> {c.orgSystem}
+              </Link>
             </div>
           </section>
         </div>

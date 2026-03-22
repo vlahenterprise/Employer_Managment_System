@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { requireActiveUser } from "@/server/current-user";
 import { getUserOrgStructure } from "@/server/org-structure";
-import { buildChartPalette, getBrandingSettings, getThemeCssVars } from "@/server/settings";
 import UserMenu from "../dashboard/UserMenu";
 import OrgChart from "./OrgChart";
 import { getRequestLang } from "@/i18n/server";
@@ -11,13 +10,10 @@ import { hasAccessAdmin } from "@/server/rbac";
 
 export default async function OrganizationPage() {
   const user = await requireActiveUser();
-  const branding = await getBrandingSettings();
-  const theme = await getThemeCssVars();
-  const palette = buildChartPalette(theme as any);
   const lang = getRequestLang();
   const t = getI18n(lang);
 
-  const { nodes } = await getUserOrgStructure();
+  const { nodes, globalLinks } = await getUserOrgStructure();
 
   return (
     <main className="page">
@@ -25,15 +21,9 @@ export default async function OrganizationPage() {
         <div className="page-topbar">
           <div className="page-topbar-main">
             <div className="header">
-              <div className="brand">
-                {branding.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img className="brand-logo" src={branding.logoUrl} alt={branding.title} />
-                ) : null}
-                <div>
-                  <h1 className="brand-title">{t.org.title}</h1>
-                  <p className="muted">{t.org.subtitle}</p>
-                </div>
+              <div>
+                <h1 className="brand-title">{t.org.title}</h1>
+                <p className="muted">{t.org.subtitle}</p>
               </div>
               <div className="inline">
                 <Link className="button button-secondary" href="/dashboard">
@@ -58,16 +48,36 @@ export default async function OrganizationPage() {
         <section className="panel stack">
           <OrgChart
             nodes={nodes}
-            palette={palette}
+            globalLinks={globalLinks}
             canEdit={hasAccessAdmin(user)}
             labels={{
               people: t.org.people,
-              links: t.org.links,
               noAssignees: t.org.noAssignees,
-              noLinks: t.org.noLinks,
               select: t.org.select,
               edit: t.org.edit,
-              manageHint: t.org.manageHint
+              manageHint: t.org.manageHint,
+              search: t.org.search,
+              searchHelp: t.org.searchHelp,
+              searchPlaceholder: t.org.searchPlaceholder,
+              searchHint: t.org.searchHint,
+              clearSearch: t.org.clearSearch,
+              noSearchResults: t.org.noSearchResults,
+              executive: t.org.executive,
+              manager: t.org.manager,
+              lead: t.org.lead,
+              employee: t.org.employee,
+              jobDescription: t.org.jobDescription,
+              workInstructions: t.org.workInstructions,
+              positionProcesses: t.org.positionProcesses,
+              positionInstructions: t.org.positionInstructions,
+              globalProcesses: t.org.globalProcesses,
+              globalInstructions: t.org.globalInstructions,
+              noDocuments: t.org.noDocuments,
+              peopleHelp: t.org.peopleHelp,
+              documentsHelp: t.org.documentsHelp,
+              openDocument: t.org.openDocument,
+              globalResources: t.org.globalResources,
+              matches: t.org.matches
             }}
           />
         </section>
