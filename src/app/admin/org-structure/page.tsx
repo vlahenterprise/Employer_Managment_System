@@ -10,6 +10,7 @@ import {
   deleteOrgGlobalLinkAction,
   deleteOrgLinkAction,
   deleteOrgPositionAction,
+  importDefaultOrgStructureAction,
   removeOrgAssignmentAction,
   updateOrgPositionAction
 } from "./actions";
@@ -110,6 +111,28 @@ export default async function AdminOrgStructurePage({
           : "Admins maintain the org structure, positions, Drive documents, and global processes/instructions here. ORG System and profiles read from this source."
       }
     >
+
+        {positions.length === 0 ? (
+          <section className="panel stack">
+            <div className="item item-compact admin-org-import-banner">
+              <div>
+                <div className="item-title">
+                  {lang === "sr" ? "Brzi početak bez ručnog unosa" : "Quick start without manual setup"}
+                </div>
+                <div className="muted small">
+                  {lang === "sr"
+                    ? "Možeš odmah da uvezeš VLAH organizacionu strukturu iz pripremljenog template-a, pa kasnije samo dopunjavaš Drive linkove, opise i globalne procese."
+                    : "You can import the prepared VLAH organization template first, then only enrich it with Drive links, descriptions, and global processes."}
+                </div>
+              </div>
+              <form action={importDefaultOrgStructureAction}>
+                <button className="button" type="submit">
+                  <IconPlus size={16} /> {lang === "sr" ? "Uvezi VLAH strukturu" : "Import VLAH structure"}
+                </button>
+              </form>
+            </div>
+          </section>
+        ) : null}
 
         <section className="panel stack">
           <h2 className="h2">

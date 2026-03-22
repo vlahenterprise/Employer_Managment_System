@@ -5,6 +5,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { ORG_STRUCTURE_CACHE_TAG } from "@/server/cache-tags";
 import { prisma } from "@/server/db";
 import { requireAdminUser } from "@/server/current-user";
+import { importVlahOrgTemplate } from "@/server/org-template-vlah";
 import type { OrgLinkType } from "@prisma/client";
 
 function redirectError(message: string): never {
@@ -17,6 +18,14 @@ function redirectSuccess(message: string): never {
 
 function revalidateOrgStructureData() {
   revalidateTag(ORG_STRUCTURE_CACHE_TAG);
+}
+
+function revalidateOrgPages() {
+  revalidatePath("/admin/org-structure");
+  revalidatePath("/organization");
+  revalidatePath("/profile");
+  revalidatePath("/onboarding");
+  revalidateOrgStructureData();
 }
 
 function normalizeOrgLinkType(value: FormDataEntryValue | null): OrgLinkType {
@@ -50,9 +59,7 @@ export async function createOrgPositionAction(formData: FormData) {
     data: { title, description, parentId, order, isActive }
   });
 
-  revalidatePath("/admin/org-structure");
-  revalidatePath("/organization");
-  revalidateOrgStructureData();
+  revalidateOrgPages();
   redirectSuccess("Pozicija je kreirana.");
 }
 
@@ -76,9 +83,7 @@ export async function updateOrgPositionAction(formData: FormData) {
     data: { title, description, parentId, order, isActive }
   });
 
-  revalidatePath("/admin/org-structure");
-  revalidatePath("/organization");
-  revalidateOrgStructureData();
+  revalidateOrgPages();
   redirectSuccess("Pozicija je sačuvana.");
 }
 
@@ -90,9 +95,7 @@ export async function deleteOrgPositionAction(formData: FormData) {
 
   await prisma.orgPosition.delete({ where: { id } });
 
-  revalidatePath("/admin/org-structure");
-  revalidatePath("/organization");
-  revalidateOrgStructureData();
+  revalidateOrgPages();
   redirectSuccess("Pozicija je obrisana.");
 }
 
@@ -113,9 +116,7 @@ export async function addOrgLinkAction(formData: FormData) {
     data: { positionId, label, description, url, type, order }
   });
 
-  revalidatePath("/admin/org-structure");
-  revalidatePath("/organization");
-  revalidateOrgStructureData();
+  revalidateOrgPages();
   redirectSuccess("Link je dodat.");
 }
 
@@ -135,9 +136,7 @@ export async function addOrgGlobalLinkAction(formData: FormData) {
     data: { label, description, url, type, order }
   });
 
-  revalidatePath("/admin/org-structure");
-  revalidatePath("/organization");
-  revalidateOrgStructureData();
+  revalidateOrgPages();
   redirectSuccess("Globalni resurs je dodat.");
 }
 
@@ -149,9 +148,7 @@ export async function deleteOrgLinkAction(formData: FormData) {
 
   await prisma.orgPositionLink.delete({ where: { id } });
 
-  revalidatePath("/admin/org-structure");
-  revalidatePath("/organization");
-  revalidateOrgStructureData();
+  revalidateOrgPages();
   redirectSuccess("Link je obrisan.");
 }
 
@@ -163,9 +160,7 @@ export async function deleteOrgGlobalLinkAction(formData: FormData) {
 
   await prisma.orgGlobalLink.delete({ where: { id } });
 
-  revalidatePath("/admin/org-structure");
-  revalidatePath("/organization");
-  revalidateOrgStructureData();
+  revalidateOrgPages();
   redirectSuccess("Globalni resurs je obrisan.");
 }
 
@@ -180,9 +175,7 @@ export async function addOrgAssignmentAction(formData: FormData) {
     data: { positionId, userId }
   });
 
-  revalidatePath("/admin/org-structure");
-  revalidatePath("/organization");
-  revalidateOrgStructureData();
+  revalidateOrgPages();
   redirectSuccess("Zaposleni je dodat na poziciju.");
 }
 
@@ -194,8 +187,19 @@ export async function removeOrgAssignmentAction(formData: FormData) {
 
   await prisma.orgPositionAssignment.delete({ where: { id } });
 
-  revalidatePath("/admin/org-structure");
-  revalidatePath("/organization");
-  revalidateOrgStructureData();
+  revalidateOrgPages();
   redirectSuccess("Zaposleni je uklonjen sa pozicije.");
+}
+
+export async function importDefaultOrgStructureAction() {
+  await requireAdminUser();
+
+  const result = await importVlahOrgTemplate();
+  if (result.skippedExisting) {
+    redirectError("Org struktura već postoji. Uvoz je blokiran da ne prepiše postojeće podatke.");
+  }
+
+  revalidateOrgPages();
+
+  redirectSuccess(`VLAH org struktura je uvezena. Pozicije: ${result.positionsCreated}, dodele: ${result.assignmentsCreated}.`);
 }

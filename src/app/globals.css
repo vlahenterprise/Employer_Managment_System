@@ -2687,6 +2687,12 @@ p {
   border-radius: var(--radius-pill);
 }
 
+.admin-org-import-banner {
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+}
+
 .entity-card {
   gap: 16px;
   border: 1px solid rgba(var(--color-light-2-rgb) / 0.06);
@@ -3369,6 +3375,10 @@ code {
 
   .admin-tabs .tab {
     white-space: nowrap;
+  }
+
+  .admin-org-import-banner {
+    align-items: flex-start;
   }
 
   .grid2,
