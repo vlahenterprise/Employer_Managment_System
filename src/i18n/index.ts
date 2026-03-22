@@ -668,7 +668,15 @@ export const I18N = {
       levelLegend: "Nivoi pozicija",
       fitToScreen: "Prilagodi ekranu",
       fullscreen: "Puni ekran",
-      exitFullscreen: "Izađi iz punog ekrana"
+      exitFullscreen: "Izađi iz punog ekrana",
+      jumpToLevel: "Idi na nivo",
+      reportsTo: "Odgovara poziciji",
+      directReports: "Direktne podpozicije",
+      linkedDocuments: "Dokumenta",
+      childPositions: "Pozicije ispod",
+      noParent: "Vrh hijerarhije",
+      quickSummary: "Brzi pregled",
+      relatedResources: "Globalni resursi za ovu poziciju"
     },
     modules: {
       tasksTitle: "Zadaci",
@@ -1342,7 +1350,15 @@ export const I18N = {
       levelLegend: "Position levels",
       fitToScreen: "Fit to screen",
       fullscreen: "Full screen",
-      exitFullscreen: "Exit full screen"
+      exitFullscreen: "Exit full screen",
+      jumpToLevel: "Jump to level",
+      reportsTo: "Reports to",
+      directReports: "Direct child positions",
+      linkedDocuments: "Documents",
+      childPositions: "Positions below",
+      noParent: "Top of the hierarchy",
+      quickSummary: "Quick summary",
+      relatedResources: "Global resources for this position"
     },
     modules: {
       tasksTitle: "Tasks",

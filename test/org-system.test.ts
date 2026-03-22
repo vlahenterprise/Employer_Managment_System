@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildOrgDepthMap, getOrgNodeLevel, groupOrgDocuments, normalizeOrgSearchText } from "../src/lib/org-system";
+import {
+  buildOrgDepthMap,
+  getOrgNodeLevel,
+  groupOrgDocuments,
+  groupOrgNodeIdsByLevel,
+  normalizeOrgSearchText
+} from "../src/lib/org-system";
 
 test("org depth mapping stays stable for nested position trees", () => {
   const depthMap = buildOrgDepthMap([
@@ -48,4 +54,19 @@ test("org helpers stay deterministic under 100-node workloads", () => {
   assert.equal(depthMap.size, 100);
   assert.ok([...depthMap.values()].every((depth) => depth >= 0));
   assert.equal(normalizeOrgSearchText("  Proces  "), "proces");
+});
+
+test("org level grouping keeps ids grouped by role tier", () => {
+  const grouped = groupOrgNodeIdsByLevel([
+    { id: "ceo", level: "executive" as const },
+    { id: "mgr-1", level: "manager" as const },
+    { id: "mgr-2", level: "manager" as const },
+    { id: "lead-1", level: "lead" as const },
+    { id: "emp-1", level: "employee" as const }
+  ]);
+
+  assert.deepEqual(grouped.executive, ["ceo"]);
+  assert.deepEqual(grouped.manager, ["mgr-1", "mgr-2"]);
+  assert.deepEqual(grouped.lead, ["lead-1"]);
+  assert.deepEqual(grouped.employee, ["emp-1"]);
 });

@@ -44,6 +44,21 @@ export function getOrgNodeLevel(depth: number): OrgNodeLevel {
   return "employee";
 }
 
+export function groupOrgNodeIdsByLevel<T extends { id: string; level: OrgNodeLevel }>(nodes: T[]) {
+  return nodes.reduce(
+    (acc, node) => {
+      acc[node.level].push(node.id);
+      return acc;
+    },
+    {
+      executive: [] as string[],
+      manager: [] as string[],
+      lead: [] as string[],
+      employee: [] as string[]
+    }
+  );
+}
+
 export function groupOrgDocuments<T extends OrgDocumentLike>(documents: T[]) {
   return {
     jobDescriptions: documents.filter((document) => document.type === "JOB_DESCRIPTION"),

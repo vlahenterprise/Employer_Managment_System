@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { groupOrgDocuments, normalizeOrgSearchText } from "@/lib/org-system";
+import { groupOrgDocuments, groupOrgNodeIdsByLevel, normalizeOrgSearchText } from "@/lib/org-system";
 import { LabelWithTooltip } from "@/components/Tooltip";
 
 type OrgDocument = {
@@ -85,6 +85,14 @@ type OrgLabels = {
   fitToScreen: string;
   fullscreen: string;
   exitFullscreen: string;
+  jumpToLevel: string;
+  reportsTo: string;
+  directReports: string;
+  linkedDocuments: string;
+  childPositions: string;
+  noParent: string;
+  quickSummary: string;
+  relatedResources: string;
 };
 
 function levelLabel(level: OrgNode["level"], labels: OrgLabels) {
@@ -114,6 +122,7 @@ export default function OrgChart(props: {
   globalLinks: OrgDocument[];
   canEdit: boolean;
   labels: OrgLabels;
+  initialSelectedId?: string | null;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -138,16 +147,24 @@ export default function OrgChart(props: {
     return rootCandidates.length ? rootCandidates : sortNodes(props.nodes);
   }, [childMap, props.nodes]);
 
-  const [selectedId, setSelectedId] = useState<string | null>(roots[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(props.initialSelectedId ?? roots[0]?.id ?? null);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [scaleIndex, setScaleIndex] = useState(2);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  const nodeIdsByLevel = useMemo(() => groupOrgNodeIdsByLevel(props.nodes), [props.nodes]);
+
   useEffect(() => {
     if (!selectedId && roots[0]?.id) setSelectedId(roots[0].id);
     if (selectedId && !nodesById.has(selectedId)) setSelectedId(roots[0]?.id ?? null);
   }, [nodesById, roots, selectedId]);
+
+  useEffect(() => {
+    if (props.initialSelectedId && nodesById.has(props.initialSelectedId)) {
+      setSelectedId(props.initialSelectedId);
+    }
+  }, [nodesById, props.initialSelectedId]);
 
   useEffect(() => {
     function syncFullscreenState() {
@@ -160,6 +177,9 @@ export default function OrgChart(props: {
   }, []);
 
   const selected = selectedId ? nodesById.get(selectedId) ?? null : null;
+  const selectedParent = selected?.parentId ? nodesById.get(selected.parentId) ?? null : null;
+  const selectedChildren = selected ? childMap.get(selected.id) ?? [] : [];
+  const selectedDocumentTotal = (selected?.documents.length ?? 0) + props.globalLinks.length;
 
   const searchResults = useMemo<SearchResult[]>(() => {
     const needle = normalizeOrgSearchText(query);
@@ -245,10 +265,10 @@ export default function OrgChart(props: {
     return () => window.cancelAnimationFrame(frame);
   }, [selectedId, scaleIndex]);
 
-  function openPosition(positionId: string, documentId?: string | null) {
+  const openPosition = useCallback((positionId: string, documentId?: string | null) => {
     setSelectedId(positionId);
     setSelectedDocumentId(documentId ?? null);
-  }
+  }, []);
 
   const fitToScreen = useCallback(() => {
     const viewport = viewportRef.current;
@@ -289,6 +309,12 @@ export default function OrgChart(props: {
     }
   }
 
+  function jumpToLevel(level: OrgNode["level"]) {
+    const firstId = nodeIdsByLevel[level][0];
+    if (!firstId) return;
+    openPosition(firstId);
+  }
+
   function renderDocumentSection(title: string, documents: OrgDocument[]) {
     if (documents.length === 0) return null;
     return (
@@ -317,6 +343,12 @@ export default function OrgChart(props: {
     const children = childMap.get(node.id) ?? [];
     return (
       <div key={node.id} className={`org-branch org-branch-${node.level}`}>
+        {node.parentId ? (
+          <div className="org-branch-connector" aria-hidden="true">
+            <span className="org-branch-connector-line" />
+            <span className="org-branch-connector-arrow" />
+          </div>
+        ) : null}
         <button
           ref={(element) => {
             nodeRefs.current[node.id] = element;
@@ -345,7 +377,10 @@ export default function OrgChart(props: {
         </button>
 
         {children.length > 0 ? (
-          <div className="org-children">
+          <div className={`org-children${children.length === 1 ? " is-single" : ""}`}>
+            <div className="org-children-stem" aria-hidden="true">
+              <span className="org-children-stem-dot" />
+            </div>
             <div className="org-children-grid">{children.map((child) => renderBranch(child))}</div>
           </div>
         ) : null}
@@ -378,6 +413,22 @@ export default function OrgChart(props: {
             <span className="org-level-pill org-level-pill-manager">{props.labels.manager}</span>
             <span className="org-level-pill org-level-pill-lead">{props.labels.lead}</span>
             <span className="org-level-pill org-level-pill-employee">{props.labels.employee}</span>
+          </div>
+
+          <div className="org-level-jumps">
+            <span className="org-level-jumps-title">{props.labels.jumpToLevel}</span>
+            <button type="button" className="button button-secondary" onClick={() => jumpToLevel("executive")}>
+              {props.labels.executive}
+            </button>
+            <button type="button" className="button button-secondary" onClick={() => jumpToLevel("manager")}>
+              {props.labels.manager}
+            </button>
+            <button type="button" className="button button-secondary" onClick={() => jumpToLevel("lead")}>
+              {props.labels.lead}
+            </button>
+            <button type="button" className="button button-secondary" onClick={() => jumpToLevel("employee")}>
+              {props.labels.employee}
+            </button>
           </div>
 
           <div className="org-zoom-controls">
@@ -460,12 +511,56 @@ export default function OrgChart(props: {
                   <div className="org-detail-subtitle">{levelLabel(selected.level, props.labels)}</div>
                 </div>
                 {props.canEdit ? (
-                  <a className="button button-secondary" href="/admin/org-structure">
+                  <a className="button button-secondary" href={`/admin/org-structure?query=${encodeURIComponent(selected.title)}`}>
                     {props.labels.edit}
                   </a>
                 ) : null}
               </div>
               {selected.description ? <div className="muted">{selected.description}</div> : null}
+
+              <div className="org-section">
+                <div className="org-section-title">{props.labels.quickSummary}</div>
+                <div className="org-detail-metrics">
+                  <div className="org-detail-metric">
+                    <span className="org-detail-metric-label">{props.labels.people}</span>
+                    <strong>{selected.people.length}</strong>
+                  </div>
+                  <div className="org-detail-metric">
+                    <span className="org-detail-metric-label">{props.labels.directReports}</span>
+                    <strong>{selectedChildren.length}</strong>
+                  </div>
+                  <div className="org-detail-metric">
+                    <span className="org-detail-metric-label">{props.labels.linkedDocuments}</span>
+                    <strong>{selectedDocumentTotal}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="org-detail-meta-grid">
+                <div className="org-detail-meta-card">
+                  <div className="org-section-title">{props.labels.reportsTo}</div>
+                  <div className="org-detail-meta-value">{selectedParent?.title ?? props.labels.noParent}</div>
+                </div>
+                <div className="org-detail-meta-card">
+                  <div className="org-section-title">{props.labels.childPositions}</div>
+                  {selectedChildren.length > 0 ? (
+                    <div className="org-detail-chip-list">
+                      {selectedChildren.map((child) => (
+                        <button
+                          key={child.id}
+                          type="button"
+                          className="org-detail-chip"
+                          onClick={() => openPosition(child.id)}
+                        >
+                          {child.title}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="org-detail-meta-empty">—</div>
+                  )}
+                </div>
+              </div>
 
               <div className="org-section">
                 <div className="org-section-title">
@@ -492,8 +587,13 @@ export default function OrgChart(props: {
               {renderDocumentSection(props.labels.workInstructions, selectedGroups.workInstructions)}
               {renderDocumentSection(props.labels.positionProcesses, selectedGroups.positionProcesses)}
               {renderDocumentSection(props.labels.positionInstructions, selectedGroups.positionInstructions)}
-              {renderDocumentSection(props.labels.globalProcesses, globalGroups.globalProcesses)}
-              {renderDocumentSection(props.labels.globalInstructions, globalGroups.globalInstructions)}
+              {globalGroups.globalProcesses.length > 0 || globalGroups.globalInstructions.length > 0 ? (
+                <div className="org-section">
+                  <div className="org-section-title">{props.labels.relatedResources}</div>
+                  {renderDocumentSection(props.labels.globalProcesses, globalGroups.globalProcesses)}
+                  {renderDocumentSection(props.labels.globalInstructions, globalGroups.globalInstructions)}
+                </div>
+              ) : null}
 
               {selected.documents.length > 0 || props.globalLinks.length > 0 ? (
                 <div className="org-hint">

@@ -75,6 +75,232 @@ function typeLabel(lang: "sr" | "en", type: string) {
   return map[type as keyof typeof map] ?? type;
 }
 
+type OrgPositionCardNode = Awaited<ReturnType<typeof getOrgStructure>>["nodes"][number];
+type OrgPickerData = Awaited<ReturnType<typeof getOrgPickers>>;
+
+function AdminOrgPositionCard({
+  position,
+  positionOptions,
+  pickers,
+  parentTitle,
+  lang,
+  t
+}: {
+  position: OrgPositionCardNode;
+  positionOptions: Array<{ id: string; title: string }>;
+  pickers: OrgPickerData;
+  parentTitle: string;
+  lang: "sr" | "en";
+  t: ReturnType<typeof getI18n>;
+}) {
+  const assignedIds = new Set(position.users.map((user) => user.id));
+  const missingDocs = position.links.length === 0;
+  const missingPeople = position.users.length === 0;
+
+  return (
+    <details className="item stack admin-org-card">
+      <summary className="admin-org-card-summary">
+        <div className="admin-org-card-main">
+          <div className="admin-org-card-title-row">
+            <div className="item-title">{position.title}</div>
+            <div className="pills">
+              <span className="pill">{position.users.length} {t.admin.org.people}</span>
+              <span className="pill">{position.links.length} {t.admin.org.links}</span>
+              {missingPeople ? <span className="pill pill-warn">{lang === "sr" ? "Bez ljudi" : "No people"}</span> : null}
+              {missingDocs ? <span className="pill pill-warn">{lang === "sr" ? "Bez dokumenata" : "No docs"}</span> : null}
+            </div>
+          </div>
+          <div className="admin-org-card-meta">
+            <span>{lang === "sr" ? "Nadređeni" : "Parent"}: {parentTitle}</span>
+            <span>{t.admin.org.order}: {position.order}</span>
+            <span>{position.isActive ? t.common.active : t.common.inactive}</span>
+          </div>
+        </div>
+        <span className="admin-org-card-open">{lang === "sr" ? "Otvori i uredi" : "Open & edit"}</span>
+      </summary>
+
+      <div className="admin-org-card-body">
+        <div className="admin-org-card-grid">
+          <section className="stack admin-org-panel">
+            <div className="admin-org-panel-head">
+              <div className="item-title">{lang === "sr" ? "Osnove pozicije" : "Position basics"}</div>
+              <Link className="button button-secondary" href={`/organization?focus=${position.id}`}>
+                {lang === "sr" ? "Chart" : "Chart"}
+              </Link>
+            </div>
+            <form className="stack" action={updateOrgPositionAction}>
+              <input type="hidden" name="id" value={position.id} />
+              <div className="grid2">
+                <label className="field">
+                  <span className="label">{t.admin.org.title}</span>
+                  <input className="input" name="title" type="text" defaultValue={position.title} required />
+                </label>
+                <label className="field">
+                  <span className="label">{t.admin.org.parent}</span>
+                  <select className="input" name="parentId" defaultValue={position.parentId ?? ""}>
+                    {positionOptions.map((opt) => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="grid2">
+                <label className="field">
+                  <span className="label">{t.admin.org.order}</span>
+                  <input className="input" name="order" type="number" min={0} defaultValue={position.order} />
+                </label>
+                <label className="field">
+                  <span className="label">{t.admin.org.active}</span>
+                  <select className="input" name="isActive" defaultValue={position.isActive ? "1" : "0"}>
+                    <option value="1">{t.common.yes}</option>
+                    <option value="0">{t.common.no}</option>
+                  </select>
+                </label>
+              </div>
+              <label className="field">
+                <span className="label">{t.admin.org.description}</span>
+                <textarea className="input" name="description" rows={3} defaultValue={position.description ?? ""} />
+              </label>
+              <div className="inline">
+                <button className="button" type="submit">
+                  {t.common.save}
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <section className="stack admin-org-panel">
+            <div className="admin-org-panel-head">
+              <div className="item-title">{t.admin.org.assignTitle}</div>
+              <div className="muted small">
+                {lang === "sr" ? "Brzo dodeli ili ukloni ljude sa ove pozicije." : "Quickly assign or remove people from this position."}
+              </div>
+            </div>
+            <form className="inline" action={addOrgAssignmentAction}>
+              <input type="hidden" name="positionId" value={position.id} />
+              <select className="input" name="userId" defaultValue="">
+                <option value="" disabled>
+                  {t.admin.org.selectUser}
+                </option>
+                {pickers.users
+                  .filter((user) => !assignedIds.has(user.id))
+                  .map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name} ({user.email})
+                    </option>
+                  ))}
+              </select>
+              <button className="button button-secondary" type="submit">
+                {t.common.add}
+              </button>
+            </form>
+            <div className="list admin-org-compact-list">
+              {position.users.map((user) => (
+                <div key={user.id} className="item item-compact admin-org-mini-item">
+                  <div>
+                    <div className="item-title">{user.name}</div>
+                    <div className="muted small">{user.email}</div>
+                  </div>
+                  <form action={removeOrgAssignmentAction}>
+                    <input type="hidden" name="id" value={user.assignmentId} />
+                    <button className="button button-secondary" type="submit">
+                      {t.common.remove}
+                    </button>
+                  </form>
+                </div>
+              ))}
+              {position.users.length === 0 ? <div className="muted">{t.admin.org.noAssignees}</div> : null}
+            </div>
+          </section>
+
+          <section className="stack admin-org-panel">
+            <div className="admin-org-panel-head">
+              <div className="item-title">
+                {lang === "sr" ? "Dokumenta i instrukcije" : "Documents and instructions"}
+              </div>
+              <div className="muted small">
+                {lang === "sr"
+                  ? "Koristi Drive linkove za opis posla, procese i radne instrukcije."
+                  : "Use Drive links for job descriptions, processes, and work instructions."}
+              </div>
+            </div>
+            <form className="stack" action={addOrgLinkAction}>
+              <input type="hidden" name="positionId" value={position.id} />
+              <div className="grid2">
+                <label className="field">
+                  <span className="label">{t.admin.org.linkLabel}</span>
+                  <input className="input" name="label" type="text" required />
+                </label>
+                <label className="field">
+                  <span className="label">{lang === "sr" ? "Tip resursa" : "Resource type"}</span>
+                  <select className="input" name="type" defaultValue="POSITION_INSTRUCTION">
+                    {docTypeOptions(lang).map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <label className="field">
+                <span className="label">{t.admin.org.linkUrl}</span>
+                <input className="input" name="url" type="url" required placeholder="https://drive.google.com/..." />
+              </label>
+              <div className="grid2">
+                <label className="field">
+                  <span className="label">{lang === "sr" ? "Kratak opis" : "Short note"}</span>
+                  <textarea className="input" name="description" rows={2} />
+                </label>
+                <label className="field">
+                  <span className="label">{t.admin.org.order}</span>
+                  <input className="input" name="order" type="number" min={0} defaultValue={0} />
+                </label>
+              </div>
+              <div className="inline">
+                <button className="button button-secondary" type="submit">
+                  <IconPlus size={16} /> {t.common.add}
+                </button>
+              </div>
+            </form>
+            <div className="list admin-org-compact-list">
+              {position.links.map((link) => (
+                <div key={link.id} className="item item-compact admin-org-mini-item">
+                  <div>
+                    <div className="item-title">{link.label}</div>
+                    <div className="pills">
+                      <span className="pill">{typeLabel(lang, link.type)}</span>
+                    </div>
+                    {link.description ? <div className="muted small">{link.description}</div> : null}
+                    <div className="muted small">{link.url}</div>
+                  </div>
+                  <form action={deleteOrgLinkAction}>
+                    <input type="hidden" name="id" value={link.id} />
+                    <button className="button button-secondary" type="submit">
+                      <IconTrash size={16} /> {t.common.delete}
+                    </button>
+                  </form>
+                </div>
+              ))}
+              {position.links.length === 0 ? <div className="muted">{t.admin.org.noLinks}</div> : null}
+            </div>
+          </section>
+        </div>
+
+        <div className="admin-org-card-footer">
+          <form action={deleteOrgPositionAction}>
+            <input type="hidden" name="id" value={position.id} />
+            <button className="button button-danger" type="submit">
+              <IconTrash size={16} /> {t.common.delete}
+            </button>
+          </form>
+        </div>
+      </div>
+    </details>
+  );
+}
+
 export default async function AdminOrgStructurePage({
   searchParams
 }: {
@@ -93,6 +319,7 @@ export default async function AdminOrgStructurePage({
 
   const positions = [...nodes].sort((a, b) => a.order - b.order || a.title.localeCompare(b.title));
   const positionOptions = [{ id: "", title: "(root)" }, ...pickers.positions];
+  const positionTitleById = new Map(positionOptions.map((position) => [position.id, position.title] as const));
   const filteredPositions = positions.filter((position) => {
     const queryNeedle = normalizeOrgSearchText(query);
     const matchesQuery =
@@ -375,171 +602,16 @@ export default async function AdminOrgStructurePage({
           </h2>
           <div className="list">
             {filteredPositions.map((p) => {
-              const assignedIds = new Set(p.users.map((u) => u.id));
               return (
-                <details key={p.id} className="item stack">
-                  <summary className="item-top" style={{ cursor: "pointer" }}>
-                    <div>
-                      <div className="item-title">{p.title}</div>
-                      <div className="muted small">
-                        {t.admin.org.order}: {p.order} · {p.isActive ? t.common.active : t.common.inactive}
-                      </div>
-                    </div>
-                    <div className="pills">
-                      <span className="pill">{p.users.length} {t.admin.org.people}</span>
-                      <span className="pill">{p.links.length} {t.admin.org.links}</span>
-                    </div>
-                  </summary>
-
-                  <form className="stack" action={updateOrgPositionAction}>
-                    <input type="hidden" name="id" value={p.id} />
-                    <div className="grid3">
-                      <label className="field">
-                        <span className="label">{t.admin.org.title}</span>
-                        <input className="input" name="title" type="text" defaultValue={p.title} required />
-                      </label>
-                      <label className="field">
-                        <span className="label">{t.admin.org.parent}</span>
-                        <select className="input" name="parentId" defaultValue={p.parentId ?? ""}>
-                          {positionOptions.map((opt) => (
-                            <option key={opt.id} value={opt.id}>
-                              {opt.title}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="field">
-                        <span className="label">{t.admin.org.order}</span>
-                        <input className="input" name="order" type="number" min={0} defaultValue={p.order} />
-                      </label>
-                    </div>
-                    <label className="field">
-                      <span className="label">{t.admin.org.description}</span>
-                      <textarea className="input" name="description" rows={3} defaultValue={p.description ?? ""} />
-                    </label>
-                    <label className="field">
-                      <span className="label">{t.admin.org.active}</span>
-                      <select className="input" name="isActive" defaultValue={p.isActive ? "1" : "0"}>
-                        <option value="1">{t.common.yes}</option>
-                        <option value="0">{t.common.no}</option>
-                      </select>
-                    </label>
-                    <button className="button" type="submit">
-                      {t.common.save}
-                    </button>
-                  </form>
-
-                  <div className="grid2">
-                    <div className="stack">
-                      <div className="item-title">{t.admin.org.assignTitle}</div>
-                      <form className="inline" action={addOrgAssignmentAction}>
-                        <input type="hidden" name="positionId" value={p.id} />
-                        <select className="input" name="userId" defaultValue="">
-                          <option value="" disabled>
-                            {t.admin.org.selectUser}
-                          </option>
-                          {pickers.users
-                            .filter((u) => !assignedIds.has(u.id))
-                            .map((u) => (
-                              <option key={u.id} value={u.id}>
-                                {u.name} ({u.email})
-                              </option>
-                            ))}
-                        </select>
-                        <button className="button button-secondary" type="submit">
-                          {t.common.add}
-                        </button>
-                      </form>
-                      <div className="list">
-                        {p.users.map((u) => (
-                          <div key={u.id} className="item item-compact">
-                            <div>
-                              <div className="item-title">{u.name}</div>
-                              <div className="muted small">{u.email}</div>
-                            </div>
-                            <form action={removeOrgAssignmentAction}>
-                              <input type="hidden" name="id" value={u.assignmentId} />
-                              <button className="button button-secondary" type="submit">
-                                {t.common.remove}
-                              </button>
-                            </form>
-                          </div>
-                        ))}
-                        {p.users.length === 0 ? <div className="muted">{t.admin.org.noAssignees}</div> : null}
-                      </div>
-                    </div>
-
-                    <div className="stack">
-                      <div className="item-title">
-                        {lang === "sr" ? "Dokumenta i instrukcije za poziciju" : "Position documents and instructions"}
-                      </div>
-                      <form className="stack" action={addOrgLinkAction}>
-                        <input type="hidden" name="positionId" value={p.id} />
-                        <div className="grid2">
-                          <label className="field">
-                            <span className="label">{t.admin.org.linkLabel}</span>
-                            <input className="input" name="label" type="text" required />
-                          </label>
-                          <label className="field">
-                            <span className="label">{lang === "sr" ? "Tip resursa" : "Resource type"}</span>
-                            <select className="input" name="type" defaultValue="POSITION_INSTRUCTION">
-                              {docTypeOptions(lang).map((option) => (
-                                <option key={option.value} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                        </div>
-                        <label className="field">
-                          <span className="label">{lang === "sr" ? "Kratak opis" : "Short note"}</span>
-                          <textarea className="input" name="description" rows={2} />
-                        </label>
-                        <div className="grid2">
-                          <label className="field">
-                            <span className="label">{t.admin.org.linkUrl}</span>
-                            <input className="input" name="url" type="url" required placeholder="https://drive.google.com/..." />
-                          </label>
-                          <label className="field">
-                            <span className="label">{t.admin.org.order}</span>
-                            <input className="input" name="order" type="number" min={0} defaultValue={0} />
-                          </label>
-                        </div>
-                        <button className="button button-secondary" type="submit">
-                          <IconPlus size={16} /> {t.common.add}
-                        </button>
-                      </form>
-                      <div className="list">
-                        {p.links.map((l) => (
-                          <div key={l.id} className="item item-compact">
-                            <div>
-                              <div className="item-title">{l.label}</div>
-                              <div className="pills">
-                                <span className="pill">{typeLabel(lang, l.type)}</span>
-                              </div>
-                              {l.description ? <div className="muted small">{l.description}</div> : null}
-                              <div className="muted small">{l.url}</div>
-                            </div>
-                            <form action={deleteOrgLinkAction}>
-                              <input type="hidden" name="id" value={l.id} />
-                              <button className="button button-secondary" type="submit">
-                                <IconTrash size={16} /> {t.common.delete}
-                              </button>
-                            </form>
-                          </div>
-                        ))}
-                        {p.links.length === 0 ? <div className="muted">{t.admin.org.noLinks}</div> : null}
-                      </div>
-                    </div>
-                  </div>
-
-                  <form action={deleteOrgPositionAction}>
-                    <input type="hidden" name="id" value={p.id} />
-                    <button className="button button-danger" type="submit">
-                      <IconTrash size={16} /> {t.common.delete}
-                    </button>
-                  </form>
-                </details>
+                <AdminOrgPositionCard
+                  key={p.id}
+                  position={p}
+                  positionOptions={positionOptions}
+                  pickers={pickers}
+                  parentTitle={positionTitleById.get(p.parentId ?? "") ?? (lang === "sr" ? "(root)" : "(root)")}
+                  lang={lang}
+                  t={t}
+                />
               );
             })}
             {positions.length === 0 ? <div className="muted">{t.admin.org.empty}</div> : null}

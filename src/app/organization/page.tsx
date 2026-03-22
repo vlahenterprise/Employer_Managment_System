@@ -8,12 +8,17 @@ import { getI18n } from "@/i18n";
 import { IconArrowLeft } from "@/components/icons";
 import { hasAccessAdmin } from "@/server/rbac";
 
-export default async function OrganizationPage() {
+export default async function OrganizationPage({
+  searchParams
+}: {
+  searchParams?: { focus?: string };
+}) {
   const user = await requireActiveUser();
   const lang = getRequestLang();
   const t = getI18n(lang);
 
   const { nodes, globalLinks } = await getUserOrgStructure();
+  const initialSelectedId = searchParams?.focus && nodes.some((node) => node.id === searchParams.focus) ? searchParams.focus : null;
 
   return (
     <main className="page">
@@ -50,6 +55,7 @@ export default async function OrganizationPage() {
             nodes={nodes}
             globalLinks={globalLinks}
             canEdit={hasAccessAdmin(user)}
+            initialSelectedId={initialSelectedId}
             labels={{
               people: t.org.people,
               noAssignees: t.org.noAssignees,
@@ -85,7 +91,15 @@ export default async function OrganizationPage() {
               levelLegend: t.org.levelLegend,
               fitToScreen: t.org.fitToScreen,
               fullscreen: t.org.fullscreen,
-              exitFullscreen: t.org.exitFullscreen
+              exitFullscreen: t.org.exitFullscreen,
+              jumpToLevel: t.org.jumpToLevel,
+              reportsTo: t.org.reportsTo,
+              directReports: t.org.directReports,
+              linkedDocuments: t.org.linkedDocuments,
+              childPositions: t.org.childPositions,
+              noParent: t.org.noParent,
+              quickSummary: t.org.quickSummary,
+              relatedResources: t.org.relatedResources
             }}
           />
         </section>
