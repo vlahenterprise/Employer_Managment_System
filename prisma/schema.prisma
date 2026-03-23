@@ -686,6 +686,8 @@ model HrCandidate {
   lastContactAt    DateTime?
   latestCvFileName String?
   latestCvMimeType String?
+  latestCvSizeBytes Int?
+  latestCvUploadedAt DateTime?
   latestCvData     Bytes?
   createdById      String?
   createdAt        DateTime @default(now())
@@ -700,6 +702,7 @@ model HrCandidate {
   @@index([email])
   @@index([phone])
   @@index([talentPoolTag])
+  @@index([updatedAt])
 }
 
 model HrProcessCandidate {
@@ -890,9 +893,15 @@ model BackupSnapshot {
   filename   String
   storageKey String   @unique
   source     String
+  runKey     String?  @unique
   sizeBytes  Int
-  zipData    Bytes
+  manifestJson Json?
+  zipData    Bytes?
+  completedAt DateTime?
+  failedAt   DateTime?
+  errorMessage String?
   createdAt  DateTime @default(now())
 
   @@index([createdAt])
+  @@index([source, createdAt])
 }

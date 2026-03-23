@@ -1,16 +1,39 @@
 import "server-only";
 
+import { config } from "./config";
 import { logError, logInfo } from "./log";
 
 type PdfRenderOptions = {
   html: string;
   filename: string;
+  requestId?: string;
   viewport?: { width: number; height: number; deviceScaleFactor?: number };
 };
 
 const chromiumPackageVersion = "138.0.2";
 const chromiumArch = process.arch === "arm64" ? "arm64" : "x64";
-const chromiumPackUrl = `https://github.com/Sparticuz/chromium/releases/download/v${chromiumPackageVersion}/chromium-v${chromiumPackageVersion}-pack.${chromiumArch}.tar`;
+const defaultChromiumPackUrl = `https://github.com/Sparticuz/chromium/releases/download/v${chromiumPackageVersion}/chromium-v${chromiumPackageVersion}-pack.${chromiumArch}.tar`;
+const chromiumPackUrl = config.pdf.chromiumPackUrl || defaultChromiumPackUrl;
+const globalForPdf = globalThis as typeof globalThis & {
+  __chromiumExecutablePathPromise?: Promise<string>;
+  __chromiumExecutablePathSource?: string;
+};
+
+async function getChromiumExecutablePath(chromium: Awaited<typeof import("@sparticuz/chromium")>["default"]) {
+  if (config.pdf.chromiumExecutablePath) {
+    return config.pdf.chromiumExecutablePath;
+  }
+
+  if (
+    !globalForPdf.__chromiumExecutablePathPromise ||
+    globalForPdf.__chromiumExecutablePathSource !== chromiumPackUrl
+  ) {
+    globalForPdf.__chromiumExecutablePathPromise = chromium.executablePath(chromiumPackUrl);
+    globalForPdf.__chromiumExecutablePathSource = chromiumPackUrl;
+  }
+
+  return globalForPdf.__chromiumExecutablePathPromise;
+}
 
 async function launchBrowser(viewport: Required<NonNullable<PdfRenderOptions["viewport"]>>) {
   if (process.env.VERCEL || process.env.NODE_ENV === "production") {
@@ -25,7 +48,7 @@ async function launchBrowser(viewport: Required<NonNullable<PdfRenderOptions["vi
     return puppeteerCore.launch({
       args: [...chromium.args, "--hide-scrollbars", "--font-render-hinting=none"],
       defaultViewport: viewport,
-      executablePath: await chromium.executablePath(chromiumPackUrl),
+      executablePath: await getChromiumExecutablePath(chromium),
       headless: true
     });
   }
@@ -38,7 +61,7 @@ async function launchBrowser(viewport: Required<NonNullable<PdfRenderOptions["vi
   });
 }
 
-export async function renderPdfResponse({ html, filename, viewport }: PdfRenderOptions) {
+export async function renderPdfResponse({ html, filename, requestId, viewport }: PdfRenderOptions) {
   const resolvedViewport = {
     width: viewport?.width ?? 1200,
     height: viewport?.height ?? 800,
@@ -47,6 +70,7 @@ export async function renderPdfResponse({ html, filename, viewport }: PdfRenderO
 
   logInfo("pdf.render.started", {
     filename,
+    requestId,
     width: resolvedViewport.width,
     height: resolvedViewport.height
   });
@@ -56,12 +80,20 @@ export async function renderPdfResponse({ html, filename, viewport }: PdfRenderO
   try {
     browser = await launchBrowser(resolvedViewport);
     const page = await browser.newPage();
+    page.setDefaultTimeout(config.pdf.renderTimeoutMs);
+    page.setDefaultNavigationTimeout(config.pdf.renderTimeoutMs);
     await page.setViewport(resolvedViewport);
     await page.emulateMediaType("screen");
-    await page.setContent(html, { waitUntil: "domcontentloaded" });
+    await page.setContent(html, {
+      waitUntil: "domcontentloaded",
+      timeout: config.pdf.renderTimeoutMs
+    });
 
     try {
-      await page.waitForNetworkIdle({ idleTime: 400, timeout: 4000 });
+      await page.waitForNetworkIdle({
+        idleTime: 400,
+        timeout: Math.min(config.pdf.renderTimeoutMs, 4000)
+      });
     } catch {}
 
     const pdf = await page.pdf({
@@ -72,6 +104,7 @@ export async function renderPdfResponse({ html, filename, viewport }: PdfRenderO
 
     logInfo("pdf.render.completed", {
       filename,
+      requestId,
       sizeBytes: pdf.length
     });
 
@@ -79,11 +112,12 @@ export async function renderPdfResponse({ html, filename, viewport }: PdfRenderO
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${filename}"`,
-        "Cache-Control": "no-store"
+        "Cache-Control": "no-store",
+        ...(requestId ? { "x-request-id": requestId } : {})
       }
     });
   } catch (error) {
-    logError("pdf.render.failed", error, { filename });
+    logError("pdf.render.failed", error, { filename, requestId });
     throw error;
   } finally {
     if (browser) {

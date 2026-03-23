@@ -114,8 +114,13 @@ export default async function CandidateDetailPage({
                 <Link className="button button-secondary" href="/candidates">
                   <IconArrowLeft size={18} /> {c.back}
                 </Link>
-                {candidate.cvDriveUrl ? (
-                  <a className="button" href={candidate.cvDriveUrl} target="_blank" rel="noreferrer">
+                {candidate.cvDriveUrl || candidate.latestCvFileName ? (
+                  <a
+                    className="button"
+                    href={candidate.cvDriveUrl || `/api/hr/candidate-cv/${candidate.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     <IconPdf size={18} /> {c.openCv}
                   </a>
                 ) : null}

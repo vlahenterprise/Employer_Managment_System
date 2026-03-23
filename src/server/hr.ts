@@ -186,9 +186,16 @@ async function getCandidateProfileTx(
     createdById?: string | null;
     cvFileName?: string | null;
     cvMimeType?: string | null;
+    cvSizeBytes?: number | null;
+    cvUploadedAt?: Date | null;
     cvData?: Buffer | null;
   }
 ) {
+  const cvDriveUrl = cleanText(input.cvDriveUrl) || null;
+  const hasUploadedCv = Boolean(input.cvData && input.cvData.byteLength > 0);
+  const cvSizeBytes = hasUploadedCv ? Math.max(0, input.cvSizeBytes ?? input.cvData?.byteLength ?? 0) : null;
+  const cvUploadedAt = hasUploadedCv ? input.cvUploadedAt || new Date() : null;
+
   if (input.candidateId) {
     const existing = await tx.hrCandidate.findUnique({ where: { id: input.candidateId } });
     if (!existing) return null;
@@ -200,10 +207,12 @@ async function getCandidateProfileTx(
         phone: normalizePhone(input.phone) || existing.phone,
         linkedIn: cleanText(input.linkedIn) || existing.linkedIn,
         source: cleanText(input.source) || existing.source,
-        cvDriveUrl: cleanText(input.cvDriveUrl) || existing.cvDriveUrl,
+        cvDriveUrl: cvDriveUrl || existing.cvDriveUrl,
         latestCvFileName: input.cvFileName || existing.latestCvFileName,
         latestCvMimeType: input.cvMimeType || existing.latestCvMimeType,
-        latestCvData: input.cvData || existing.latestCvData
+        latestCvSizeBytes: cvSizeBytes ?? existing.latestCvSizeBytes,
+        latestCvUploadedAt: cvUploadedAt ?? existing.latestCvUploadedAt,
+        latestCvData: cvDriveUrl ? null : input.cvData || existing.latestCvData
       }
     });
   }
@@ -232,10 +241,12 @@ async function getCandidateProfileTx(
         phone: phone || existing.phone,
         linkedIn: cleanText(input.linkedIn) || existing.linkedIn,
         source: cleanText(input.source) || existing.source,
-        cvDriveUrl: cleanText(input.cvDriveUrl) || existing.cvDriveUrl,
+        cvDriveUrl: cvDriveUrl || existing.cvDriveUrl,
         latestCvFileName: input.cvFileName || existing.latestCvFileName,
         latestCvMimeType: input.cvMimeType || existing.latestCvMimeType,
-        latestCvData: input.cvData || existing.latestCvData
+        latestCvSizeBytes: cvSizeBytes ?? existing.latestCvSizeBytes,
+        latestCvUploadedAt: cvUploadedAt ?? existing.latestCvUploadedAt,
+        latestCvData: cvDriveUrl ? null : input.cvData || existing.latestCvData
       }
     });
   }
@@ -247,11 +258,13 @@ async function getCandidateProfileTx(
       phone: phone || null,
       linkedIn: cleanText(input.linkedIn) || null,
       source: cleanText(input.source) || null,
-      cvDriveUrl: cleanText(input.cvDriveUrl) || null,
+      cvDriveUrl,
       createdById: input.createdById || null,
       latestCvFileName: input.cvFileName || null,
       latestCvMimeType: input.cvMimeType || null,
-      latestCvData: input.cvData || null
+      latestCvSizeBytes: cvSizeBytes,
+      latestCvUploadedAt: cvUploadedAt,
+      latestCvData: cvDriveUrl ? null : input.cvData || null
     }
   });
 }
@@ -741,6 +754,8 @@ export async function addCandidateToHrProcess(params: {
   cvDriveUrl?: string | null;
   cvFileName?: string | null;
   cvMimeType?: string | null;
+  cvSizeBytes?: number | null;
+  cvUploadedAt?: Date | null;
   cvData?: Buffer | null;
 }) {
   if (!hasActorHrAddon(params.actor)) return { ok: false as const, error: "NO_ACCESS" };
@@ -768,6 +783,8 @@ export async function addCandidateToHrProcess(params: {
       cvDriveUrl: params.cvDriveUrl,
       cvFileName: params.cvFileName,
       cvMimeType: params.cvMimeType,
+      cvSizeBytes: params.cvSizeBytes,
+      cvUploadedAt: params.cvUploadedAt,
       cvData: params.cvData
     });
     if (!candidate) throw new Error("CANDIDATE_REQUIRED");

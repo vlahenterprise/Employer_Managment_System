@@ -7,6 +7,29 @@ const requests = Math.max(concurrency, Number.parseInt(String(process.env.LOAD_R
 const email = String(process.env.TEST_USER_EMAIL || "").trim();
 const password = String(process.env.TEST_USER_PASSWORD || "").trim();
 
+const authProtectedPrefixes = [
+  "/dashboard",
+  "/tasks",
+  "/reports",
+  "/absence",
+  "/performance",
+  "/hr",
+  "/onboarding",
+  "/organization",
+  "/admin",
+  "/management",
+  "/inbox",
+  "/team",
+  "/profile",
+  "/api/admin",
+  "/api/reports",
+  "/api/tasks",
+  "/api/absence",
+  "/api/performance",
+  "/api/hr",
+  "/api/management"
+];
+
 function percentile(values: number[], pct: number) {
   if (!values.length) return 0;
   const sorted = [...values].sort((a, b) => a - b);
@@ -15,7 +38,7 @@ function percentile(values: number[], pct: number) {
 }
 
 async function main() {
-  const needsAuth = route.startsWith("/dashboard") || route.startsWith("/tasks") || route.startsWith("/reports") || route.startsWith("/absence") || route.startsWith("/performance") || route.startsWith("/hr") || route.startsWith("/onboarding") || route.startsWith("/organization") || route.startsWith("/admin");
+  const needsAuth = authProtectedPrefixes.some((prefix) => route.startsWith(prefix));
   const cookieHeader =
     needsAuth && email && password ? (await loginWithCredentials({ baseUrl, email, password })).cookieHeader : "";
 

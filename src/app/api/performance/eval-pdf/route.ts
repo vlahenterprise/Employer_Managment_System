@@ -1,6 +1,9 @@
 import { prisma } from "@/server/db";
 import { authOptions } from "@/server/auth";
 import { getServerSession } from "next-auth/next";
+import { config } from "@/server/config";
+import { logError, logWarn } from "@/server/log";
+import { checkRouteRateLimit } from "@/server/route-rate-limit";
 import { getBrandingSettings, getThemeCssVars } from "@/server/settings";
 import { APP_TIMEZONE, getAppSettings } from "@/server/app-settings";
 import { getPerformanceEvaluationDetail } from "@/server/performance";
@@ -10,6 +13,7 @@ import { formatInTimeZone } from "@/server/time";
 import { renderPdfResponse } from "@/server/pdf";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 function esc(s: unknown) {
   return String(s ?? "")
@@ -67,6 +71,23 @@ export async function GET(req: Request) {
     select: { id: true, role: true, status: true }
   });
   if (!actor || actor.status !== "ACTIVE") return new Response("Unauthorized", { status: 401 });
+
+  const rateLimit = checkRouteRateLimit({
+    request: req,
+    scope: "performance-eval-pdf",
+    actorId: actor.id,
+    limit: config.pdf.routeLimitPerMinute
+  });
+  if (!rateLimit.ok) {
+    logWarn("performance.pdf.rate_limited", { requestId: rateLimit.requestId, actorId: actor.id });
+    return new Response("Too Many Requests", {
+      status: 429,
+      headers: {
+        "Retry-After": String(rateLimit.retryAfterSeconds),
+        "x-request-id": rateLimit.requestId
+      }
+    });
+  }
 
   const url = new URL(req.url);
   const evalId = String(url.searchParams.get("evalId") ?? "").trim();
@@ -263,8 +284,16 @@ export async function GET(req: Request) {
   const filenameSafe = safeFilename(`Performance_${e.employee.name}_${e.periodLabel}.pdf`) || "Performance.pdf";
 
   try {
-    return await renderPdfResponse({ html, filename: filenameSafe });
+    return await renderPdfResponse({ html, filename: filenameSafe, requestId: rateLimit.requestId });
   } catch (error) {
-    return new Response(`PDF export failed: ${String((error as any)?.message || error)}`, { status: 500 });
+    logError("performance.pdf.failed", error, {
+      requestId: rateLimit.requestId,
+      actorId: actor.id,
+      evalId
+    });
+    return new Response(`PDF export failed: ${String((error as any)?.message || error)}`, {
+      status: 500,
+      headers: { "x-request-id": rateLimit.requestId }
+    });
   }
 }

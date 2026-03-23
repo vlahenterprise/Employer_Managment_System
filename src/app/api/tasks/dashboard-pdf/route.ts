@@ -1,6 +1,9 @@
 import { prisma } from "@/server/db";
 import { authOptions } from "@/server/auth";
 import { getServerSession } from "next-auth/next";
+import { config } from "@/server/config";
+import { logError, logWarn } from "@/server/log";
+import { checkRouteRateLimit } from "@/server/route-rate-limit";
 import { buildChartPalette, getBrandingSettings, getThemeCssVars } from "@/server/settings";
 import { APP_TIMEZONE } from "@/server/app-settings";
 import { getTaskDashboard, normalizeTaskFilters } from "@/server/tasks";
@@ -10,6 +13,7 @@ import { renderPdfResponse } from "@/server/pdf";
 import { isManagerRole } from "@/server/rbac";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 function esc(s: unknown) {
   return String(s ?? "")
@@ -137,6 +141,23 @@ export async function GET(req: Request) {
     select: { id: true, email: true, name: true, role: true, status: true, team: { select: { id: true, name: true } } }
   });
   if (!actor || actor.status !== "ACTIVE") return new Response("Unauthorized", { status: 401 });
+
+  const rateLimit = checkRouteRateLimit({
+    request: req,
+    scope: "tasks-dashboard-pdf",
+    actorId: actor.id,
+    limit: config.pdf.routeLimitPerMinute
+  });
+  if (!rateLimit.ok) {
+    logWarn("tasks.pdf.rate_limited", { requestId: rateLimit.requestId, actorId: actor.id });
+    return new Response("Too Many Requests", {
+      status: 429,
+      headers: {
+        "Retry-After": String(rateLimit.retryAfterSeconds),
+        "x-request-id": rateLimit.requestId
+      }
+    });
+  }
 
   const url = new URL(req.url);
   const fromIso = url.searchParams.get("fromIso") ?? "";
@@ -355,8 +376,17 @@ export async function GET(req: Request) {
   const filenameSafe = `Tasks_${filters.fromIso}_${filters.toIso}.pdf`.replaceAll(" ", "_");
 
   try {
-    return await renderPdfResponse({ html, filename: filenameSafe });
+    return await renderPdfResponse({ html, filename: filenameSafe, requestId: rateLimit.requestId });
   } catch (error) {
-    return new Response(`PDF export failed: ${String((error as any)?.message || error)}`, { status: 500 });
+    logError("tasks.pdf.failed", error, {
+      requestId: rateLimit.requestId,
+      actorId: actor.id,
+      fromIso: filters.fromIso,
+      toIso: filters.toIso
+    });
+    return new Response(`PDF export failed: ${String((error as any)?.message || error)}`, {
+      status: 500,
+      headers: { "x-request-id": rateLimit.requestId }
+    });
   }
 }

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { config } from "@/server/config";
 import { requireActiveUser } from "@/server/current-user";
 import {
   addCandidateToHrProcess,
@@ -50,6 +51,12 @@ function revalidateHrViews(processId?: string | null) {
   if (processId) revalidatePath(`/hr/${processId}`);
 }
 
+function formatUploadLimit(bytes: number) {
+  const mb = bytes / (1024 * 1024);
+  if (mb >= 1) return `${Math.round(mb * 10) / 10} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
 export async function createHrProcessAction(formData: FormData) {
   const user = await requireActiveUser();
   const priorityRaw = String(formData.get("priority") ?? "MED").trim().toUpperCase();
@@ -94,16 +101,23 @@ export async function addCandidateToProcessAction(formData: FormData) {
   const cvFile = formData.get("cvFile");
   let cvFileName: string | null = null;
   let cvMimeType: string | null = null;
+  let cvSizeBytes: number | null = null;
+  let cvUploadedAt: Date | null = null;
   let cvData: Buffer | null = null;
 
-  if (cvFile instanceof File && cvFile.size > 0) {
+  if (!cvDriveUrl && cvFile instanceof File && cvFile.size > 0) {
     const fileType = String(cvFile.type || "").trim().toLowerCase();
     const fileName = String(cvFile.name || "").trim();
     if (fileType && fileType !== "application/pdf" && !fileName.toLowerCase().endsWith(".pdf")) {
       redirectError(`/hr/${processId}`, "CV_MUST_BE_PDF");
     }
+    if (cvFile.size > config.files.maxCvUploadBytes) {
+      redirectError(`/hr/${processId}`, `CV file is too large. Max ${formatUploadLimit(config.files.maxCvUploadBytes)} or use a Google Drive link.`);
+    }
     cvFileName = fileName || "candidate-cv.pdf";
     cvMimeType = fileType || "application/pdf";
+    cvSizeBytes = cvFile.size;
+    cvUploadedAt = new Date();
     cvData = Buffer.from(await cvFile.arrayBuffer());
   }
 
@@ -123,6 +137,8 @@ export async function addCandidateToProcessAction(formData: FormData) {
     cvDriveUrl,
     cvFileName,
     cvMimeType,
+    cvSizeBytes,
+    cvUploadedAt,
     cvData
   });
   if (!res.ok) redirectError(`/hr/${processId}`, res.error);

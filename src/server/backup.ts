@@ -1,9 +1,25 @@
 import "server-only";
 
 import JSZip from "jszip";
+import { Prisma } from "@prisma/client";
 import { prisma } from "./db";
+import { logInfo } from "./log";
 
 type CsvCell = string | number | boolean | Date | Buffer | object | null | undefined;
+
+type TableExport = {
+  name: string;
+  columns: string[];
+  fetchRows: () => Promise<Array<Record<string, any>>>;
+  countRows: () => Promise<number>;
+};
+
+type BackupManifest = {
+  schemaVersion: number;
+  createdAt: string;
+  totalRows: number;
+  tables: Record<string, number>;
+};
 
 function serializeCell(value: CsvCell) {
   if (value === null || value === undefined) return "";
@@ -48,449 +64,476 @@ function sanitizeBackupName(name: string) {
   return trimmed;
 }
 
-async function exportAllTablesAsCsv(zip: JSZip) {
-  const [
-    teams,
-    users,
-    activityTypes,
-    settings,
-    dailyReports,
-    dailyReportActivities,
-    tasks,
-    taskEvents,
-    taskComments,
-    absences,
-    absenceEvents,
-    perfEvaluations,
-    perfQuestions,
-    perfGoals,
-    perfPersonal,
-    perfLogs,
-    orgPositions,
-    orgAssignments,
-    orgLinks,
-    orgGlobalLinks,
-    onboardingTemplates,
-    onboardingTemplateSteps,
-    onboardings,
-    onboardingItems,
-    hrProcesses,
-    hrCandidates,
-    hrProcessCandidates,
-    hrCandidateComments,
-    hrNotifications,
-    hrAuditLogs,
-    accounts,
-    sessions,
-    verificationTokens
-  ] = await Promise.all([
-    prisma.team.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.user.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.activityType.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.setting.findMany({ orderBy: { key: "asc" } }),
-    prisma.dailyReport.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.dailyReportActivity.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.task.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.taskEvent.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.taskComment.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.absence.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.absenceEvent.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.performanceEvaluation.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.performanceQuestion.findMany({ orderBy: { qNo: "asc" } }),
-    prisma.performanceGoal.findMany({ orderBy: { updatedAt: "asc" } }),
-    prisma.performancePersonalItem.findMany({ orderBy: { updatedAt: "asc" } }),
-    prisma.performanceLog.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.orgPosition.findMany({ orderBy: { order: "asc" } }),
-    prisma.orgPositionAssignment.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.orgPositionLink.findMany({ orderBy: { order: "asc" } }),
-    prisma.orgGlobalLink.findMany({ orderBy: { order: "asc" } }),
-    prisma.onboardingTemplate.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.onboardingTemplateStep.findMany({ orderBy: { order: "asc" } }),
-    prisma.onboarding.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.onboardingItem.findMany({ orderBy: { order: "asc" } }),
-    prisma.hrProcess.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.hrCandidate.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.hrProcessCandidate.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.hrCandidateComment.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.hrNotification.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.hrAuditLog.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.account.findMany({ orderBy: { id: "asc" } }),
-    prisma.session.findMany({ orderBy: { expires: "asc" } }),
-    prisma.verificationToken.findMany({ orderBy: { expires: "asc" } })
-  ]);
-
-  const tables: Array<{ name: string; rows: Array<Record<string, any>>; columns: string[] }> = [
-    { name: "Team", rows: teams as any, columns: ["id", "name", "createdAt", "updatedAt"] },
-    {
-      name: "User",
-      rows: users as any,
-      columns: [
-        "id",
-        "email",
-        "name",
-        "position",
-        "image",
-        "emailVerified",
-        "passwordHash",
-        "role",
-        "hrAddon",
-        "adminAddon",
-        "status",
-        "carryOverAnnualLeave",
-        "annualLeaveDays",
-        "homeOfficeDays",
-        "slavaDays",
-        "employmentDate",
-        "jobDescriptionUrl",
-        "workInstructionsUrl",
-        "teamId",
-        "managerId",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    { name: "ActivityType", rows: activityTypes as any, columns: ["id", "teamId", "name", "isActive", "createdAt", "updatedAt"] },
-    { name: "Setting", rows: settings as any, columns: ["key", "value", "createdAt", "updatedAt"] },
-    {
-      name: "DailyReport",
-      rows: dailyReports as any,
-      columns: [
-        "id",
-        "userId",
-        "dateIso",
-        "employeeEmail",
-        "employeeName",
-        "teamName",
-        "position",
-        "week",
-        "month",
-        "year",
-        "totalMinutes",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    { name: "DailyReportActivity", rows: dailyReportActivities as any, columns: ["id", "reportId", "type", "desc", "minutes", "createdAt"] },
-    {
-      name: "Task",
-      rows: tasks as any,
-      columns: [
-        "id",
-        "title",
-        "description",
-        "priority",
-        "status",
-        "delegatorId",
-        "assigneeId",
-        "teamId",
-        "delegatedAt",
-        "dueDate",
-        "forApprovalAt",
-        "approvedAt",
-        "cancelledAt",
-        "returnedCount",
-        "employeeComment",
-        "adminComment",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    { name: "TaskEvent", rows: taskEvents as any, columns: ["id", "taskId", "action", "actorId", "actorEmail", "actorName", "comment", "createdAt"] },
-    { name: "TaskComment", rows: taskComments as any, columns: ["id", "taskId", "authorId", "body", "createdAt"] },
-    {
-      name: "Absence",
-      rows: absences as any,
-      columns: [
-        "id",
-        "employeeId",
-        "approverId",
-        "type",
-        "status",
-        "dateFrom",
-        "dateTo",
-        "days",
-        "comment",
-        "overlapWarning",
-        "approvedAt",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    { name: "AbsenceEvent", rows: absenceEvents as any, columns: ["id", "absenceId", "action", "actorId", "actorEmail", "actorName", "comment", "createdAt"] },
-    {
-      name: "PerformanceEvaluation",
-      rows: perfEvaluations as any,
-      columns: [
-        "id",
-        "employeeId",
-        "managerId",
-        "periodStart",
-        "periodEnd",
-        "periodLabel",
-        "status",
-        "locked",
-        "lockedAt",
-        "lockedById",
-        "unlockOverride",
-        "closedAt",
-        "personalScore",
-        "goalsScore",
-        "finalScore",
-        "managerFinalComment",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    { name: "PerformanceQuestion", rows: perfQuestions as any, columns: ["id", "qNo", "area", "description", "scale", "isActive", "createdAt", "updatedAt"] },
-    {
-      name: "PerformanceGoal",
-      rows: perfGoals as any,
-      columns: [
-        "id",
-        "evaluationId",
-        "title",
-        "description",
-        "weight",
-        "employeeScore",
-        "employeeComment",
-        "managerScore",
-        "managerComment",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    {
-      name: "PerformancePersonalItem",
-      rows: perfPersonal as any,
-      columns: [
-        "id",
-        "evaluationId",
-        "questionId",
-        "qNo",
-        "area",
-        "description",
-        "scale",
-        "managerRating",
-        "managerComment",
-        "updatedAt"
-      ]
-    },
-    {
-      name: "PerformanceLog",
-      rows: perfLogs as any,
-      columns: ["id", "evaluationId", "goalId", "actorId", "actorEmail", "action", "field", "oldValue", "newValue", "createdAt"]
-    },
-    {
-      name: "OrgPosition",
-      rows: orgPositions as any,
-      columns: ["id", "title", "description", "parentId", "tier", "order", "isActive", "createdAt", "updatedAt"]
-    },
-    { name: "OrgPositionAssignment", rows: orgAssignments as any, columns: ["id", "positionId", "userId", "createdAt"] },
-    {
-      name: "OrgPositionLink",
-      rows: orgLinks as any,
-      columns: ["id", "positionId", "label", "description", "url", "type", "order", "createdAt", "updatedAt"]
-    },
-    {
-      name: "OrgGlobalLink",
-      rows: orgGlobalLinks as any,
-      columns: ["id", "label", "description", "url", "type", "order", "createdAt", "updatedAt"]
-    },
-    {
-      name: "OnboardingTemplate",
-      rows: onboardingTemplates as any,
-      columns: ["id", "positionId", "title", "description", "isActive", "createdById", "createdAt", "updatedAt"]
-    },
-    {
-      name: "OnboardingTemplateStep",
-      rows: onboardingTemplateSteps as any,
-      columns: [
-        "id",
-        "templateId",
-        "title",
-        "description",
-        "ownerType",
-        "dueOffsetDays",
-        "mentorId",
-        "hrConfirmationRequired",
-        "managerConfirmationRequired",
-        "links",
-        "order",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    {
-      name: "Onboarding",
-      rows: onboardings as any,
-      columns: [
-        "id",
-        "processId",
-        "candidateId",
-        "employeeId",
-        "positionId",
-        "templateId",
-        "teamId",
-        "managerId",
-        "hrOwnerId",
-        "startDate",
-        "status",
-        "note",
-        "jobDescriptionUrl",
-        "workInstructionsUrl",
-        "onboardingDocsUrl",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    {
-      name: "OnboardingItem",
-      rows: onboardingItems as any,
-      columns: [
-        "id",
-        "onboardingId",
-        "templateStepId",
-        "title",
-        "description",
-        "ownerType",
-        "driveUrl",
-        "links",
-        "dueDate",
-        "mentorId",
-        "hrConfirmationRequired",
-        "managerConfirmationRequired",
-        "isCompleted",
-        "completedAt",
-        "completedById",
-        "hrConfirmedAt",
-        "hrConfirmedById",
-        "managerConfirmedAt",
-        "managerConfirmedById",
-        "order",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    {
-      name: "HrProcess",
-      rows: hrProcesses as any,
-      columns: [
-        "id",
-        "teamId",
-        "positionTitle",
-        "requestedHeadcount",
-        "priority",
-        "reason",
-        "note",
-        "status",
-        "openedById",
-        "managerId",
-        "finalApproverId",
-        "adPublishedAt",
-        "adChannel",
-        "openedAt",
-        "closedAt",
-        "cancelledAt",
-        "archivedAt",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    {
-      name: "HrCandidate",
-      rows: hrCandidates as any,
-      columns: [
-        "id",
-        "fullName",
-        "email",
-        "phone",
-        "linkedIn",
-        "source",
-        "latestCvFileName",
-        "latestCvMimeType",
-        "latestCvData",
-        "createdById",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    {
-      name: "HrProcessCandidate",
-      rows: hrProcessCandidates as any,
-      columns: [
-        "id",
-        "processId",
-        "candidateId",
-        "createdById",
-        "status",
-        "source",
-        "appliedAt",
-        "initialContactAt",
-        "hrComment",
-        "firstRoundComment",
-        "screeningResult",
-        "managerComment",
-        "finalComment",
-        "interviewScheduledAt",
-        "secondRoundCompletedAt",
-        "finalDecisionAt",
-        "archivedAt",
-        "cancelledAt",
-        "closedReason",
-        "managerProposedSlots",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    { name: "HrCandidateComment", rows: hrCandidateComments as any, columns: ["id", "processCandidateId", "actorId", "stage", "body", "createdAt"] },
-    {
-      name: "HrNotification",
-      rows: hrNotifications as any,
-      columns: ["id", "userId", "processId", "processCandidateId", "type", "title", "body", "href", "isRead", "createdAt", "readAt"]
-    },
-    {
-      name: "HrAuditLog",
-      rows: hrAuditLogs as any,
-      columns: ["id", "processId", "processCandidateId", "candidateId", "actorId", "action", "field", "oldValue", "newValue", "comment", "createdAt"]
-    },
-    {
-      name: "Account",
-      rows: accounts as any,
-      columns: [
-        "id",
-        "userId",
-        "type",
-        "provider",
-        "providerAccountId",
-        "refresh_token",
-        "access_token",
-        "expires_at",
-        "token_type",
-        "scope",
-        "id_token",
-        "session_state"
-      ]
-    },
-    { name: "Session", rows: sessions as any, columns: ["id", "sessionToken", "userId", "expires"] },
-    { name: "VerificationToken", rows: verificationTokens as any, columns: ["identifier", "token", "expires"] }
-  ];
-
-  for (const table of tables) {
-    zip.file(`${table.name}.csv`, rowsToCsv(table.rows, table.columns));
-  }
-}
-
 function isoTimestamp() {
   const date = new Date();
   const pad = (value: number) => String(value).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
 }
 
-export async function createBackupZip() {
+function buildFilename(runKey?: string | null) {
+  const suffix = String(runKey || isoTimestamp())
+    .trim()
+    .replaceAll(/[^a-zA-Z0-9._-]+/g, "_")
+    .replaceAll(/_+/g, "_")
+    .replaceAll(/^_+|_+$/g, "");
+  return `db-backup-${suffix || isoTimestamp()}.zip`;
+}
+
+function isUniqueConstraintError(error: unknown, fieldName?: string) {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") return false;
+  if (!fieldName) return true;
+  const target = (error.meta?.target ?? []) as string[] | string;
+  return Array.isArray(target) ? target.includes(fieldName) : String(target).includes(fieldName);
+}
+
+const TABLE_EXPORTS: TableExport[] = [
+  {
+    name: "Team",
+    columns: ["id", "name", "createdAt", "updatedAt"],
+    fetchRows: () => prisma.team.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.team.count()
+  },
+  {
+    name: "User",
+    columns: [
+      "id",
+      "email",
+      "name",
+      "position",
+      "image",
+      "emailVerified",
+      "passwordHash",
+      "role",
+      "hrAddon",
+      "adminAddon",
+      "status",
+      "carryOverAnnualLeave",
+      "annualLeaveDays",
+      "homeOfficeDays",
+      "slavaDays",
+      "employmentDate",
+      "jobDescriptionUrl",
+      "workInstructionsUrl",
+      "teamId",
+      "managerId",
+      "createdAt",
+      "updatedAt"
+    ],
+    fetchRows: () => prisma.user.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.user.count()
+  },
+  {
+    name: "ActivityType",
+    columns: ["id", "teamId", "name", "isActive", "createdAt", "updatedAt"],
+    fetchRows: () => prisma.activityType.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.activityType.count()
+  },
+  {
+    name: "Setting",
+    columns: ["key", "value", "createdAt", "updatedAt"],
+    fetchRows: () => prisma.setting.findMany({ orderBy: { key: "asc" } }) as any,
+    countRows: () => prisma.setting.count()
+  },
+  {
+    name: "DailyReport",
+    columns: [
+      "id",
+      "userId",
+      "dateIso",
+      "employeeEmail",
+      "employeeName",
+      "teamName",
+      "position",
+      "week",
+      "month",
+      "year",
+      "totalMinutes",
+      "createdAt",
+      "updatedAt"
+    ],
+    fetchRows: () => prisma.dailyReport.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.dailyReport.count()
+  },
+  {
+    name: "DailyReportActivity",
+    columns: ["id", "reportId", "type", "desc", "minutes", "createdAt"],
+    fetchRows: () => prisma.dailyReportActivity.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.dailyReportActivity.count()
+  },
+  {
+    name: "Task",
+    columns: [
+      "id",
+      "title",
+      "description",
+      "priority",
+      "status",
+      "delegatorId",
+      "assigneeId",
+      "teamId",
+      "delegatedAt",
+      "dueDate",
+      "forApprovalAt",
+      "approvedAt",
+      "cancelledAt",
+      "returnedCount",
+      "employeeComment",
+      "adminComment",
+      "createdAt",
+      "updatedAt"
+    ],
+    fetchRows: () => prisma.task.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.task.count()
+  },
+  {
+    name: "TaskEvent",
+    columns: ["id", "taskId", "action", "actorId", "actorEmail", "actorName", "comment", "createdAt"],
+    fetchRows: () => prisma.taskEvent.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.taskEvent.count()
+  },
+  {
+    name: "TaskComment",
+    columns: ["id", "taskId", "authorId", "body", "createdAt"],
+    fetchRows: () => prisma.taskComment.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.taskComment.count()
+  },
+  {
+    name: "Absence",
+    columns: [
+      "id",
+      "employeeId",
+      "approverId",
+      "type",
+      "status",
+      "dateFrom",
+      "dateTo",
+      "days",
+      "comment",
+      "overlapWarning",
+      "approvedAt",
+      "createdAt",
+      "updatedAt"
+    ],
+    fetchRows: () => prisma.absence.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.absence.count()
+  },
+  {
+    name: "AbsenceEvent",
+    columns: ["id", "absenceId", "action", "actorId", "actorEmail", "actorName", "comment", "createdAt"],
+    fetchRows: () => prisma.absenceEvent.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.absenceEvent.count()
+  },
+  {
+    name: "PerformanceEvaluation",
+    columns: [
+      "id",
+      "employeeId",
+      "managerId",
+      "periodStart",
+      "periodEnd",
+      "periodLabel",
+      "status",
+      "locked",
+      "lockedAt",
+      "lockedById",
+      "unlockOverride",
+      "closedAt",
+      "personalScore",
+      "goalsScore",
+      "finalScore",
+      "managerFinalComment",
+      "createdAt",
+      "updatedAt"
+    ],
+    fetchRows: () => prisma.performanceEvaluation.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.performanceEvaluation.count()
+  },
+  {
+    name: "PerformanceQuestion",
+    columns: ["id", "qNo", "area", "description", "scale", "isActive", "createdAt", "updatedAt"],
+    fetchRows: () => prisma.performanceQuestion.findMany({ orderBy: { qNo: "asc" } }) as any,
+    countRows: () => prisma.performanceQuestion.count()
+  },
+  {
+    name: "PerformanceGoal",
+    columns: [
+      "id",
+      "evaluationId",
+      "title",
+      "description",
+      "weight",
+      "employeeScore",
+      "employeeComment",
+      "managerScore",
+      "managerComment",
+      "createdAt",
+      "updatedAt"
+    ],
+    fetchRows: () => prisma.performanceGoal.findMany({ orderBy: { updatedAt: "asc" } }) as any,
+    countRows: () => prisma.performanceGoal.count()
+  },
+  {
+    name: "PerformancePersonalItem",
+    columns: ["id", "evaluationId", "questionId", "qNo", "area", "description", "scale", "managerRating", "managerComment", "updatedAt"],
+    fetchRows: () => prisma.performancePersonalItem.findMany({ orderBy: { updatedAt: "asc" } }) as any,
+    countRows: () => prisma.performancePersonalItem.count()
+  },
+  {
+    name: "PerformanceLog",
+    columns: ["id", "evaluationId", "goalId", "actorId", "actorEmail", "action", "field", "oldValue", "newValue", "createdAt"],
+    fetchRows: () => prisma.performanceLog.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.performanceLog.count()
+  },
+  {
+    name: "OrgPosition",
+    columns: ["id", "title", "description", "parentId", "tier", "order", "isActive", "createdAt", "updatedAt"],
+    fetchRows: () => prisma.orgPosition.findMany({ orderBy: { order: "asc" } }) as any,
+    countRows: () => prisma.orgPosition.count()
+  },
+  {
+    name: "OrgPositionAssignment",
+    columns: ["id", "positionId", "userId", "createdAt"],
+    fetchRows: () => prisma.orgPositionAssignment.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.orgPositionAssignment.count()
+  },
+  {
+    name: "OrgPositionLink",
+    columns: ["id", "positionId", "label", "description", "url", "type", "order", "createdAt", "updatedAt"],
+    fetchRows: () => prisma.orgPositionLink.findMany({ orderBy: { order: "asc" } }) as any,
+    countRows: () => prisma.orgPositionLink.count()
+  },
+  {
+    name: "OrgGlobalLink",
+    columns: ["id", "label", "description", "url", "type", "order", "createdAt", "updatedAt"],
+    fetchRows: () => prisma.orgGlobalLink.findMany({ orderBy: { order: "asc" } }) as any,
+    countRows: () => prisma.orgGlobalLink.count()
+  },
+  {
+    name: "OnboardingTemplate",
+    columns: ["id", "positionId", "title", "description", "isActive", "createdById", "createdAt", "updatedAt"],
+    fetchRows: () => prisma.onboardingTemplate.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.onboardingTemplate.count()
+  },
+  {
+    name: "OnboardingTemplateStep",
+    columns: [
+      "id",
+      "templateId",
+      "title",
+      "description",
+      "ownerType",
+      "dueOffsetDays",
+      "mentorId",
+      "hrConfirmationRequired",
+      "managerConfirmationRequired",
+      "links",
+      "order",
+      "createdAt",
+      "updatedAt"
+    ],
+    fetchRows: () => prisma.onboardingTemplateStep.findMany({ orderBy: { order: "asc" } }) as any,
+    countRows: () => prisma.onboardingTemplateStep.count()
+  },
+  {
+    name: "Onboarding",
+    columns: [
+      "id",
+      "processId",
+      "candidateId",
+      "employeeId",
+      "positionId",
+      "templateId",
+      "teamId",
+      "managerId",
+      "hrOwnerId",
+      "startDate",
+      "status",
+      "note",
+      "jobDescriptionUrl",
+      "workInstructionsUrl",
+      "onboardingDocsUrl",
+      "createdAt",
+      "updatedAt"
+    ],
+    fetchRows: () => prisma.onboarding.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.onboarding.count()
+  },
+  {
+    name: "OnboardingItem",
+    columns: [
+      "id",
+      "onboardingId",
+      "templateStepId",
+      "title",
+      "description",
+      "ownerType",
+      "driveUrl",
+      "links",
+      "dueDate",
+      "mentorId",
+      "hrConfirmationRequired",
+      "managerConfirmationRequired",
+      "isCompleted",
+      "completedAt",
+      "completedById",
+      "hrConfirmedAt",
+      "hrConfirmedById",
+      "managerConfirmedAt",
+      "managerConfirmedById",
+      "order",
+      "createdAt",
+      "updatedAt"
+    ],
+    fetchRows: () => prisma.onboardingItem.findMany({ orderBy: { order: "asc" } }) as any,
+    countRows: () => prisma.onboardingItem.count()
+  },
+  {
+    name: "HrProcess",
+    columns: [
+      "id",
+      "teamId",
+      "positionTitle",
+      "requestedHeadcount",
+      "priority",
+      "reason",
+      "note",
+      "status",
+      "openedById",
+      "managerId",
+      "finalApproverId",
+      "adPublishedAt",
+      "adChannel",
+      "openedAt",
+      "closedAt",
+      "cancelledAt",
+      "archivedAt",
+      "createdAt",
+      "updatedAt"
+    ],
+    fetchRows: () => prisma.hrProcess.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.hrProcess.count()
+  },
+  {
+    name: "HrCandidate",
+    columns: [
+      "id",
+      "fullName",
+      "email",
+      "phone",
+      "linkedIn",
+      "source",
+      "cvDriveUrl",
+      "talentPoolTag",
+      "lastContactAt",
+      "latestCvFileName",
+      "latestCvMimeType",
+      "latestCvSizeBytes",
+      "latestCvUploadedAt",
+      "latestCvData",
+      "createdById",
+      "createdAt",
+      "updatedAt"
+    ],
+    fetchRows: () => prisma.hrCandidate.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.hrCandidate.count()
+  },
+  {
+    name: "HrProcessCandidate",
+    columns: [
+      "id",
+      "processId",
+      "candidateId",
+      "createdById",
+      "status",
+      "source",
+      "appliedAt",
+      "initialContactAt",
+      "hrComment",
+      "firstRoundComment",
+      "screeningResult",
+      "managerComment",
+      "finalComment",
+      "interviewScheduledAt",
+      "secondRoundCompletedAt",
+      "finalDecisionAt",
+      "archivedAt",
+      "cancelledAt",
+      "closedReason",
+      "nextAction",
+      "managerProposedSlots",
+      "createdAt",
+      "updatedAt"
+    ],
+    fetchRows: () => prisma.hrProcessCandidate.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.hrProcessCandidate.count()
+  },
+  {
+    name: "HrCandidateComment",
+    columns: ["id", "processCandidateId", "actorId", "stage", "body", "createdAt"],
+    fetchRows: () => prisma.hrCandidateComment.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.hrCandidateComment.count()
+  },
+  {
+    name: "HrNotification",
+    columns: ["id", "userId", "processId", "processCandidateId", "type", "title", "body", "href", "isRead", "createdAt", "readAt"],
+    fetchRows: () => prisma.hrNotification.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.hrNotification.count()
+  },
+  {
+    name: "HrAuditLog",
+    columns: ["id", "processId", "processCandidateId", "candidateId", "actorId", "action", "field", "oldValue", "newValue", "comment", "createdAt"],
+    fetchRows: () => prisma.hrAuditLog.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.hrAuditLog.count()
+  },
+  {
+    name: "Account",
+    columns: ["id", "userId", "type", "provider", "providerAccountId", "refresh_token", "access_token", "expires_at", "token_type", "scope", "id_token", "session_state"],
+    fetchRows: () => prisma.account.findMany({ orderBy: { id: "asc" } }) as any,
+    countRows: () => prisma.account.count()
+  },
+  {
+    name: "Session",
+    columns: ["id", "sessionToken", "userId", "expires"],
+    fetchRows: () => prisma.session.findMany({ orderBy: { expires: "asc" } }) as any,
+    countRows: () => prisma.session.count()
+  },
+  {
+    name: "VerificationToken",
+    columns: ["identifier", "token", "expires"],
+    fetchRows: () => prisma.verificationToken.findMany({ orderBy: { expires: "asc" } }) as any,
+    countRows: () => prisma.verificationToken.count()
+  }
+];
+
+async function buildBackupManifest(): Promise<BackupManifest> {
+  const tables: Record<string, number> = {};
+  let totalRows = 0;
+
+  for (const table of TABLE_EXPORTS) {
+    const rowCount = await table.countRows();
+    tables[table.name] = rowCount;
+    totalRows += rowCount;
+  }
+
+  return {
+    schemaVersion: 2,
+    createdAt: new Date().toISOString(),
+    totalRows,
+    tables
+  };
+}
+
+async function exportAllTablesAsCsv(zip: JSZip) {
+  for (const table of TABLE_EXPORTS) {
+    const rows = await table.fetchRows();
+    zip.file(`${table.name}.csv`, rowsToCsv(rows, table.columns));
+  }
+}
+
+export async function createBackupZip(filename = buildFilename()) {
   const zip = new JSZip();
   await exportAllTablesAsCsv(zip);
   const bytes = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
-  const filename = `db-backup-${isoTimestamp()}.zip`;
   return { filename, bytes };
 }
 
@@ -498,22 +541,48 @@ export async function ensureDir(_dirPath: string) {
   return;
 }
 
-export async function writeBackupZipToDisk(params: { folder: string; source?: string }) {
+export async function writeBackupZipToDisk(params: { folder: string; source?: string; runKey?: string | null }) {
   const folder = normalizeFolderKey(params.folder);
-  const { filename, bytes } = await createBackupZip();
+  const filename = buildFilename(params.runKey);
   const storageKey = `${folder}/${filename}`;
+  const manifest = await buildBackupManifest();
 
-  await prisma.backupSnapshot.create({
-    data: {
-      filename,
-      storageKey,
-      source: String(params.source || "MANUAL").trim() || "MANUAL",
-      sizeBytes: bytes.byteLength,
-      zipData: bytes
+  try {
+    const snapshot = await prisma.backupSnapshot.create({
+      data: {
+        filename,
+        storageKey,
+        source: String(params.source || "MANUAL").trim() || "MANUAL",
+        runKey: params.runKey || null,
+        sizeBytes: 0,
+        manifestJson: manifest,
+        zipData: null,
+        completedAt: new Date(),
+        failedAt: null,
+        errorMessage: null
+      }
+    });
+
+    logInfo("backup.snapshot.created", {
+      source: snapshot.source,
+      filename: snapshot.filename,
+      runKey: params.runKey || null,
+      totalRows: manifest.totalRows
+    });
+
+    return { filename: snapshot.filename, fullPath: snapshot.storageKey, sizeBytes: snapshot.sizeBytes, duplicate: false as const };
+  } catch (error) {
+    if (params.runKey && isUniqueConstraintError(error, "runKey")) {
+      const existing = await prisma.backupSnapshot.findUnique({
+        where: { runKey: params.runKey },
+        select: { filename: true, storageKey: true, sizeBytes: true }
+      });
+      if (existing) {
+        return { filename: existing.filename, fullPath: existing.storageKey, sizeBytes: existing.sizeBytes, duplicate: true as const };
+      }
     }
-  });
-
-  return { filename, fullPath: storageKey, sizeBytes: bytes.byteLength };
+    throw error;
+  }
 }
 
 export async function listBackupFiles(folder: string) {
@@ -526,7 +595,9 @@ export async function listBackupFiles(folder: string) {
       filename: true,
       storageKey: true,
       sizeBytes: true,
-      createdAt: true
+      createdAt: true,
+      completedAt: true,
+      manifestJson: true
     }
   });
 
@@ -534,7 +605,8 @@ export async function listBackupFiles(folder: string) {
     name: row.filename,
     fullPath: row.storageKey,
     sizeBytes: row.sizeBytes,
-    mtimeMs: row.createdAt.getTime()
+    mtimeMs: (row.completedAt || row.createdAt).getTime(),
+    manifest: row.manifestJson as BackupManifest | null
   }));
 }
 
@@ -544,10 +616,40 @@ export async function readBackupFile(params: { folder: string; name: string }) {
   const storageKey = `${folderKey}/${filename}`;
   const snapshot = await prisma.backupSnapshot.findUnique({
     where: { storageKey },
-    select: { filename: true, storageKey: true, zipData: true }
+    select: { id: true, filename: true, storageKey: true, sizeBytes: true, zipData: true }
   });
   if (!snapshot) throw new Error("NOT_FOUND");
-  return { filename: snapshot.filename, bytes: Buffer.from(snapshot.zipData), fullPath: snapshot.storageKey };
+
+  if (snapshot.zipData) {
+    return { filename: snapshot.filename, bytes: Buffer.from(snapshot.zipData), fullPath: snapshot.storageKey };
+  }
+
+  try {
+    const generated = await createBackupZip(snapshot.filename);
+    if (snapshot.sizeBytes !== generated.bytes.byteLength) {
+      await prisma.backupSnapshot.update({
+        where: { id: snapshot.id },
+        data: {
+          sizeBytes: generated.bytes.byteLength,
+          completedAt: new Date(),
+          failedAt: null,
+          errorMessage: null
+        }
+      });
+    }
+    return { filename: snapshot.filename, bytes: generated.bytes, fullPath: snapshot.storageKey };
+  } catch (error) {
+    await prisma.backupSnapshot
+      .update({
+        where: { id: snapshot.id },
+        data: {
+          failedAt: new Date(),
+          errorMessage: String((error as Error)?.message || error).slice(0, 2000)
+        }
+      })
+      .catch(() => null);
+    throw error;
+  }
 }
 
 export async function pruneStoredBackups(params: { folder: string; keepDays: number }) {

@@ -7,6 +7,7 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
+    "env:check": "tsx scripts/check-env.ts",
     "typecheck": "tsc --noEmit",
     "typecheck:strict": "tsc --noEmit --noUnusedLocals --noUnusedParameters",
     "test": "tsx --test test/**/*.test.ts",
@@ -14,12 +15,17 @@
     "load:test": "tsx scripts/load-test.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:validate": "prisma validate",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "org:import-vlah": "tsx scripts/import-vlah-org-structure.ts"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
+  },
+  "overrides": {
+    "basic-ftp": "^5.2.0"
   },
   "dependencies": {
     "@next-auth/prisma-adapter": "^1.0.7",
@@ -28,7 +34,7 @@
     "bcryptjs": "^2.4.3",
     "date-fns": "^3.6.0",
     "jszip": "^3.10.1",
-    "next": "14.2.3",
+    "next": "^14.2.35",
     "next-auth": "^4.24.13",
     "puppeteer": "^24.37.2",
     "puppeteer-core": "^24.37.2",
@@ -43,7 +49,7 @@
     "@types/react": "^18.2.79",
     "@types/react-dom": "^18.2.25",
     "eslint": "^8.57.0",
-    "eslint-config-next": "14.2.3",
+    "eslint-config-next": "^14.2.35",
     "prisma": "^5.11.0",
     "tsx": "^4.20.6",
     "typescript": "^5.4.5"

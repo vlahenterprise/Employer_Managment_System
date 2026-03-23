@@ -1,6 +1,9 @@
 import { prisma } from "@/server/db";
 import { authOptions } from "@/server/auth";
 import { getServerSession } from "next-auth/next";
+import { config } from "@/server/config";
+import { logError, logWarn } from "@/server/log";
+import { checkRouteRateLimit } from "@/server/route-rate-limit";
 import { APP_TIMEZONE, getAppSettings } from "@/server/app-settings";
 import { getBrandingSettings, getThemeCssVars } from "@/server/settings";
 import { getRequestLang } from "@/i18n/server";
@@ -11,6 +14,7 @@ import { renderPdfResponse } from "@/server/pdf";
 import { isManagerRole } from "@/server/rbac";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 function esc(s: unknown) {
   return String(s ?? "")
@@ -84,6 +88,23 @@ export async function GET(req: Request) {
     select: { id: true, email: true, name: true, role: true, status: true, teamId: true }
   });
   if (!actor || actor.status !== "ACTIVE") return new Response("Unauthorized", { status: 401 });
+
+  const rateLimit = checkRouteRateLimit({
+    request: req,
+    scope: "absence-pdf",
+    actorId: actor.id,
+    limit: config.pdf.routeLimitPerMinute
+  });
+  if (!rateLimit.ok) {
+    logWarn("absence.pdf.rate_limited", { requestId: rateLimit.requestId, actorId: actor.id });
+    return new Response("Too Many Requests", {
+      status: 429,
+      headers: {
+        "Retry-After": String(rateLimit.retryAfterSeconds),
+        "x-request-id": rateLimit.requestId
+      }
+    });
+  }
 
   const url = new URL(req.url);
   const scopeRaw = (url.searchParams.get("scope") || "self").trim().toLowerCase();
@@ -329,8 +350,16 @@ export async function GET(req: Request) {
   const filenameSafe = `Absence_${scopeLabel}_${year}.pdf`.replaceAll(" ", "_");
 
   try {
-    return await renderPdfResponse({ html, filename: filenameSafe });
+    return await renderPdfResponse({ html, filename: filenameSafe, requestId: rateLimit.requestId });
   } catch (error) {
-    return new Response(`PDF export failed: ${String((error as any)?.message || error)}`, { status: 500 });
+    logError("absence.pdf.failed", error, {
+      requestId: rateLimit.requestId,
+      actorId: actor.id,
+      scope: scopeRaw
+    });
+    return new Response(`PDF export failed: ${String((error as any)?.message || error)}`, {
+      status: 500,
+      headers: { "x-request-id": rateLimit.requestId }
+    });
   }
 }

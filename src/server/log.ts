@@ -1,5 +1,23 @@
 type LogLevel = "info" | "warn" | "error";
 
+const SENSITIVE_KEY_PATTERN = /(token|secret|password|authorization|cookie|zipdata|latestcvdata)/i;
+
+function sanitizeContext(value: unknown, depth = 0): unknown {
+  if (depth > 4) return "[TRUNCATED]";
+  if (value === null || value === undefined) return value;
+  if (Array.isArray(value)) return value.map((entry) => sanitizeContext(entry, depth + 1));
+  if (typeof value === "string") {
+    return value.length > 1200 ? `${value.slice(0, 1197)}...` : value;
+  }
+  if (typeof value !== "object") return value;
+
+  const entries = Object.entries(value as Record<string, unknown>).map(([key, entry]) => {
+    if (SENSITIVE_KEY_PATTERN.test(key)) return [key, "[REDACTED]"];
+    return [key, sanitizeContext(entry, depth + 1)];
+  });
+  return Object.fromEntries(entries);
+}
+
 function serializeError(error: unknown) {
   if (error instanceof Error) {
     return {
@@ -17,7 +35,7 @@ function emit(level: LogLevel, event: string, context?: Record<string, unknown>)
     ts: new Date().toISOString(),
     level,
     event,
-    ...(context ? { context } : {})
+    ...(context ? { context: sanitizeContext(context) } : {})
   };
 
   const line = JSON.stringify(payload);

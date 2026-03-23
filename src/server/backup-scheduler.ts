@@ -28,7 +28,8 @@ export async function runBackupIfDue() {
       return { ok: true as const, ran: false as const, reason: "NOT_DUE" };
     }
 
-    const result = await writeBackupZipToDisk({ folder, source: "CRON" });
+    const runKey = `cron:${now.dateIso}`;
+    const result = await writeBackupZipToDisk({ folder, source: "CRON", runKey });
     const nowAt = new Date().toISOString();
     await prisma.$transaction([
       prisma.setting.upsert({
@@ -48,17 +49,19 @@ export async function runBackupIfDue() {
       keepDays: Number.isFinite(keepDays) ? keepDays : 30
     });
 
-    logInfo("backup.cron.completed", {
+    logInfo(result.duplicate ? "backup.cron.duplicate" : "backup.cron.completed", {
       folder,
       filename: result.filename,
-      sizeBytes: result.sizeBytes
+      sizeBytes: result.sizeBytes,
+      runKey
     });
 
     return {
       ok: true as const,
       ran: true as const,
       filename: result.filename,
-      sizeBytes: result.sizeBytes
+      sizeBytes: result.sizeBytes,
+      duplicate: result.duplicate
     };
   } catch (error) {
     logError("backup.cron.failed", error);

@@ -70,6 +70,8 @@ export default async function AdminBackupPage({
   const nextRunIso = now.timeHHMM < backupTime ? now.dateIso : tomorrowIso;
 
   const files = await listBackupFiles(folder);
+  const onDemandLabel = lang === "sr" ? "ZIP se generiše na zahtev" : "ZIP generated on demand";
+  const rowsLabel = lang === "sr" ? "redova" : "rows";
 
   return (
     <AdminShell
@@ -151,8 +153,14 @@ export default async function AdminBackupPage({
                 <div>
                   <div className="item-title">{f.name}</div>
                   <div className="muted small">
-                    {(f.sizeBytes / 1024).toFixed(1)} KB · {new Date(f.mtimeMs).toLocaleString(lang === "sr" ? "sr-RS" : "en-GB")}
+                    {f.sizeBytes > 0 ? `${(f.sizeBytes / 1024).toFixed(1)} KB` : onDemandLabel} ·{" "}
+                    {new Date(f.mtimeMs).toLocaleString(lang === "sr" ? "sr-RS" : "en-GB")}
                   </div>
+                  {f.manifest ? (
+                    <div className="muted small">
+                      {f.manifest.totalRows} {rowsLabel}
+                    </div>
+                  ) : null}
                 </div>
                 <a className="button button-secondary" href={`/api/admin/backup/file?name=${encodeURIComponent(f.name)}`}>
                   <IconDownload size={18} /> {t.admin.backup.downloadNow}
