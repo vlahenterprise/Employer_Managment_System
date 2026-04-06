@@ -142,7 +142,7 @@ export async function GET(req: Request) {
   });
   if (!actor || actor.status !== "ACTIVE") return new Response("Unauthorized", { status: 401 });
 
-  const rateLimit = checkRouteRateLimit({
+  const rateLimit = await checkRouteRateLimit({
     request: req,
     scope: "tasks-dashboard-pdf",
     actorId: actor.id,

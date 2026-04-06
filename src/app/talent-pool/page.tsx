@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { LabelWithTooltip } from "@/components/Tooltip";
 import { requireActiveUser } from "@/server/current-user";
 import { getTalentPool } from "@/server/candidates";
@@ -6,6 +7,7 @@ import { getRequestLang } from "@/i18n/server";
 import UserMenu from "../dashboard/UserMenu";
 import { IconArrowLeft, IconArrowRight, IconSparkles, IconUsers } from "@/components/icons";
 import { getCandidateStageMeta } from "@/server/recruiting-presentation";
+import { isHrModuleEnabled } from "@/server/features";
 
 function copy(lang: "sr" | "en") {
   if (lang === "sr") {
@@ -61,6 +63,9 @@ export default async function TalentPoolPage({
 }: {
   searchParams: { tag?: string; query?: string; page?: string };
 }) {
+  if (!isHrModuleEnabled()) {
+    redirect("/dashboard");
+  }
   const user = await requireActiveUser();
   const lang = getRequestLang();
   const c = copy(lang);

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { LabelWithTooltip } from "@/components/Tooltip";
 import { getRequestLang } from "@/i18n/server";
 import { requireActiveUser } from "@/server/current-user";
@@ -6,6 +7,7 @@ import UserMenu from "../dashboard/UserMenu";
 import { getHrDashboard, hasHrSystemAccess } from "@/server/hr";
 import { buildHrDashboardBuckets, getProcessWorkflowSummary, type HrNextActionKey, type HrStageKey, type HrWaitingOnKey } from "@/server/hr-presentation";
 import { markHrNotificationReadAction } from "./actions";
+import { isHrModuleEnabled } from "@/server/features";
 import {
   IconArrowLeft,
   IconArrowRight,
@@ -297,6 +299,9 @@ export default async function HrPage({
 }: {
   searchParams: { success?: string; error?: string; teamId?: string; managerId?: string; status?: string; query?: string };
 }) {
+  if (!isHrModuleEnabled()) {
+    redirect("/dashboard");
+  }
   const user = await requireActiveUser();
   const lang = getRequestLang();
   const c = copy(lang);

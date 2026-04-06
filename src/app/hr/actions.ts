@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { config } from "@/server/config";
 import { requireActiveUser } from "@/server/current-user";
+import { isHrModuleEnabled } from "@/server/features";
 import {
   addCandidateToHrProcess,
   archiveHrCandidate,
@@ -29,6 +30,12 @@ function redirectError(path: string, message: string): never {
 
 function redirectSuccess(path: string, message: string): never {
   redirect(`${path}?success=${encodeURIComponent(message)}`);
+}
+
+function ensureHrModuleEnabled() {
+  if (!isHrModuleEnabled()) {
+    redirectError("/dashboard", "HR module is disabled");
+  }
 }
 
 function actorPayload(user: Awaited<ReturnType<typeof requireActiveUser>>) {
@@ -58,6 +65,7 @@ function formatUploadLimit(bytes: number) {
 }
 
 export async function createHrProcessAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const priorityRaw = String(formData.get("priority") ?? "MED").trim().toUpperCase();
   const res = await createHrProcess({
@@ -77,6 +85,7 @@ export async function createHrProcessAction(formData: FormData) {
 }
 
 export async function updateHrProcessMetaAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const processId = String(formData.get("processId") ?? "").trim();
   const statusRaw = String(formData.get("status") ?? "").trim().toUpperCase();
@@ -95,6 +104,7 @@ export async function updateHrProcessMetaAction(formData: FormData) {
 }
 
 export async function addCandidateToProcessAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const processId = String(formData.get("processId") ?? "").trim();
   const cvDriveUrl = String(formData.get("cvDriveUrl") ?? "").trim() || null;
@@ -147,6 +157,7 @@ export async function addCandidateToProcessAction(formData: FormData) {
 }
 
 export async function hrScreenCandidateAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const processId = String(formData.get("processId") ?? "").trim();
   const applicationId = String(formData.get("applicationId") ?? "").trim();
@@ -165,6 +176,7 @@ export async function hrScreenCandidateAction(formData: FormData) {
 }
 
 export async function managerReviewCandidateAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const processId = String(formData.get("processId") ?? "").trim();
   const applicationId = String(formData.get("applicationId") ?? "").trim();
@@ -187,6 +199,7 @@ export async function managerReviewCandidateAction(formData: FormData) {
 }
 
 export async function scheduleInterviewAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const processId = String(formData.get("processId") ?? "").trim();
   const applicationId = String(formData.get("applicationId") ?? "").trim();
@@ -202,6 +215,7 @@ export async function scheduleInterviewAction(formData: FormData) {
 }
 
 export async function secondRoundDecisionAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const processId = String(formData.get("processId") ?? "").trim();
   const applicationId = String(formData.get("applicationId") ?? "").trim();
@@ -218,6 +232,7 @@ export async function secondRoundDecisionAction(formData: FormData) {
 }
 
 export async function finalApprovalAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const processId = String(formData.get("processId") ?? "").trim();
   const applicationId = String(formData.get("applicationId") ?? "").trim();
@@ -234,6 +249,7 @@ export async function finalApprovalAction(formData: FormData) {
 }
 
 export async function reviewHiringRequestAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const processId = String(formData.get("processId") ?? "").trim();
   const decision = String(formData.get("decision") ?? "APPROVE").trim().toUpperCase();
@@ -249,6 +265,7 @@ export async function reviewHiringRequestAction(formData: FormData) {
 }
 
 export async function archiveCandidateAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const processId = String(formData.get("processId") ?? "").trim();
   const applicationId = String(formData.get("applicationId") ?? "").trim();
@@ -265,6 +282,7 @@ export async function archiveCandidateAction(formData: FormData) {
 }
 
 export async function cancelHrProcessAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const processId = String(formData.get("processId") ?? "").trim();
   const res = await cancelHrProcess({
@@ -278,6 +296,7 @@ export async function cancelHrProcessAction(formData: FormData) {
 }
 
 export async function closeHrProcessAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const processId = String(formData.get("processId") ?? "").trim();
   const res = await closeHrProcess({
@@ -291,6 +310,7 @@ export async function closeHrProcessAction(formData: FormData) {
 }
 
 export async function markHrNotificationReadAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const notificationId = String(formData.get("notificationId") ?? "").trim();
   const returnTo = String(formData.get("returnTo") ?? "/hr").trim() || "/hr";

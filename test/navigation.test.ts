@@ -7,9 +7,16 @@ function withEnv(hrEnabled: boolean) {
   process.env.ENABLE_HR_MODULE = hrEnabled ? "true" : "false";
 }
 
+function loadNavigationCore(hrEnabled: boolean) {
+  withEnv(hrEnabled);
+  for (const mod of ["../src/server/navigation-core", "../src/server/features", "../src/server/config", "../src/server/rbac"]) {
+    delete require.cache[require.resolve(mod)];
+  }
+  return require("../src/server/navigation-core") as typeof import("../src/server/navigation-core");
+}
+
 test("navigation stays unique across supported access combinations", () => {
-  withEnv(true);
-  const { getPrimaryNavigation } = require("../src/server/navigation-core") as typeof import("../src/server/navigation-core");
+  const { getPrimaryNavigation } = loadNavigationCore(true);
   const actors = [
     { role: "USER", hrAddon: false, adminAddon: false },
     { role: "MANAGER", hrAddon: false, adminAddon: false },
@@ -57,8 +64,7 @@ test("navigation stays unique across supported access combinations", () => {
 });
 
 test("navigation remains deterministic under 100 repeated access builds", async () => {
-  withEnv(true);
-  const { getPrimaryNavigation } = require("../src/server/navigation-core") as typeof import("../src/server/navigation-core");
+  const { getPrimaryNavigation } = loadNavigationCore(true);
   const actors = Array.from({ length: 100 }, (_, index) => ({
     role: index % 2 === 0 ? "MANAGER" : "USER",
     hrAddon: index % 3 === 0,
@@ -75,6 +81,18 @@ test("navigation remains deterministic under 100 repeated access builds", async 
     assert.ok(hrefs.includes("/dashboard"));
     assert.ok(hrefs.includes("/organization"));
   }
+});
+
+test("navigation hides HR routes when the HR module is disabled", () => {
+  const { getPrimaryNavigation } = loadNavigationCore(false);
+  const items = getPrimaryNavigation({ role: "MANAGER", hrAddon: true, adminAddon: true }, "sr");
+  const hrefs = items.map((item) => item.href);
+
+  assert.ok(!hrefs.includes("/hr"));
+  assert.ok(!hrefs.includes("/candidates"));
+  assert.ok(!hrefs.includes("/talent-pool"));
+  assert.ok(!hrefs.includes("/onboarding"));
+  assert.ok(!hrefs.includes("/management"));
 });
 
 function indexLang(actor: { role: "USER" | "MANAGER"; hrAddon: boolean; adminAddon: boolean }) {

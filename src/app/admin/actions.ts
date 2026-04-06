@@ -12,6 +12,7 @@ import { ORG_STRUCTURE_CACHE_TAG, ORG_USERS_CACHE_TAG, SETTINGS_CACHE_TAG } from
 import { importLegacyDataset } from "@/server/legacy-import";
 import { logError, logInfo } from "@/server/log";
 import { isHrModuleEnabled } from "@/server/features";
+import { withAction } from "@/server/action-utils";
 
 const roleSchema = z.enum(["MANAGER", "USER"]);
 const statusSchema = z.enum(["ACTIVE", "INACTIVE"]);
@@ -732,11 +733,17 @@ export async function importLegacyTsvAction(formData: FormData) {
   if (!datasetParsed.success) redirectError("/admin/import", "Nepoznat dataset za legacy import.");
   if (tsv.trim().length < 10) redirectError("/admin/import", "TSV je prazan ili prekratak.");
 
-  const res = await importLegacyDataset({
-    dataset: datasetParsed.data,
-    tsv,
-    overwriteExisting
-  });
+  const action = await withAction(
+    () =>
+      importLegacyDataset({
+        dataset: datasetParsed.data,
+        tsv,
+        overwriteExisting
+      }),
+    "admin.import_legacy"
+  );
+  if (!action.ok) redirectError("/admin/import", action.error);
+  const res = action.data;
 
   revalidatePath("/reports");
   revalidatePath("/reports/manager");

@@ -7,6 +7,7 @@ import { approveTaskAction, cancelTaskAction, createTask, returnTaskAction, subm
 import { z } from "zod";
 import { normalizeIsoDate } from "@/server/iso-date";
 import { isManagerRole } from "@/server/rbac";
+import { withAction } from "@/server/action-utils";
 
 function redirectError(path: string, message: string): never {
   redirect(`${path}?error=${encodeURIComponent(message)}`);
@@ -35,17 +36,23 @@ export async function createTaskAction(formData: FormData) {
   const priorityParsed = prioritySchema.safeParse(priorityRaw);
   if (!priorityParsed.success) redirectError("/tasks", "INVALID_PRIORITY");
 
-  const res = await createTask({
-    actor: { id: user.id, role: user.role, email: user.email, name: user.name },
-    payload: {
-      title,
-      description,
-      priority: priorityParsed.data,
-      teamId: teamIdRaw.trim() || null,
-      assigneeId,
-      dueIso
-    }
-  });
+  const action = await withAction(
+    () =>
+      createTask({
+        actor: { id: user.id, role: user.role, email: user.email, name: user.name },
+        payload: {
+          title,
+          description,
+          priority: priorityParsed.data,
+          teamId: teamIdRaw.trim() || null,
+          assigneeId,
+          dueIso
+        }
+      }),
+    "tasks.create"
+  );
+  if (!action.ok) redirectError("/tasks", action.error);
+  const res = action.data;
 
   if (!res.ok) redirectError("/tasks", res.error);
 
@@ -58,11 +65,17 @@ export async function submitForApprovalAction(formData: FormData) {
   const taskId = String(formData.get("taskId") ?? "").trim();
   const comment = String(formData.get("comment") ?? "");
 
-  const res = await submitTaskForApproval({
-    actor: { id: user.id, role: user.role, email: user.email, name: user.name },
-    taskId,
-    comment
-  });
+  const action = await withAction(
+    () =>
+      submitTaskForApproval({
+        actor: { id: user.id, role: user.role, email: user.email, name: user.name },
+        taskId,
+        comment
+      }),
+    "tasks.submit_for_approval"
+  );
+  if (!action.ok) redirectError("/tasks", action.error);
+  const res = action.data;
 
   if (!res.ok) redirectError("/tasks", res.error);
 
@@ -75,11 +88,17 @@ export async function approveTaskFormAction(formData: FormData) {
   const taskId = String(formData.get("taskId") ?? "").trim();
   const comment = String(formData.get("comment") ?? "");
 
-  const res = await approveTaskAction({
-    actor: { id: user.id, role: user.role, email: user.email, name: user.name },
-    taskId,
-    comment
-  });
+  const action = await withAction(
+    () =>
+      approveTaskAction({
+        actor: { id: user.id, role: user.role, email: user.email, name: user.name },
+        taskId,
+        comment
+      }),
+    "tasks.approve"
+  );
+  if (!action.ok) redirectError("/tasks", action.error);
+  const res = action.data;
 
   if (!res.ok) redirectError("/tasks", res.error);
 
@@ -92,11 +111,17 @@ export async function returnTaskFormAction(formData: FormData) {
   const taskId = String(formData.get("taskId") ?? "").trim();
   const comment = String(formData.get("comment") ?? "");
 
-  const res = await returnTaskAction({
-    actor: { id: user.id, role: user.role, email: user.email, name: user.name },
-    taskId,
-    comment
-  });
+  const action = await withAction(
+    () =>
+      returnTaskAction({
+        actor: { id: user.id, role: user.role, email: user.email, name: user.name },
+        taskId,
+        comment
+      }),
+    "tasks.return"
+  );
+  if (!action.ok) redirectError("/tasks", action.error);
+  const res = action.data;
 
   if (!res.ok) redirectError("/tasks", res.error);
 
@@ -109,11 +134,17 @@ export async function cancelTaskFormAction(formData: FormData) {
   const taskId = String(formData.get("taskId") ?? "").trim();
   const comment = String(formData.get("comment") ?? "");
 
-  const res = await cancelTaskAction({
-    actor: { id: user.id, role: user.role, email: user.email, name: user.name },
-    taskId,
-    comment
-  });
+  const action = await withAction(
+    () =>
+      cancelTaskAction({
+        actor: { id: user.id, role: user.role, email: user.email, name: user.name },
+        taskId,
+        comment
+      }),
+    "tasks.cancel"
+  );
+  if (!action.ok) redirectError("/tasks", action.error);
+  const res = action.data;
 
   if (!res.ok) redirectError("/tasks", res.error);
 

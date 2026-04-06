@@ -11,8 +11,8 @@ export const prisma =
     datasources: { db: { url: config.database.url } },
     log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
     transactionOptions: {
-      maxWait: 5000,
-      timeout: 15000
+      maxWait: 3000,
+      timeout: 10000
     }
   });
 

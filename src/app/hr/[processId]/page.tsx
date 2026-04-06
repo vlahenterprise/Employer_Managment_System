@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { LabelWithTooltip } from "@/components/Tooltip";
 import { getRequestLang } from "@/i18n/server";
 import { requireActiveUser } from "@/server/current-user";
 import { getHrProcessDetail } from "@/server/hr";
 import { getCandidateStageSummary, getProcessWorkflowSummary, type HrNextActionKey, type HrStageKey, type HrWaitingOnKey } from "@/server/hr-presentation";
 import UserMenu from "../../dashboard/UserMenu";
+import { isHrModuleEnabled } from "@/server/features";
 import {
   addCandidateToProcessAction,
   archiveCandidateAction,
@@ -290,6 +292,9 @@ export default async function HrProcessPage({
   params: { processId: string };
   searchParams: { success?: string; error?: string };
 }) {
+  if (!isHrModuleEnabled()) {
+    redirect("/dashboard");
+  }
   const user = await requireActiveUser();
   const lang = getRequestLang();
   const c = copy(lang);

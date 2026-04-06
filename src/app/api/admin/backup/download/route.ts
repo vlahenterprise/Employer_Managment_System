@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     return new Response("Forbidden", { status: 403 });
   }
 
-  const rateLimit = checkRouteRateLimit({
+  const rateLimit = await checkRouteRateLimit({
     request,
     scope: "backup-download",
     actorId: userId,

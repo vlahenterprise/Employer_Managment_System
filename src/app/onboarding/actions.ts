@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireActiveUser } from "@/server/current-user";
+import { isHrModuleEnabled } from "@/server/features";
 import { booleanish } from "@/server/validation";
 import {
   addOnboardingItem,
@@ -38,6 +39,12 @@ function redirectSuccess(path: string, message: string): never {
   redirect(`${path}?success=${encodeURIComponent(message)}`);
 }
 
+function ensureHrModuleEnabled() {
+  if (!isHrModuleEnabled()) {
+    redirectError("/dashboard", "HR module is disabled");
+  }
+}
+
 function refreshOnboardingPaths(targetPath?: string) {
   revalidatePath("/onboarding");
   revalidatePath("/profile");
@@ -45,6 +52,7 @@ function refreshOnboardingPaths(targetPath?: string) {
 }
 
 export async function updateOnboardingAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const onboardingId = String(formData.get("onboardingId") ?? "").trim();
   const res = await updateOnboarding({
@@ -64,6 +72,7 @@ export async function updateOnboardingAction(formData: FormData) {
 }
 
 export async function createOnboardingTemplateAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const res = await createOrGetOnboardingTemplate({
     actor: actorPayload(user),
@@ -75,6 +84,7 @@ export async function createOnboardingTemplateAction(formData: FormData) {
 }
 
 export async function updateOnboardingTemplateAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const templateId = String(formData.get("templateId") ?? "").trim();
   const res = await updateOnboardingTemplate({
@@ -91,6 +101,7 @@ export async function updateOnboardingTemplateAction(formData: FormData) {
 }
 
 export async function addOnboardingTemplateStepAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const templateId = String(formData.get("templateId") ?? "").trim();
   const res = await addOnboardingTemplateStep({
@@ -112,6 +123,7 @@ export async function addOnboardingTemplateStepAction(formData: FormData) {
 }
 
 export async function updateOnboardingTemplateStepAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const templateId = String(formData.get("templateId") ?? "").trim();
   const res = await updateOnboardingTemplateStep({
@@ -134,6 +146,7 @@ export async function updateOnboardingTemplateStepAction(formData: FormData) {
 }
 
 export async function deleteOnboardingTemplateStepAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const templateId = String(formData.get("templateId") ?? "").trim();
   const res = await deleteOnboardingTemplateStep({
@@ -147,6 +160,7 @@ export async function deleteOnboardingTemplateStepAction(formData: FormData) {
 }
 
 export async function assignOnboardingProcessAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const onboardingId = String(formData.get("onboardingId") ?? "").trim() || null;
   const res = await assignOnboardingProcess({
@@ -163,6 +177,7 @@ export async function assignOnboardingProcessAction(formData: FormData) {
 }
 
 export async function addOnboardingItemAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const onboardingId = String(formData.get("onboardingId") ?? "").trim();
   const res = await addOnboardingItem({
@@ -184,6 +199,7 @@ export async function addOnboardingItemAction(formData: FormData) {
 }
 
 export async function updateOnboardingItemAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const onboardingId = String(formData.get("onboardingId") ?? "").trim();
   const res = await updateOnboardingItem({
@@ -206,6 +222,7 @@ export async function updateOnboardingItemAction(formData: FormData) {
 }
 
 export async function toggleOnboardingItemAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const itemId = String(formData.get("itemId") ?? "").trim();
   const onboardingId = String(formData.get("onboardingId") ?? "").trim();
@@ -220,6 +237,7 @@ export async function toggleOnboardingItemAction(formData: FormData) {
 }
 
 export async function confirmOnboardingItemAction(formData: FormData) {
+  ensureHrModuleEnabled();
   const user = await requireActiveUser();
   const onboardingId = String(formData.get("onboardingId") ?? "").trim();
   const res = await confirmOnboardingItem({

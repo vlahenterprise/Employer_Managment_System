@@ -46,7 +46,7 @@ const getAllSettingsRowsCached = unstable_cache(
       select: { key: true, value: true }
     }),
   ["settings:rows"],
-  { tags: [SETTINGS_CACHE_TAG] }
+  { tags: [SETTINGS_CACHE_TAG], revalidate: 300 }
 );
 
 function safeHexColor(value: string | undefined | null) {

@@ -17,7 +17,9 @@ const envSchema = z.object({
   PDF_RENDER_TIMEOUT_MS: z.string().optional(),
   CHROMIUM_EXECUTABLE_PATH: z.string().optional(),
   CHROMIUM_PACK_URL: z.string().optional(),
-  ENABLE_HR_MODULE: z.string().optional()
+  ENABLE_HR_MODULE: z.string().optional(),
+  UPSTASH_REDIS_REST_URL: z.string().optional(),
+  UPSTASH_REDIS_REST_TOKEN: z.string().optional()
 });
 
 export const env = envSchema.parse(process.env);
@@ -62,6 +64,10 @@ export const config = {
   backup: {
     cronSecret: env.CRON_SECRET?.trim() || "",
     routeLimitPerMinute: parseNonNegativeInt(env.BACKUP_ROUTE_LIMIT_PER_MINUTE, 4)
+  },
+  rateLimit: {
+    upstashRedisUrl: env.UPSTASH_REDIS_REST_URL?.trim() || "",
+    upstashRedisToken: env.UPSTASH_REDIS_REST_TOKEN?.trim() || ""
   },
   files: {
     maxCvUploadBytes: parsePositiveInt(env.CV_MAX_UPLOAD_BYTES, 5 * 1024 * 1024)

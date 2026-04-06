@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { checkRouteRateLimit } from "../src/server/route-rate-limit";
 
-test("checkRouteRateLimit limits repeated requests per actor", () => {
+function withEnv() {
+  process.env.DATABASE_URL = process.env.DATABASE_URL || "postgresql://test:test@localhost:5432/test";
+  process.env.NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET || "test-secret";
+}
+
+test("checkRouteRateLimit limits repeated requests per actor", async () => {
+  withEnv();
+  const { checkRouteRateLimit } = require("../src/server/route-rate-limit") as typeof import("../src/server/route-rate-limit");
   const request = new Request("https://example.com/export");
-  const first = checkRouteRateLimit({
+  const first = await checkRouteRateLimit({
     request,
     scope: "pdf",
     actorId: "user-1",
@@ -12,7 +18,7 @@ test("checkRouteRateLimit limits repeated requests per actor", () => {
     windowMs: 60_000,
     now: 1000
   });
-  const second = checkRouteRateLimit({
+  const second = await checkRouteRateLimit({
     request,
     scope: "pdf",
     actorId: "user-1",
@@ -20,7 +26,7 @@ test("checkRouteRateLimit limits repeated requests per actor", () => {
     windowMs: 60_000,
     now: 1001
   });
-  const third = checkRouteRateLimit({
+  const third = await checkRouteRateLimit({
     request,
     scope: "pdf",
     actorId: "user-1",
@@ -35,12 +41,14 @@ test("checkRouteRateLimit limits repeated requests per actor", () => {
   assert.equal(third.retryAfterSeconds, 60);
 });
 
-test("checkRouteRateLimit resets after the window expires", () => {
+test("checkRouteRateLimit resets after the window expires", async () => {
+  withEnv();
+  const { checkRouteRateLimit } = require("../src/server/route-rate-limit") as typeof import("../src/server/route-rate-limit");
   const request = new Request("https://example.com/export", {
     headers: { "x-forwarded-for": "203.0.113.7" }
   });
 
-  checkRouteRateLimit({
+  await checkRouteRateLimit({
     request,
     scope: "backup",
     limit: 1,
@@ -48,7 +56,7 @@ test("checkRouteRateLimit resets after the window expires", () => {
     now: 1000
   });
 
-  const afterReset = checkRouteRateLimit({
+  const afterReset = await checkRouteRateLimit({
     request,
     scope: "backup",
     limit: 1,

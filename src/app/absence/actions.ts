@@ -6,6 +6,7 @@ import { requireActiveUser } from "@/server/current-user";
 import { approveAbsence, cancelAbsence, submitAbsenceRequest } from "@/server/absence";
 import { z } from "zod";
 import { normalizeIsoDate } from "@/server/iso-date";
+import { withAction } from "@/server/action-utils";
 
 function redirectError(path: string, message: string): never {
   redirect(`${path}?error=${encodeURIComponent(message)}`);
@@ -31,10 +32,16 @@ export async function submitAbsenceAction(formData: FormData) {
   const toIso = normalizeIsoDate(toIsoRaw);
   if (!fromIso || !toIso) redirectError("/absence", "INVALID_DATE");
 
-  const res = await submitAbsenceRequest({
-    actor: { id: user.id, email: user.email, name: user.name, role: user.role, teamId: user.teamId },
-    payload: { type: typeParsed.data as any, fromIso, toIso, comment }
-  });
+  const action = await withAction(
+    () =>
+      submitAbsenceRequest({
+        actor: { id: user.id, email: user.email, name: user.name, role: user.role, teamId: user.teamId },
+        payload: { type: typeParsed.data as any, fromIso, toIso, comment }
+      }),
+    "absence.submit"
+  );
+  if (!action.ok) redirectError("/absence", action.error);
+  const res = action.data;
 
   if (!res.ok) redirectError("/absence", res.error);
 
@@ -51,12 +58,18 @@ export async function approveAbsenceAction(formData: FormData) {
   if (!absenceId) redirectError("/absence", "ABSENCE_NOT_FOUND");
   if (status !== "APPROVED" && status !== "REJECTED") redirectError("/absence", "INVALID_STATUS");
 
-  const res = await approveAbsence({
-    actor: { id: user.id, email: user.email, name: user.name, role: user.role },
-    absenceId,
-    comment,
-    status: status as any
-  });
+  const action = await withAction(
+    () =>
+      approveAbsence({
+        actor: { id: user.id, email: user.email, name: user.name, role: user.role },
+        absenceId,
+        comment,
+        status: status as any
+      }),
+    "absence.approve"
+  );
+  if (!action.ok) redirectError("/absence", action.error);
+  const res = action.data;
   if (!res.ok) redirectError("/absence", res.error);
 
   revalidatePath("/absence");
@@ -69,11 +82,17 @@ export async function cancelAbsenceAction(formData: FormData) {
   const comment = String(formData.get("comment") ?? "");
   if (!absenceId) redirectError("/absence", "ABSENCE_NOT_FOUND");
 
-  const res = await cancelAbsence({
-    actor: { id: user.id, email: user.email, name: user.name, role: user.role },
-    absenceId,
-    comment
-  });
+  const action = await withAction(
+    () =>
+      cancelAbsence({
+        actor: { id: user.id, email: user.email, name: user.name, role: user.role },
+        absenceId,
+        comment
+      }),
+    "absence.cancel"
+  );
+  if (!action.ok) redirectError("/absence", action.error);
+  const res = action.data;
   if (!res.ok) redirectError("/absence", res.error);
 
   revalidatePath("/absence");

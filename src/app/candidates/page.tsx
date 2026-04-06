@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { LabelWithTooltip } from "@/components/Tooltip";
 import { requireActiveUser } from "@/server/current-user";
 import { getCandidatesWorkspace } from "@/server/candidates";
@@ -6,6 +7,7 @@ import { getRequestLang } from "@/i18n/server";
 import UserMenu from "../dashboard/UserMenu";
 import { IconArrowLeft, IconArrowRight, IconCheckCircle, IconSparkles, IconUsers } from "@/components/icons";
 import { getCandidateStageMeta, getCandidateStageOptions } from "@/server/recruiting-presentation";
+import { isHrModuleEnabled } from "@/server/features";
 
 function copy(lang: "sr" | "en") {
   if (lang === "sr") {
@@ -91,6 +93,9 @@ export default async function CandidatesPage({
 }: {
   searchParams: { query?: string; stage?: string; page?: string };
 }) {
+  if (!isHrModuleEnabled()) {
+    redirect("/dashboard");
+  }
   const user = await requireActiveUser();
   const lang = getRequestLang();
   const c = copy(lang);

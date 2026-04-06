@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { LabelWithTooltip } from "@/components/Tooltip";
 import { requireActiveUser } from "@/server/current-user";
 import { getOnboardingTemplateDetail } from "@/server/onboarding";
@@ -11,6 +12,7 @@ import {
   updateOnboardingTemplateStepAction
 } from "../../actions";
 import { IconArrowLeft, IconCheckCircle } from "@/components/icons";
+import { isHrModuleEnabled } from "@/server/features";
 
 function copy(lang: "sr" | "en") {
   if (lang === "sr") {
@@ -88,6 +90,9 @@ export default async function OnboardingTemplatePage({
   params: { id: string };
   searchParams: { success?: string; error?: string };
 }) {
+  if (!isHrModuleEnabled()) {
+    redirect("/dashboard");
+  }
   const user = await requireActiveUser();
   const lang = getRequestLang();
   const c = copy(lang);

@@ -45,7 +45,7 @@ A production-hardening pass for the Employer Management System focused on stabil
 - Improved protected cron handling through a dedicated secret and clearer logging.
 
 ### 6. CI and operational safety
-- Added a practical GitHub Actions workflow for install, env validation, Prisma validation, lint, typecheck, tests, and build.
+- Prepared a practical GitHub Actions workflow template for install, env validation, Prisma validation, lint, typecheck, tests, and build.
 - Added scripts for env validation and Prisma migrate deploy usage.
 - Improved load-test auth handling so protected API routes can be exercised with a valid session.
 
@@ -89,7 +89,7 @@ A production-hardening pass for the Employer Management System focused on stabil
 - `src/server/route-rate-limit.ts`
 - `scripts/check-env.ts`
 - `scripts/load-test.ts`
-- `.github/workflows/ci.yml`
+- `docs/ops/github-actions-ci.yml.example`
 - `test/route-rate-limit.test.ts`
 
 ## Validation Performed

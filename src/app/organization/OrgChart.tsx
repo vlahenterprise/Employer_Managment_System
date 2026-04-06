@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { groupOrgDocuments, groupOrgNodeIdsByLevel, normalizeOrgSearchText } from "@/lib/org-system";
 import { LabelWithTooltip } from "@/components/Tooltip";
 
@@ -123,6 +123,45 @@ function sortNodes(nodes: OrgNode[]) {
 
 const ORG_SCALE_STEPS = [0.75, 0.85, 1, 1.15, 1.3] as const;
 
+type OrgNodeCardProps = {
+  node: OrgNode;
+  isActive: boolean;
+  labels: OrgLabels;
+  onSelect: (positionId: string) => void;
+  registerRef: (positionId: string, element: HTMLButtonElement | null) => void;
+};
+
+const OrgNodeCard = memo(function OrgNodeCard({ node, isActive, labels, onSelect, registerRef }: OrgNodeCardProps) {
+  return (
+    <button
+      ref={(element) => {
+        registerRef(node.id, element);
+      }}
+      type="button"
+      className={`org-node org-node-${node.level}${isActive ? " is-active" : ""}`}
+      onClick={() => onSelect(node.id)}
+    >
+      <div className="org-node-head">
+        <div className="org-title">{node.title}</div>
+      </div>
+      <div className="org-node-body">
+        <div className="org-node-level">{levelLabel(node.level, labels)}</div>
+        {node.people.length > 0 ? (
+          <div className="org-people-preview">
+            {node.people.map((person) => (
+              <span key={person.id} className="org-people-preview-name">
+                {person.name}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div className="org-empty">{labels.noAssignees}</div>
+        )}
+      </div>
+    </button>
+  );
+});
+
 export default function OrgChart(props: {
   nodes: OrgNode[];
   globalLinks: OrgDocument[];
@@ -158,6 +197,9 @@ export default function OrgChart(props: {
   const [query, setQuery] = useState("");
   const [scaleIndex, setScaleIndex] = useState(2);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const registerNodeRef = useCallback((positionId: string, element: HTMLButtonElement | null) => {
+    nodeRefs.current[positionId] = element;
+  }, []);
 
   const nodeIdsByLevel = useMemo(() => groupOrgNodeIdsByLevel(props.nodes), [props.nodes]);
 
@@ -395,32 +437,13 @@ export default function OrgChart(props: {
             <span className="org-branch-connector-arrow" />
           </div>
         ) : null}
-        <button
-          ref={(element) => {
-            nodeRefs.current[node.id] = element;
-          }}
-          type="button"
-          className={`org-node org-node-${node.level}${selectedId === node.id ? " is-active" : ""}`}
-          onClick={() => openPosition(node.id)}
-        >
-          <div className="org-node-head">
-            <div className="org-title">{node.title}</div>
-          </div>
-          <div className="org-node-body">
-            <div className="org-node-level">{levelLabel(node.level, props.labels)}</div>
-            {node.people.length > 0 ? (
-              <div className="org-people-preview">
-                {node.people.map((person) => (
-                  <span key={person.id} className="org-people-preview-name">
-                    {person.name}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <div className="org-empty">{props.labels.noAssignees}</div>
-            )}
-          </div>
-        </button>
+        <OrgNodeCard
+          node={node}
+          isActive={selectedId === node.id}
+          labels={props.labels}
+          onSelect={openPosition}
+          registerRef={registerNodeRef}
+        />
 
         {children.length > 0 ? (
           <div className={`org-children${children.length === 1 ? " is-single" : ""}`}>

@@ -1,39 +1,32 @@
+import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
-import { logError } from "@/server/log";
-
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const includeDb = url.searchParams.get("db") === "1";
-  const startedAt = Date.now();
-
-  if (!includeDb) {
-    return Response.json({
-      ok: true,
-      timestamp: new Date().toISOString(),
-      durationMs: Date.now() - startedAt
-    });
-  }
-
+export async function GET() {
   try {
+    const start = Date.now();
     await prisma.$queryRaw`SELECT 1`;
-    return Response.json({
+    const dbLatencyMs = Date.now() - start;
+    const lastBackup = await prisma.backupSnapshot.findFirst({
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true, source: true, completedAt: true, failedAt: true }
+    });
+
+    return NextResponse.json({
       ok: true,
-      timestamp: new Date().toISOString(),
-      durationMs: Date.now() - startedAt,
-      db: { ok: true }
+      ts: new Date().toISOString(),
+      db: { ok: true, latencyMs: dbLatencyMs },
+      lastBackup: lastBackup
+        ? {
+            at: lastBackup.createdAt,
+            source: lastBackup.source,
+            completed: !!lastBackup.completedAt,
+            failed: !!lastBackup.failedAt
+          }
+        : null
     });
   } catch (error) {
-    logError("health.db.failed", error);
-    return Response.json(
-      {
-        ok: false,
-        timestamp: new Date().toISOString(),
-        durationMs: Date.now() - startedAt,
-        db: { ok: false }
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: String(error) }, { status: 503 });
   }
 }

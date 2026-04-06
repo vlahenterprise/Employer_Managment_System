@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { getAllSettingsMap } from "./settings";
 
 export const APP_TIMEZONE = "Europe/Belgrade";
@@ -52,7 +53,7 @@ export type AppSettings = {
   PerformanceAllowCloseBeforePeriodEnd: number;
 };
 
-export async function getAppSettings(): Promise<AppSettings> {
+export const getAppSettings = cache(async (): Promise<AppSettings> => {
   const map = await getAllSettingsMap();
 
   const title = map.AppTitle?.trim() || "VLAH ENTERPRISE EMPLOYER SYSTEM";
@@ -122,4 +123,4 @@ export async function getAppSettings(): Promise<AppSettings> {
     PerformanceCriticalDays: performanceCriticalDays,
     PerformanceAllowCloseBeforePeriodEnd: performanceAllowCloseBeforePeriodEnd
   };
-}
+});

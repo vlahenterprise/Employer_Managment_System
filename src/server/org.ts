@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { fromZonedTime } from "@/server/time";
 import { APP_TIMEZONE } from "./app-settings";
@@ -40,9 +41,9 @@ const loadOrgUsersCached = unstable_cache(
   { tags: [ORG_USERS_CACHE_TAG] }
 );
 
-export async function loadOrgUsers(): Promise<OrgUser[]> {
+export const loadOrgUsers = cache(async (): Promise<OrgUser[]> => {
   return (await loadOrgUsersCached()) as any;
-}
+});
 
 export function buildOrgIndex(users: OrgUser[]) {
   const byId = new Map<string, OrgUser>();

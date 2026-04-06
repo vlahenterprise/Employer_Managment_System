@@ -61,7 +61,7 @@ const adapter: NextAuthOptions["adapter"] = {
 export const authOptions: NextAuthOptions = {
   adapter,
   secret: config.auth.secret,
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: 8 * 60 * 60 },
   pages: {
     signIn: "/login"
   },

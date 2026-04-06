@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { LabelWithTooltip } from "@/components/Tooltip";
 import { getRequestLang } from "@/i18n/server";
 import { requireActiveUser } from "@/server/current-user";
 import UserMenu from "../dashboard/UserMenu";
 import { getManagementPanel, hasManagementPanelAccess } from "@/server/hr";
 import { createHrProcessAction, markHrNotificationReadAction } from "../hr/actions";
+import { isHrModuleEnabled } from "@/server/features";
 import {
   IconAlertTriangle,
   IconArrowLeft,
@@ -113,6 +115,9 @@ function statusClass(status: string) {
 }
 
 export default async function ManagementPage() {
+  if (!isHrModuleEnabled()) {
+    redirect("/dashboard");
+  }
   const user = await requireActiveUser();
   const lang = getRequestLang();
   const c = copy(lang);
