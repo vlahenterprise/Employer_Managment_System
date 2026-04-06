@@ -146,6 +146,7 @@ function getDashboardCopy(lang: "sr" | "en") {
       },
       quick: {
         inbox: "Inbox",
+        team: "Tim",
         tasks: "Moji zadaci",
         reports: "Dnevni izveštaji",
         absence: "Odsustva",
@@ -259,6 +260,7 @@ function getDashboardCopy(lang: "sr" | "en") {
     },
     quick: {
       inbox: "Inbox",
+      team: "Team",
       tasks: "My tasks",
       reports: "Daily reports",
       absence: "Absence",
@@ -616,9 +618,11 @@ function getQuickActions({
   };
 
   if (home.mode === "manager") {
+    push({ href: "/team", label: copy.quick.team, icon: IconUsers });
     if (hrEnabled) push({ href: "/management", label: copy.quick.management, icon: IconBriefcase });
     push({ href: "/tasks", label: copy.quick.tasks, icon: IconTasks });
     push({ href: "/reports/manager", label: copy.quick.reports, icon: IconReport });
+    push({ href: "/absence", label: copy.quick.absence, icon: IconCalendar });
     push({ href: "/inbox", label: copy.quick.inbox, icon: IconInbox });
     return actions;
   }
