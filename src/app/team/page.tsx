@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireActiveUser } from "@/server/current-user";
 import { getTeamWorkspace } from "@/server/team";
 import { getRequestLang } from "@/i18n/server";
+import { isHrModuleEnabled } from "@/server/features";
 import UserMenu from "../dashboard/UserMenu";
 import { IconArrowLeft, IconArrowRight, IconCalendar, IconTasks, IconUsers } from "@/components/icons";
 
@@ -45,6 +46,7 @@ export default async function TeamPage() {
   const user = await requireActiveUser();
   const lang = getRequestLang();
   const c = copy(lang);
+  const hrEnabled = isHrModuleEnabled();
   const workspace = await getTeamWorkspace({ id: user.id, role: user.role });
 
   if (!workspace.ok) {
@@ -87,7 +89,7 @@ export default async function TeamPage() {
           />
         </div>
 
-        <div className="grid4 profile-metrics">
+        <div className={`${hrEnabled ? "grid4" : "grid3"} profile-metrics`}>
           <div className="item item-compact kpi-card">
             <div className="kpi-icon"><IconUsers size={18} /></div>
             <div><div className="kpi-value">{workspace.metrics.employees}</div><div className="kpi-label">{c.employees}</div></div>
@@ -100,10 +102,12 @@ export default async function TeamPage() {
             <div className="kpi-icon"><IconTasks size={18} /></div>
             <div><div className="kpi-value">{workspace.metrics.overdueTasks}</div><div className="kpi-label">{c.overdueTasks}</div></div>
           </div>
-          <div className="item item-compact kpi-card">
-            <div className="kpi-icon"><IconUsers size={18} /></div>
-            <div><div className="kpi-value">{workspace.metrics.activeOnboarding}</div><div className="kpi-label">{c.activeOnboarding}</div></div>
-          </div>
+          {hrEnabled ? (
+            <div className="item item-compact kpi-card">
+              <div className="kpi-icon"><IconUsers size={18} /></div>
+              <div><div className="kpi-value">{workspace.metrics.activeOnboarding}</div><div className="kpi-label">{c.activeOnboarding}</div></div>
+            </div>
+          ) : null}
         </div>
 
         <section className="panel stack">
@@ -121,7 +125,7 @@ export default async function TeamPage() {
                     {c.profile} <IconArrowRight size={18} />
                   </Link>
                 </div>
-                <div className="grid4 team-summary-grid">
+                <div className={`${hrEnabled ? "grid4" : "grid3"} team-summary-grid`}>
                   <div className="item item-compact">
                     <div className="muted small">{c.report}</div>
                     <div className="item-title">{member.reportSubmittedToday ? c.reportSubmitted : c.reportMissing}</div>
@@ -134,10 +138,12 @@ export default async function TeamPage() {
                     <div className="muted small">{c.absentToday}</div>
                     <div className="item-title">{member.activeAbsence ? member.activeAbsence.type : c.noValue}</div>
                   </div>
-                  <div className="item item-compact">
-                    <div className="muted small">{c.activeOnboarding}</div>
-                    <div className="item-title">{member.activeOnboarding?.status || c.noValue}</div>
-                  </div>
+                  {hrEnabled ? (
+                    <div className="item item-compact">
+                      <div className="muted small">{c.activeOnboarding}</div>
+                      <div className="item-title">{member.activeOnboarding?.status || c.noValue}</div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ))}

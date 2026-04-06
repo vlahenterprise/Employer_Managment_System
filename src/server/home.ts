@@ -7,6 +7,7 @@ import { getInboxData } from "./inbox";
 import { getScopedEmployeeIds, hasAccessAdmin, hasHrAddon, isManagerRole } from "./rbac";
 import { loadOrgUsers } from "./org";
 import { getAbsenceRemaining } from "./absence";
+import { isHrModuleEnabled } from "./features";
 
 export type HomeActor = {
   id: string;
@@ -30,8 +31,9 @@ function startOfWeekIso() {
 }
 
 export async function getHomeDashboard(actor: HomeActor) {
+  const hrEnabled = isHrModuleEnabled();
   const manager = isManagerRole(actor.role);
-  const hrAccess = hasHrAddon(actor);
+  const hrAccess = hrEnabled && hasHrAddon(actor);
   const adminAccess = hasAccessAdmin(actor);
   const orgUsers = await loadOrgUsers();
   const scopedIds = [...getScopedEmployeeIds(actor, orgUsers)];
@@ -96,23 +98,25 @@ export async function getHomeDashboard(actor: HomeActor) {
         })
       : Promise.resolve([]),
     getInboxData(actor, 5),
-    prisma.onboarding.findFirst({
-      where: {
-        OR: [
-          { employeeId: actor.id },
-          hrAccess ? { hrOwnerId: actor.id } : undefined,
-          manager ? { managerId: actor.id } : undefined
-        ].filter(Boolean) as any
-      },
-      orderBy: [{ updatedAt: "desc" }],
-      select: {
-        id: true,
-        status: true,
-        employee: { select: { name: true } },
-        candidate: { select: { fullName: true } }
-      }
-    }),
-    manager
+    hrEnabled
+      ? prisma.onboarding.findFirst({
+          where: {
+            OR: [
+              { employeeId: actor.id },
+              hrAccess ? { hrOwnerId: actor.id } : undefined,
+              manager ? { managerId: actor.id } : undefined
+            ].filter(Boolean) as any
+          },
+          orderBy: [{ updatedAt: "desc" }],
+          select: {
+            id: true,
+            status: true,
+            employee: { select: { name: true } },
+            candidate: { select: { fullName: true } }
+          }
+        })
+      : Promise.resolve(null),
+    manager && hrEnabled
       ? prisma.hrProcess.count({
           where: {
             status: { in: ["DRAFT", "OPEN", "IN_PROGRESS", "ON_HOLD"] },

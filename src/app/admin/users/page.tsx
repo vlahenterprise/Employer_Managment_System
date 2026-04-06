@@ -6,6 +6,7 @@ import { createUserAction, deleteUserAction, setUserPasswordAction, updateUserAc
 import { getRequestLang } from "@/i18n/server";
 import { getI18n } from "@/i18n";
 import { getAccessSummary } from "@/server/rbac";
+import { isHrModuleEnabled } from "@/server/features";
 
 export default async function AdminUsersPage({
   searchParams
@@ -15,6 +16,7 @@ export default async function AdminUsersPage({
   const user = await requireAdminUser();
   const lang = getRequestLang();
   const t = getI18n(lang);
+  const hrEnabled = isHrModuleEnabled();
 
   const [teams, users] = await Promise.all([
     prisma.team.findMany({ orderBy: { name: "asc" } }),
@@ -61,8 +63,8 @@ export default async function AdminUsersPage({
       error={error}
       note={
         lang === "sr"
-          ? "Ovde postavljaš baznu rolu, HR/Admin add-on pristupe, tim, menadžera i Drive linkove koji utiču na ostatak sistema."
-          : "Set the base role, HR/Admin add-on access, team, manager, and Drive links here. These values affect the rest of the system."
+          ? `Ovde postavljaš baznu rolu, Admin add-on, tim, menadžera i Drive linkove koji utiču na ostatak sistema.${hrEnabled ? " HR add-on pristup je takođe dostupan." : " HR i zapošljavanje su trenutno isključeni."}`
+          : `Set the base role, Admin add-on, team, manager, and Drive links here. These values affect the rest of the system.${hrEnabled ? " HR add-on access is also available." : " HR and hiring are currently disabled."}`
       }
     >
 
@@ -104,22 +106,37 @@ export default async function AdminUsersPage({
                 </select>
               </label>
 
-              <label className="field">
-                <span className="label">
-                  <LabelWithTooltip
-                    label="HR add-on"
-                    tooltip={
-                      lang === "sr"
-                        ? "Dodatni pristup za Hiring, Candidates, Talent Pool i Onboarding. Nije osnovna rola, već dopunski pristup."
-                        : "Extra access for Hiring, Candidates, Talent Pool, and Onboarding. It is not a base role; it is an extra access layer."
-                    }
-                  />
-                </span>
-                <label className="inline" style={{ alignItems: "center" }}>
-                  <input name="hrAddon" type="checkbox" value="1" />
-                  <span className="muted small">Dodatni pristup za HR System</span>
+              {hrEnabled ? (
+                <label className="field">
+                  <span className="label">
+                    <LabelWithTooltip
+                      label="HR add-on"
+                      tooltip={
+                        lang === "sr"
+                          ? "Dodatni pristup za Hiring, Candidates, Talent Pool i Onboarding. Nije osnovna rola, već dopunski pristup."
+                          : "Extra access for Hiring, Candidates, Talent Pool, and Onboarding. It is not a base role; it is an extra access layer."
+                      }
+                    />
+                  </span>
+                  <label className="inline" style={{ alignItems: "center" }}>
+                    <input name="hrAddon" type="checkbox" value="1" />
+                    <span className="muted small">
+                      {lang === "sr" ? "Dodatni pristup za HR System" : "Extra access for HR System"}
+                    </span>
+                  </label>
                 </label>
-              </label>
+              ) : (
+                <label className="field">
+                  <span className="label">HR add-on</span>
+                  <div className="notice notice-muted">
+                    <div className="muted small">
+                      {lang === "sr"
+                        ? "HR i zapošljavanje su trenutno isključeni, pa se HR add-on privremeno ne dodeljuje."
+                        : "HR and hiring are currently disabled, so the HR add-on is temporarily unavailable."}
+                    </div>
+                  </div>
+                </label>
+              )}
 
               <label className="field">
                 <span className="label">
@@ -255,9 +272,11 @@ export default async function AdminUsersPage({
                       <span className={`pill ${user.status === "ACTIVE" ? "pill-green" : "pill-gray"}`}>
                         {user.status}
                       </span>
-                      <span className={`pill ${user.hrAddon ? "pill-blue" : "pill-gray"}`}>
-                        {user.hrAddon ? "HR add-on" : "No HR add-on"}
-                      </span>
+                      {hrEnabled ? (
+                        <span className={`pill ${user.hrAddon ? "pill-blue" : "pill-gray"}`}>
+                          {user.hrAddon ? "HR add-on" : "No HR add-on"}
+                        </span>
+                      ) : null}
                       <span className={`pill ${user.adminAddon ? "pill-blue" : "pill-gray"}`}>
                         {user.adminAddon ? "Admin add-on" : "No admin add-on"}
                       </span>
@@ -306,13 +325,19 @@ export default async function AdminUsersPage({
                     </select>
                   </label>
 
-                  <label className="field">
-                    <span className="label">HR add-on</span>
-                    <label className="inline" style={{ alignItems: "center" }}>
-                      <input name="hrAddon" type="checkbox" value="1" defaultChecked={user.hrAddon} />
-                      <span className="muted small">Pristup HR System modulu bez promene osnovne role</span>
+                  {hrEnabled ? (
+                    <label className="field">
+                      <span className="label">HR add-on</span>
+                      <label className="inline" style={{ alignItems: "center" }}>
+                        <input name="hrAddon" type="checkbox" value="1" defaultChecked={user.hrAddon} />
+                        <span className="muted small">
+                          {lang === "sr"
+                            ? "Pristup HR System modulu bez promene osnovne role"
+                            : "Access to the HR System without changing the base role"}
+                        </span>
+                      </label>
                     </label>
-                  </label>
+                  ) : null}
 
                   <label className="field">
                     <span className="label">Admin add-on</span>

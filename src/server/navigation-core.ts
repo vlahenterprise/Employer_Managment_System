@@ -1,4 +1,5 @@
 import { hasAccessAdmin, hasHrAddon, isManagerRole } from "./rbac";
+import { isHrModuleEnabled } from "./features";
 import type { UserRole } from "@prisma/client";
 
 export type NavigationActor = {
@@ -22,6 +23,7 @@ function navLabel(lang: Lang, sr: string, en: string) {
 }
 
 export function getPrimaryNavigation(actor: NavigationActor, lang: Lang) {
+  const hrEnabled = isHrModuleEnabled();
   const items: NavItem[] = [
     { href: "/dashboard", label: navLabel(lang, "Početna", "Home"), match: ["/dashboard"], group: "work" },
     {
@@ -45,9 +47,11 @@ export function getPrimaryNavigation(actor: NavigationActor, lang: Lang) {
         group: "work"
       },
       { href: "/absence", label: navLabel(lang, "Odsustva", "Absence"), match: ["/absence"], group: "work" },
-      { href: "/performance", label: "Performance", match: ["/performance"], group: "work" },
-      { href: "/management", label: navLabel(lang, "Zapošljavanje", "Hiring"), match: ["/management"], group: "work" }
+      { href: "/performance", label: "Performance", match: ["/performance"], group: "work" }
     );
+    if (hrEnabled) {
+      items.push({ href: "/management", label: navLabel(lang, "Zapošljavanje", "Hiring"), match: ["/management"], group: "work" });
+    }
   } else {
     items.push(
       {
@@ -80,7 +84,7 @@ export function getPrimaryNavigation(actor: NavigationActor, lang: Lang) {
     { href: "/inbox", label: "Inbox", match: ["/inbox"], group: "personal" }
   );
 
-  if (hasHrAddon(actor)) {
+  if (hrEnabled && hasHrAddon(actor)) {
     items.push(
       { href: "/hr", label: "HR System", shortLabel: "HR", match: ["/hr"], group: "hr" },
       { href: "/candidates", label: navLabel(lang, "Kandidati", "Candidates"), match: ["/candidates"], group: "hr" },

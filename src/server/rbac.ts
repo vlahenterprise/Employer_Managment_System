@@ -1,4 +1,5 @@
 import type { UserRole } from "@prisma/client";
+import { isHrModuleEnabled } from "./features";
 
 export type ScopedActor = {
   id: string;
@@ -33,6 +34,7 @@ export function isUserRole(role: UserRole) {
 }
 
 export function hasHrAddon(actor: Pick<ScopedActor, "role" | "hrAddon">) {
+  if (!isHrModuleEnabled()) return false;
   return Boolean(actor.hrAddon) || actor.role === "HR";
 }
 
@@ -49,6 +51,7 @@ export function hasAccessAdmin(actor: Pick<ScopedActor, "role" | "adminAddon">) 
 }
 
 export function hasManagementPanelAccess(actor: Pick<ScopedActor, "role">) {
+  if (!isHrModuleEnabled()) return false;
   return isManagerRole(actor.role);
 }
 
@@ -57,6 +60,7 @@ export function canManageTeamScope(actor: Pick<ScopedActor, "role">) {
 }
 
 export function hasHiringAccess(actor: Pick<ScopedActor, "role" | "hrAddon">) {
+  if (!isHrModuleEnabled()) return false;
   return isManagerRole(actor.role) || hasHrAddon(actor);
 }
 

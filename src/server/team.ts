@@ -5,6 +5,7 @@ import { formatInTimeZone } from "@/server/time";
 import { APP_TIMEZONE } from "./app-settings";
 import { getScopedEmployeeIds, isManagerRole } from "./rbac";
 import { loadOrgUsers } from "./org";
+import { isHrModuleEnabled } from "./features";
 
 export type TeamActor = {
   id: string;
@@ -17,6 +18,7 @@ function todayIso() {
 
 export async function getTeamWorkspace(actor: TeamActor) {
   if (!isManagerRole(actor.role)) return { ok: false as const, error: "NO_ACCESS" };
+  const hrEnabled = isHrModuleEnabled();
 
   const orgUsers = await loadOrgUsers();
   const scopedIds = [...getScopedEmployeeIds(actor, orgUsers)].filter((id) => id !== actor.id);
@@ -84,14 +86,16 @@ export async function getTeamWorkspace(actor: TeamActor) {
         periodEnd: true
       }
     }),
-    prisma.onboarding.findMany({
-      where: {
-        employeeId: { in: scopedIds },
-        status: { not: "COMPLETED" }
-      },
-      orderBy: [{ updatedAt: "desc" }],
-      select: { employeeId: true, id: true, status: true }
-    })
+    hrEnabled
+      ? prisma.onboarding.findMany({
+          where: {
+            employeeId: { in: scopedIds },
+            status: { not: "COMPLETED" }
+          },
+          orderBy: [{ updatedAt: "desc" }],
+          select: { employeeId: true, id: true, status: true }
+        })
+      : Promise.resolve([])
   ]);
 
   const reportsByUser = new Set(reportRows.map((row) => row.userId));
@@ -122,7 +126,7 @@ export async function getTeamWorkspace(actor: TeamActor) {
       missingReports: rows.filter((row) => !row.reportSubmittedToday).length,
       overdueTasks: rows.reduce((sum, row) => sum + row.overdueTasks, 0),
       absentToday: rows.filter((row) => row.activeAbsence).length,
-      activeOnboarding: rows.filter((row) => row.activeOnboarding).length
+      activeOnboarding: hrEnabled ? rows.filter((row) => row.activeOnboarding).length : 0
     }
   };
 }

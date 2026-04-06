@@ -1,8 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getPrimaryNavigation } from "../src/server/navigation-core";
+
+function withEnv(hrEnabled: boolean) {
+  process.env.DATABASE_URL = process.env.DATABASE_URL || "postgresql://test:test@localhost:5432/test";
+  process.env.NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET || "test-secret";
+  process.env.ENABLE_HR_MODULE = hrEnabled ? "true" : "false";
+}
 
 test("navigation stays unique across supported access combinations", () => {
+  withEnv(true);
+  const { getPrimaryNavigation } = require("../src/server/navigation-core") as typeof import("../src/server/navigation-core");
   const actors = [
     { role: "USER", hrAddon: false, adminAddon: false },
     { role: "MANAGER", hrAddon: false, adminAddon: false },
@@ -50,6 +57,8 @@ test("navigation stays unique across supported access combinations", () => {
 });
 
 test("navigation remains deterministic under 100 repeated access builds", async () => {
+  withEnv(true);
+  const { getPrimaryNavigation } = require("../src/server/navigation-core") as typeof import("../src/server/navigation-core");
   const actors = Array.from({ length: 100 }, (_, index) => ({
     role: index % 2 === 0 ? "MANAGER" : "USER",
     hrAddon: index % 3 === 0,

@@ -16,7 +16,8 @@ const envSchema = z.object({
   BACKUP_ROUTE_LIMIT_PER_MINUTE: z.string().optional(),
   PDF_RENDER_TIMEOUT_MS: z.string().optional(),
   CHROMIUM_EXECUTABLE_PATH: z.string().optional(),
-  CHROMIUM_PACK_URL: z.string().optional()
+  CHROMIUM_PACK_URL: z.string().optional(),
+  ENABLE_HR_MODULE: z.string().optional()
 });
 
 export const env = envSchema.parse(process.env);
@@ -70,5 +71,8 @@ export const config = {
     renderTimeoutMs: parsePositiveInt(env.PDF_RENDER_TIMEOUT_MS, 12000),
     chromiumExecutablePath: env.CHROMIUM_EXECUTABLE_PATH?.trim() || "",
     chromiumPackUrl: env.CHROMIUM_PACK_URL?.trim() || ""
+  },
+  features: {
+    hrModuleEnabled: parseBool(env.ENABLE_HR_MODULE, false)
   }
 };

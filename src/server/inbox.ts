@@ -6,6 +6,7 @@ import { formatInTimeZone } from "@/server/time";
 import { addDays } from "date-fns";
 import { getScopedEmployeeIds, hasHrAddon, isManagerRole } from "./rbac";
 import { loadOrgUsers } from "./org";
+import { isHrModuleEnabled } from "./features";
 
 export type InboxActor = {
   id: string;
@@ -49,7 +50,8 @@ export async function getInboxData(actor: InboxActor, limit = 8): Promise<InboxP
   const assignedToMe: InboxItem[] = [];
   const recentUpdates: InboxItem[] = [];
   const manager = isManagerRole(actor.role);
-  const hrAccess = hasHrAddon(actor);
+  const hrEnabled = isHrModuleEnabled();
+  const hrAccess = hrEnabled && hasHrAddon(actor);
   const orgUsers = await loadOrgUsers();
   const scopedIds = [...getScopedEmployeeIds(actor, orgUsers)];
   const today = todayIso();
@@ -140,39 +142,43 @@ export async function getInboxData(actor: InboxActor, limit = 8): Promise<InboxP
           }
         })
       : Promise.resolve([]),
-    prisma.hrNotification.findMany({
-      where: { userId: actor.id },
-      orderBy: [{ createdAt: "desc" }],
-      take: 12,
-      select: { id: true, title: true, body: true, href: true, isRead: true, createdAt: true }
-    }),
-    prisma.onboarding.findMany({
-      where: hrAccess
-        ? {
-            OR: [
-              { hrOwnerId: actor.id },
-              { status: { in: ["WAITING_HR_ACTIONS", "PLANNED", "ACTIVE"] } }
-            ]
+    hrEnabled
+      ? prisma.hrNotification.findMany({
+          where: { userId: actor.id },
+          orderBy: [{ createdAt: "desc" }],
+          take: 12,
+          select: { id: true, title: true, body: true, href: true, isRead: true, createdAt: true }
+        })
+      : Promise.resolve([]),
+    hrEnabled
+      ? prisma.onboarding.findMany({
+          where: hrAccess
+            ? {
+                OR: [
+                  { hrOwnerId: actor.id },
+                  { status: { in: ["WAITING_HR_ACTIONS", "PLANNED", "ACTIVE"] } }
+                ]
+              }
+            : manager
+              ? {
+                  OR: [
+                    { managerId: actor.id },
+                    { employeeId: { in: scopedIds } }
+                  ],
+                  status: { not: "COMPLETED" }
+                }
+              : { employeeId: actor.id, status: { not: "COMPLETED" } },
+          orderBy: [{ updatedAt: "desc" }],
+          take: 12,
+          select: {
+            id: true,
+            status: true,
+            updatedAt: true,
+            employee: { select: { id: true, name: true } },
+            candidate: { select: { fullName: true } }
           }
-        : manager
-          ? {
-              OR: [
-                { managerId: actor.id },
-                { employeeId: { in: scopedIds } }
-              ],
-              status: { not: "COMPLETED" }
-            }
-          : { employeeId: actor.id, status: { not: "COMPLETED" } },
-      orderBy: [{ updatedAt: "desc" }],
-      take: 12,
-      select: {
-        id: true,
-        status: true,
-        updatedAt: true,
-        employee: { select: { id: true, name: true } },
-        candidate: { select: { fullName: true } }
-      }
-    }),
+        })
+      : Promise.resolve([]),
     manager
       ? prisma.user.findMany({
           where: {

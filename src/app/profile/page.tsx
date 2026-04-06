@@ -3,6 +3,7 @@ import { LabelWithTooltip } from "@/components/Tooltip";
 import { requireActiveUser } from "@/server/current-user";
 import { getEmployeeProfile } from "@/server/profile";
 import { getRequestLang } from "@/i18n/server";
+import { isHrModuleEnabled } from "@/server/features";
 import UserMenu from "../dashboard/UserMenu";
 import { IconArrowLeft, IconArrowRight, IconCalendar, IconCheckCircle, IconTasks, IconUsers } from "@/components/icons";
 
@@ -81,6 +82,7 @@ export default async function ProfilePage({
   const user = await requireActiveUser();
   const lang = getRequestLang();
   const c = copy(lang);
+  const hrEnabled = isHrModuleEnabled();
   const profile = await getEmployeeProfile(
     {
       id: user.id,
@@ -196,7 +198,7 @@ export default async function ProfilePage({
           </div>
         </div>
 
-        <div className="grid3 profile-summary-grid">
+        <div className={`${hrEnabled ? "grid3" : "grid2"} profile-summary-grid`}>
           <section className="panel stack">
             <h2 className="h2">
               <LabelWithTooltip
@@ -215,29 +217,40 @@ export default async function ProfilePage({
             </div>
           </section>
 
-          <section className="panel stack">
-            <h2 className="h2">
-              <LabelWithTooltip
-                label={c.onboarding}
-                tooltip={
-                  lang === "sr"
-                    ? "Aktivni onboarding pokazuje status, HR vlasnika i direktan link ka checklisti."
-                    : "Active onboarding shows the current status, HR owner, and a direct link to the checklist."
-                }
-              />
-            </h2>
-            {summary.activeOnboarding ? (
-              <div className="detail-list">
-                <div><strong>{c.activeOnboarding}:</strong> {summary.activeOnboarding.status}</div>
-                <div><strong>HR:</strong> {summary.activeOnboarding.hrOwner?.name || c.noValue}</div>
-                <Link className="button button-secondary" href={`/onboarding/${summary.activeOnboarding.id}`}>
-                  Open onboarding <IconArrowRight size={18} />
-                </Link>
-              </div>
-            ) : (
-              <div className="muted small">{c.noValue}</div>
-            )}
-          </section>
+          {hrEnabled ? (
+            <section className="panel stack">
+              <h2 className="h2">
+                <LabelWithTooltip
+                  label={c.onboarding}
+                  tooltip={
+                    lang === "sr"
+                      ? "Aktivni onboarding pokazuje status, HR vlasnika i direktan link ka checklisti."
+                      : "Active onboarding shows the current status, HR owner, and a direct link to the checklist."
+                  }
+                />
+              </h2>
+              {summary.activeOnboarding ? (
+                <div className="detail-list">
+                  <div><strong>{c.activeOnboarding}:</strong> {summary.activeOnboarding.status}</div>
+                  <div>
+                    <strong>HR:</strong>{" "}
+                    {
+                      (
+                        summary.activeOnboarding as typeof summary.activeOnboarding & {
+                          hrOwner?: { name?: string | null } | null;
+                        }
+                      ).hrOwner?.name || c.noValue
+                    }
+                  </div>
+                  <Link className="button button-secondary" href={`/onboarding/${summary.activeOnboarding.id}`}>
+                    Open onboarding <IconArrowRight size={18} />
+                  </Link>
+                </div>
+              ) : (
+                <div className="muted small">{c.noValue}</div>
+              )}
+            </section>
+          ) : null}
 
           <section className="panel stack">
             <h2 className="h2">

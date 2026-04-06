@@ -6,6 +6,7 @@ import { loadOrgUsers } from "./org";
 import { formatInTimeZone } from "@/server/time";
 import { APP_TIMEZONE } from "./app-settings";
 import { getPositionResourceFallbackByUserId } from "./org-structure";
+import { isHrModuleEnabled } from "./features";
 
 export type ProfileActor = {
   id: string;
@@ -19,6 +20,7 @@ function todayIso() {
 }
 
 export async function getEmployeeProfile(actor: ProfileActor, targetUserId?: string | null) {
+  const hrEnabled = isHrModuleEnabled();
   const orgUsers = await loadOrgUsers();
   const resolvedUserId = String(targetUserId || actor.id).trim() || actor.id;
   if (!canViewEmployeeProfile(actor, resolvedUserId, orgUsers)) {
@@ -46,12 +48,14 @@ export async function getEmployeeProfile(actor: ProfileActor, targetUserId?: str
       team: { select: { id: true, name: true } },
       manager: { select: { id: true, name: true, email: true } },
       reports: { select: { id: true } },
-      onboardingsAsEmployee: {
-        where: { status: { not: "COMPLETED" } },
-        orderBy: [{ updatedAt: "desc" }],
-        take: 1,
-        select: { id: true, status: true, startDate: true, hrOwner: { select: { name: true, email: true } } }
-      },
+      onboardingsAsEmployee: hrEnabled
+        ? {
+            where: { status: { not: "COMPLETED" } },
+            orderBy: [{ updatedAt: "desc" }],
+            take: 1,
+            select: { id: true, status: true, startDate: true, hrOwner: { select: { name: true, email: true } } }
+          }
+        : false,
       evaluations: {
         orderBy: [{ periodEnd: "desc" }],
         take: 4,
@@ -111,7 +115,7 @@ export async function getEmployeeProfile(actor: ProfileActor, targetUserId?: str
     orgResources,
     access: getAccessSummary(user),
     isSelf: actor.id === user.id,
-    canSeeManagerScope: hasHrAddon(actor) || isManagerRole(actor.role),
+    canSeeManagerScope: (hrEnabled && hasHrAddon(actor)) || isManagerRole(actor.role),
     summary: {
       openTasks,
       overdueTasks,
@@ -121,7 +125,7 @@ export async function getEmployeeProfile(actor: ProfileActor, targetUserId?: str
       activeAbsence,
       directReports: user.reports.length,
       currentEvaluation,
-      activeOnboarding: user.onboardingsAsEmployee[0] || null,
+      activeOnboarding: hrEnabled ? user.onboardingsAsEmployee[0] || null : null,
       todayIso: todayIso()
     }
   };

@@ -19,6 +19,7 @@ import {
 import { getHomeDashboard } from "@/server/home";
 import { hasAccessAdmin, hasHrAddon, isManagerRole } from "@/server/rbac";
 import { LabelWithTooltip } from "@/components/Tooltip";
+import { isHrModuleEnabled } from "@/server/features";
 
 type DashboardIcon = typeof IconTasks;
 
@@ -309,11 +310,13 @@ function formatOnboardingStatus(status: string | null | undefined, lang: "sr" | 
 function getSummaryCards({
   lang,
   copy,
-  home
+  home,
+  hrEnabled
 }: {
   lang: "sr" | "en";
   copy: ReturnType<typeof getDashboardCopy>;
   home: Awaited<ReturnType<typeof getHomeDashboard>>;
+  hrEnabled: boolean;
 }): SummaryCard[] {
   if (home.mode === "manager") {
     return [
@@ -338,16 +341,16 @@ function getSummaryCards({
         tone: home.summary.missingReports.length > 0 ? "warning" : "default"
       },
       {
-        value: String(home.summary.teamOpenHiring),
-        label: copy.summary.openHiring,
-        detail: lang === "sr" ? "Aktivni zahtevi i otvorene pozicije." : "Active requests and open roles.",
-        icon: IconBriefcase,
-        tone: home.summary.teamOpenHiring > 0 ? "success" : "default"
+        value: String(home.summary.teamPendingAbsences),
+        label: lang === "sr" ? "Čeka odsustva" : "Pending absence",
+        detail: lang === "sr" ? "Zahtevi za odsustvo koji čekaju odluku." : "Absence requests waiting for a decision.",
+        icon: IconCalendar,
+        tone: home.summary.teamPendingAbsences > 0 ? "warning" : "default"
       }
     ];
   }
 
-  if (home.mode === "hr") {
+  if (hrEnabled && home.mode === "hr") {
     return [
       {
         value: String(home.summary.hrApprovedRequests),
@@ -447,13 +450,15 @@ function getVisibilityRows({
   copy,
   home,
   hasHrAccess,
-  hasAdminAccess
+  hasAdminAccess,
+  hrEnabled
 }: {
   lang: "sr" | "en";
   copy: ReturnType<typeof getDashboardCopy>;
   home: Awaited<ReturnType<typeof getHomeDashboard>>;
   hasHrAccess: boolean;
   hasAdminAccess: boolean;
+  hrEnabled: boolean;
 }): VisibilityRow[] {
   const awayNames = home.summary.teamAbsencesToday.map((item) => item.employee.name).filter(Boolean);
   const missingReportNames = home.summary.missingReports.map((item) => item.name).filter(Boolean);
@@ -486,7 +491,7 @@ function getVisibilityRows({
     ];
   }
 
-  if (home.mode === "hr") {
+  if (hrEnabled && home.mode === "hr") {
     return [
       {
         label: copy.visibility.hrPipeline,
@@ -516,16 +521,11 @@ function getVisibilityRows({
   }
 
   if (home.mode === "admin") {
-    return [
+    const rows: VisibilityRow[] = [
       {
         label: copy.visibility.adminHelp,
         value: hasAdminAccess ? (lang === "sr" ? "Access + Settings" : "Access + Settings") : "—",
         detail: copy.visibility.adminHelpDetail
-      },
-      {
-        label: copy.visibility.onboarding,
-        value: formatOnboardingStatus(home.summary.activeOnboarding?.status, lang),
-        detail: home.summary.activeOnboarding?.employee?.name || home.summary.activeOnboarding?.candidate?.fullName || undefined
       },
       {
         label: copy.visibility.teamAway,
@@ -537,6 +537,14 @@ function getVisibilityRows({
         detail: lang === "sr" ? "Najbolji ulaz je kroz inbox." : "The inbox is the best entry point."
       }
     ];
+    if (hrEnabled) {
+      rows.splice(1, 0, {
+        label: copy.visibility.onboarding,
+        value: formatOnboardingStatus(home.summary.activeOnboarding?.status, lang),
+        detail: home.summary.activeOnboarding?.employee?.name || home.summary.activeOnboarding?.candidate?.fullName || undefined
+      });
+    }
+    return rows;
   }
 
   const rows: VisibilityRow[] = [
@@ -553,16 +561,19 @@ function getVisibilityRows({
       detail: awayNames.length > 3 ? `+${awayNames.length - 3}` : undefined
     },
     {
-      label: copy.visibility.onboarding,
-      value: formatOnboardingStatus(home.summary.activeOnboarding?.status, lang),
-      detail: home.summary.activeOnboarding?.employee?.name || home.summary.activeOnboarding?.candidate?.fullName || copy.visibility.onboardingNone
-    },
-    {
       label: copy.summary.needsAction,
       value: String(home.summary.inbox.totals.needsMyAction),
       detail: lang === "sr" ? "Sve što te čeka vidiš i u inbox-u." : "Everything waiting on you is also available in the inbox."
     }
   ];
+
+  if (hrEnabled) {
+    rows.splice(2, 0, {
+      label: copy.visibility.onboarding,
+      value: formatOnboardingStatus(home.summary.activeOnboarding?.status, lang),
+      detail: home.summary.activeOnboarding?.employee?.name || home.summary.activeOnboarding?.candidate?.fullName || copy.visibility.onboardingNone
+    });
+  }
 
   if (hasHrAccess) {
     rows.push({
@@ -588,13 +599,15 @@ function getQuickActions({
   copy,
   hasManagementPanel,
   hasHrAccess,
-  hasAdminAccess
+  hasAdminAccess,
+  hrEnabled
 }: {
   home: Awaited<ReturnType<typeof getHomeDashboard>>;
   copy: ReturnType<typeof getDashboardCopy>;
   hasManagementPanel: boolean;
   hasHrAccess: boolean;
   hasAdminAccess: boolean;
+  hrEnabled: boolean;
 }) {
   const actions: QuickAction[] = [];
   const push = (action: QuickAction) => {
@@ -603,14 +616,14 @@ function getQuickActions({
   };
 
   if (home.mode === "manager") {
-    push({ href: "/management", label: copy.quick.management, icon: IconBriefcase });
+    if (hrEnabled) push({ href: "/management", label: copy.quick.management, icon: IconBriefcase });
     push({ href: "/tasks", label: copy.quick.tasks, icon: IconTasks });
     push({ href: "/reports/manager", label: copy.quick.reports, icon: IconReport });
     push({ href: "/inbox", label: copy.quick.inbox, icon: IconInbox });
     return actions;
   }
 
-  if (home.mode === "hr") {
+  if (hrEnabled && home.mode === "hr") {
     push({ href: "/hr", label: copy.quick.hr, icon: IconBriefcase });
     push({ href: "/candidates", label: copy.quick.candidates, icon: IconUsers });
     push({ href: "/onboarding", label: copy.quick.onboarding, icon: IconSparkles });
@@ -646,6 +659,7 @@ function getToneLabel(tone: "review" | "warning" | "info" | "success", lang: "sr
 export default async function DashboardPage() {
   const user = await requireActiveUser();
   const lang = getRequestLang();
+  const hrEnabled = isHrModuleEnabled();
   const copy = getDashboardCopy(lang);
   const home = await getHomeDashboard({
     id: user.id,
@@ -655,13 +669,13 @@ export default async function DashboardPage() {
     adminAddon: user.adminAddon,
     teamId: user.teamId
   });
-  const hasHrAccess = hasHrAddon(user);
-  const hasManagementPanel = isManagerRole(user.role);
+  const hasHrAccess = hrEnabled && hasHrAddon(user);
+  const hasManagementPanel = hrEnabled && isManagerRole(user.role);
   const hasAdminAccess = hasAccessAdmin(user);
   const inboxPreview = home.summary.inbox.needsMyAction.slice(0, 4);
-  const summaryCards = getSummaryCards({ lang, copy, home });
-  const visibilityRows = getVisibilityRows({ lang, copy, home, hasHrAccess, hasAdminAccess });
-  const quickActions = getQuickActions({ home, copy, hasManagementPanel, hasHrAccess, hasAdminAccess });
+  const summaryCards = getSummaryCards({ lang, copy, home, hrEnabled });
+  const visibilityRows = getVisibilityRows({ lang, copy, home, hasHrAccess, hasAdminAccess, hrEnabled });
+  const quickActions = getQuickActions({ home, copy, hasManagementPanel, hasHrAccess, hasAdminAccess, hrEnabled });
   const hero = getHeroContent(copy, home.mode);
 
   return (

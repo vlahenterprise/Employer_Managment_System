@@ -11,6 +11,7 @@ import { APP_TIMEZONE } from "@/server/app-settings";
 import { ORG_STRUCTURE_CACHE_TAG, ORG_USERS_CACHE_TAG, SETTINGS_CACHE_TAG } from "@/server/cache-tags";
 import { importLegacyDataset } from "@/server/legacy-import";
 import { logError, logInfo } from "@/server/log";
+import { isHrModuleEnabled } from "@/server/features";
 
 const roleSchema = z.enum(["MANAGER", "USER"]);
 const statusSchema = z.enum(["ACTIVE", "INACTIVE"]);
@@ -110,6 +111,7 @@ export async function deleteTeamAction(formData: FormData) {
 
 export async function createUserAction(formData: FormData) {
   await requireAdminUser();
+  const hrEnabled = isHrModuleEnabled();
 
   const emailRaw = String(formData.get("email") ?? "");
   const nameRaw = String(formData.get("name") ?? "");
@@ -120,7 +122,7 @@ export async function createUserAction(formData: FormData) {
   const teamIdRaw = String(formData.get("teamId") ?? "");
   const managerIdRaw = String(formData.get("managerId") ?? "");
   const passwordRaw = String(formData.get("password") ?? "");
-  const hrAddon = formData.get("hrAddon") != null;
+  const hrAddon = hrEnabled && formData.get("hrAddon") != null;
   const adminAddon = formData.get("adminAddon") != null;
   const employmentDateRaw = String(formData.get("employmentDate") ?? "");
   const jobDescriptionUrlRaw = String(formData.get("jobDescriptionUrl") ?? "");
@@ -213,6 +215,7 @@ export async function deleteUserAction(formData: FormData) {
 
 export async function updateUserAction(formData: FormData) {
   await requireAdminUser();
+  const hrEnabled = isHrModuleEnabled();
 
   const userId = String(formData.get("userId") ?? "").trim();
   if (!userId) redirectError("/admin/users", "Nedostaje userId.");
@@ -224,7 +227,7 @@ export async function updateUserAction(formData: FormData) {
   const carryOverAnnualLeaveRaw = String(formData.get("carryOverAnnualLeave") ?? "0");
   const teamIdRaw = String(formData.get("teamId") ?? "");
   const managerIdRaw = String(formData.get("managerId") ?? "");
-  const hrAddon = formData.get("hrAddon") != null;
+  const hrAddon = hrEnabled && formData.get("hrAddon") != null;
   const adminAddon = formData.get("adminAddon") != null;
   const employmentDateRaw = String(formData.get("employmentDate") ?? "");
   const jobDescriptionUrlRaw = String(formData.get("jobDescriptionUrl") ?? "");
