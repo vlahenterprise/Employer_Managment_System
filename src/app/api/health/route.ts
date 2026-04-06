@@ -1,9 +1,27 @@
 import { NextResponse } from "next/server";
+import { config } from "@/server/config";
 import { prisma } from "@/server/db";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+function hasPrivilegedAccess(request: Request) {
+  if (process.env.NODE_ENV !== "production") return true;
+  const secret = config.backup.cronSecret;
+  if (!secret) return false;
+  const authorization = request.headers.get("authorization") || "";
+  return authorization === `Bearer ${secret}`;
+}
+
+export async function GET(request: Request) {
+  const basic = {
+    ok: true,
+    ts: new Date().toISOString()
+  };
+
+  if (!hasPrivilegedAccess(request)) {
+    return NextResponse.json(basic);
+  }
+
   try {
     const start = Date.now();
     await prisma.$queryRaw`SELECT 1`;
@@ -14,8 +32,7 @@ export async function GET() {
     });
 
     return NextResponse.json({
-      ok: true,
-      ts: new Date().toISOString(),
+      ...basic,
       db: { ok: true, latencyMs: dbLatencyMs },
       lastBackup: lastBackup
         ? {

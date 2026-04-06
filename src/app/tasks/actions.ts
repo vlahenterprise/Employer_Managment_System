@@ -7,7 +7,7 @@ import { approveTaskAction, cancelTaskAction, createTask, returnTaskAction, subm
 import { z } from "zod";
 import { normalizeIsoDate } from "@/server/iso-date";
 import { isManagerRole } from "@/server/rbac";
-import { withAction } from "@/server/action-utils";
+import { sanitizeText, withAction } from "@/server/action-utils";
 
 function redirectError(path: string, message: string): never {
   redirect(`${path}?error=${encodeURIComponent(message)}`);
@@ -23,8 +23,8 @@ export async function createTaskAction(formData: FormData) {
   const user = await requireActiveUser();
   if (!isManagerRole(user.role)) redirectError("/tasks", "NO_ACCESS");
 
-  const title = String(formData.get("title") ?? "");
-  const description = String(formData.get("description") ?? "");
+  const title = sanitizeText(String(formData.get("title") ?? ""), 200);
+  const description = sanitizeText(String(formData.get("description") ?? ""), 5000);
   const dueIsoRaw = String(formData.get("dueIso") ?? "");
   const priorityRaw = String(formData.get("priority") ?? "MED");
   const teamIdRaw = String(formData.get("teamId") ?? "");

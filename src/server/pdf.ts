@@ -19,7 +19,22 @@ const globalForPdf = globalThis as typeof globalThis & {
   __chromiumExecutablePathSource?: string;
 };
 
-async function getChromiumExecutablePath(chromium: Awaited<typeof import("@sparticuz/chromium")>["default"]) {
+async function getChromium() {
+  const chromium = await import("@sparticuz/chromium");
+  return chromium.default;
+}
+
+async function getPuppeteerCore() {
+  const puppeteerCore = await import("puppeteer-core");
+  return puppeteerCore.default;
+}
+
+async function getPuppeteer() {
+  const puppeteer = await import("puppeteer");
+  return puppeteer.default;
+}
+
+async function getChromiumExecutablePath(chromium: Awaited<ReturnType<typeof getChromium>>) {
   if (config.pdf.chromiumExecutablePath) {
     return config.pdf.chromiumExecutablePath;
   }
@@ -37,8 +52,8 @@ async function getChromiumExecutablePath(chromium: Awaited<typeof import("@spart
 
 async function launchBrowser(viewport: Required<NonNullable<PdfRenderOptions["viewport"]>>) {
   if (process.env.VERCEL || process.env.NODE_ENV === "production") {
-    const chromium = (await import("@sparticuz/chromium")).default;
-    const puppeteerCore = (await import("puppeteer-core")).default;
+    const chromium = await getChromium();
+    const puppeteerCore = await getPuppeteerCore();
 
     logInfo("pdf.render.chromium_pack", {
       source: chromiumPackUrl,
@@ -53,7 +68,7 @@ async function launchBrowser(viewport: Required<NonNullable<PdfRenderOptions["vi
     });
   }
 
-  const puppeteer = (await import("puppeteer")).default;
+  const puppeteer = await getPuppeteer();
   return puppeteer.launch({
     headless: true,
     defaultViewport: viewport,

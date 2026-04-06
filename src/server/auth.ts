@@ -58,10 +58,12 @@ const adapter: NextAuthOptions["adapter"] = {
   }
 };
 
+const SESSION_MAX_AGE_SECONDS = 8 * 60 * 60;
+
 export const authOptions: NextAuthOptions = {
   adapter,
   secret: config.auth.secret,
-  session: { strategy: "jwt", maxAge: 8 * 60 * 60 },
+  session: { strategy: "jwt", maxAge: SESSION_MAX_AGE_SECONDS, updateAge: 60 * 60 },
   pages: {
     signIn: "/login"
   },
@@ -135,16 +137,26 @@ export const authOptions: NextAuthOptions = {
       return dbUser.status === "ACTIVE";
     },
     async jwt({ token, user }) {
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      if (!Number.isFinite(Number((token as any).iat))) {
+        (token as any).iat = nowSeconds;
+      }
       if (user) {
         (token as any).role = (user as any).role;
         (token as any).hrAddon = (user as any).hrAddon ?? false;
         (token as any).adminAddon = (user as any).adminAddon ?? false;
         (token as any).status = (user as any).status;
         (token as any).teamId = (user as any).teamId ?? null;
+        (token as any).iat = nowSeconds;
       }
       return token;
     },
     async session({ session, token }) {
+      const issuedAt = Number((token as any).iat);
+      if (Number.isFinite(issuedAt) && Math.floor(Date.now() / 1000) - issuedAt > SESSION_MAX_AGE_SECONDS) {
+        session.expires = new Date(0).toISOString();
+        return session;
+      }
       if (session.user) {
         (session.user as any).id = token.sub ?? (session.user as any).id;
         (session.user as any).role = (token as any).role ?? "USER";

@@ -6,6 +6,13 @@ export type ActionResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string; code?: string };
 
+export function sanitizeText(input: string, maxLength: number): string {
+  return String(input ?? "")
+    .trim()
+    .slice(0, maxLength)
+    .replace(/[\u0000-\u001F\u007F]/g, "");
+}
+
 function isFrameworkControlFlowError(err: unknown) {
   if (!err || typeof err !== "object") return false;
   const digest = "digest" in err ? (err as { digest?: unknown }).digest : undefined;

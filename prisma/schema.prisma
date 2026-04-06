@@ -852,6 +852,7 @@ model HrNotification {
   processCandidate HrProcessCandidate? @relation(fields: [processCandidateId], references: [id], onDelete: Cascade)
 
   @@index([userId, isRead, createdAt])
+  @@index([userId, createdAt])
   @@index([processId])
   @@index([processCandidateId])
 }

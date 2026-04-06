@@ -12,7 +12,7 @@ import { ORG_STRUCTURE_CACHE_TAG, ORG_USERS_CACHE_TAG, SETTINGS_CACHE_TAG } from
 import { importLegacyDataset } from "@/server/legacy-import";
 import { logError, logInfo } from "@/server/log";
 import { isHrModuleEnabled } from "@/server/features";
-import { withAction } from "@/server/action-utils";
+import { sanitizeText, withAction } from "@/server/action-utils";
 
 const roleSchema = z.enum(["MANAGER", "USER"]);
 const statusSchema = z.enum(["ACTIVE", "INACTIVE"]);
@@ -71,7 +71,7 @@ export async function createTeamAction(formData: FormData) {
   await requireAdminUser();
 
   const nameRaw = String(formData.get("name") ?? "");
-  const name = nameRaw.trim();
+  const name = sanitizeText(nameRaw, 160);
   if (name.length < 2) redirectError("/admin/teams", "Naziv tima je obavezan.");
 
   try {
@@ -136,7 +136,7 @@ export async function createUserAction(formData: FormData) {
 
   const email = normalizeEmail(emailRaw);
   const name = nameRaw.trim();
-  const position = positionRaw.trim() || null;
+  const position = sanitizeText(positionRaw, 160) || null;
   const teamId = teamIdRaw.trim() || null;
   const managerId = managerIdRaw.trim() || null;
   const password = passwordRaw.trim() || null;
@@ -241,7 +241,7 @@ export async function updateUserAction(formData: FormData) {
 
   const name = nameRaw.trim();
   if (name.length < 2) redirectError("/admin/users", "Ime mora imati bar 2 karaktera.");
-  const position = positionRaw.trim() || null;
+  const position = sanitizeText(positionRaw, 160) || null;
   const teamId = teamIdRaw.trim() || null;
   const managerId = managerIdRaw.trim() || null;
   const employmentDate = employmentDateRaw.trim() ? new Date(`${employmentDateRaw.trim()}T00:00:00`) : null;

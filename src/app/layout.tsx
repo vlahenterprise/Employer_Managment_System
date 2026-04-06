@@ -3,6 +3,7 @@ import { getBrandingSettings, getThemeCssVars } from "@/server/settings";
 import { getRequestLang } from "@/i18n/server";
 import LangToggle from "@/components/LangToggle";
 import AppNavigation from "@/components/AppNavigation";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { getCurrentUser } from "@/server/current-user";
 import { getPrimaryNavigation } from "@/server/navigation";
 import { Inter } from "next/font/google";
@@ -55,7 +56,9 @@ export default async function RootLayout({
               lang={lang}
             />
           ) : null}
-          <div className="app-main">{children}</div>
+          <ErrorBoundary>
+            <div className="app-main">{children}</div>
+          </ErrorBoundary>
         </div>
       </body>
     </html>

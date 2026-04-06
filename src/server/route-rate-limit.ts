@@ -9,6 +9,7 @@ type RouteBucket = {
 const globalForRateLimit = globalThis as typeof globalThis & {
   __routeRateLimitBuckets?: Map<string, RouteBucket>;
   __upstashRatelimit?: any;
+  __routeRateLimitWarnedMissingUpstash?: boolean;
 };
 
 function getBuckets() {
@@ -20,6 +21,12 @@ function getBuckets() {
 
 async function getUpstashRatelimit() {
   if (!config.rateLimit.upstashRedisUrl || !config.rateLimit.upstashRedisToken) {
+    if (process.env.NODE_ENV !== "production" && !globalForRateLimit.__routeRateLimitWarnedMissingUpstash) {
+      globalForRateLimit.__routeRateLimitWarnedMissingUpstash = true;
+      console.warn(
+        "[route-rate-limit] Upstash Redis is not configured; using in-memory fallback for local/dev rate limiting."
+      );
+    }
     return null;
   }
   if (!globalForRateLimit.__upstashRatelimit) {
@@ -35,6 +42,10 @@ async function getUpstashRatelimit() {
     });
   }
   return globalForRateLimit.__upstashRatelimit;
+}
+
+export function isDistributedRateLimitEnabled(): boolean {
+  return Boolean(config.rateLimit.upstashRedisUrl && config.rateLimit.upstashRedisToken);
 }
 
 export async function checkRouteRateLimit(params: {

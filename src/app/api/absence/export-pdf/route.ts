@@ -350,7 +350,29 @@ export async function GET(req: Request) {
   const filenameSafe = `Absence_${scopeLabel}_${year}.pdf`.replaceAll(" ", "_");
 
   try {
-    return await renderPdfResponse({ html, filename: filenameSafe, requestId: rateLimit.requestId });
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+    const pdfPromise = renderPdfResponse({ html, filename: filenameSafe, requestId: rateLimit.requestId }).finally(
+      () => {
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+      }
+    );
+    const timeoutPromise = new Promise<Response>((resolve) => {
+      timeoutHandle = setTimeout(() => {
+        logWarn("absence.pdf.timeout", {
+          requestId: rateLimit.requestId,
+          actorId: actor.id,
+          scope: scopeRaw,
+          timeoutMs: config.pdf.renderTimeoutMs
+        });
+        resolve(
+          Response.json(
+            { error: "PDF_TIMEOUT", message: "Report generation timed out. Please try again." },
+            { status: 504, headers: { "x-request-id": rateLimit.requestId } }
+          )
+        );
+      }, config.pdf.renderTimeoutMs);
+    });
+    return await Promise.race([pdfPromise, timeoutPromise]);
   } catch (error) {
     logError("absence.pdf.failed", error, {
       requestId: rateLimit.requestId,

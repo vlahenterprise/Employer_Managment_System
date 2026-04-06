@@ -48,6 +48,10 @@ function parseNonNegativeInt(value: string | undefined, defaultValue: number) {
   return parsed;
 }
 
+if (env.NODE_ENV === "production" && !(env.CRON_SECRET?.trim())) {
+  throw new Error("CRON_SECRET must be set in production");
+}
+
 export const config = {
   database: {
     url: env.DATABASE_URL,
