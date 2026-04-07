@@ -505,6 +505,231 @@ export async function sendPasswordResetEmail(params: {
   });
 }
 
+function userManagerLabel(manager: { name: string; email: string } | null | undefined) {
+  return manager ? `${manager.name} <${manager.email}>` : "Nije postavljen";
+}
+
+function userTeamLabel(team: { name: string } | null | undefined) {
+  return team?.name || "Nije postavljen";
+}
+
+function userPositionLabel(position: string | null | undefined) {
+  return position || "Nije postavljena";
+}
+
+async function loadUserAccountEmailData(userId: string) {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      status: true,
+      position: true,
+      employmentDate: true,
+      jobDescriptionUrl: true,
+      workInstructionsUrl: true,
+      team: { select: { name: true } },
+      manager: { select: { name: true, email: true } }
+    }
+  });
+}
+
+export async function notifyUserCreated(params: { userId: string; initialPassword?: string | null }) {
+  try {
+    const user = await loadUserAccountEmailData(params.userId);
+    if (!user) return;
+
+    const settings = await getGoogleWorkspaceSettings();
+    if (!settings.emailEnabled || !isGoogleWorkspaceConfigured()) return;
+
+    const passwordLabel = params.initialPassword?.trim()
+      ? params.initialPassword.trim()
+      : "Lozinka nije postavljena. Koristi opciju „Zaboravili ste lozinku?” na login strani.";
+    const loginUrl = `${baseUrl()}/login`;
+    const subject = "EMS · Kreiran je tvoj korisnički nalog";
+    const employmentDate = user.employmentDate ? formatInTimeZone(user.employmentDate, APP_TIMEZONE, "yyyy-MM-dd") : "";
+    const text = [
+      `Zdravo ${user.name},`,
+      "",
+      "Kreiran je tvoj korisnički nalog u EMS aplikaciji.",
+      `Korisničko ime: ${user.email}`,
+      `Lozinka: ${passwordLabel}`,
+      `Rola: ${user.role}`,
+      `Status: ${user.status}`,
+      `Tim: ${userTeamLabel(user.team)}`,
+      `Pozicija: ${userPositionLabel(user.position)}`,
+      `Nadređeni: ${userManagerLabel(user.manager)}`,
+      employmentDate ? `Datum zaposlenja: ${employmentDate}` : "",
+      user.jobDescriptionUrl ? `Opis posla: ${user.jobDescriptionUrl}` : "",
+      user.workInstructionsUrl ? `Radne instrukcije: ${user.workInstructionsUrl}` : "",
+      "",
+      "Preporuka: nakon prvog logina promeni lozinku u My Profile → Bezbednost naloga.",
+      "",
+      loginUrl
+    ]
+      .filter(Boolean)
+      .join("\n");
+    const html = renderBrandedEmail({
+      settings,
+      tone: "task",
+      eyebrow: "Novi nalog",
+      title: "Kreiran je tvoj EMS nalog",
+      intro: `Zdravo ${user.name}, tvoj korisnički nalog je spreman za korišćenje.`,
+      rows: [
+        { label: "Korisničko ime", value: user.email },
+        { label: "Lozinka", value: passwordLabel },
+        { label: "Rola", value: user.role },
+        { label: "Status", value: user.status },
+        { label: "Tim", value: userTeamLabel(user.team) },
+        { label: "Pozicija", value: userPositionLabel(user.position) },
+        { label: "Nadređeni", value: userManagerLabel(user.manager) },
+        { label: "Datum zaposlenja", value: employmentDate },
+        { label: "Opis posla", value: user.jobDescriptionUrl || "" },
+        { label: "Radne instrukcije", value: user.workInstructionsUrl || "" }
+      ],
+      ctaLabel: "Otvori EMS",
+      ctaHref: loginUrl,
+      footer: "Ovo je automatska EMS notifikacija za korisnički nalog."
+    });
+
+    await deliverEmailOnce({
+      entityType: "USER",
+      entityId: user.id,
+      dedupeKey: `user:${user.id}:created:${user.email}`,
+      to: user.email,
+      subject,
+      text,
+      html,
+      settings
+    });
+  } catch (error) {
+    logError("google_workspace.user.created_email_failed", error, { userId: params.userId });
+  }
+}
+
+export async function notifyUserPasswordSet(params: { userId: string; password: string }) {
+  try {
+    const user = await loadUserAccountEmailData(params.userId);
+    if (!user) return;
+
+    const settings = await getGoogleWorkspaceSettings();
+    if (!settings.emailEnabled || !isGoogleWorkspaceConfigured()) return;
+
+    const loginUrl = `${baseUrl()}/login`;
+    const subject = "EMS · Lozinka je postavljena";
+    const text = [
+      `Zdravo ${user.name},`,
+      "",
+      "Administrator je postavio ili promenio lozinku za tvoj EMS nalog.",
+      `Korisničko ime: ${user.email}`,
+      `Lozinka: ${params.password}`,
+      "",
+      "Preporuka: nakon logina promeni lozinku u My Profile → Bezbednost naloga.",
+      "",
+      loginUrl
+    ].join("\n");
+    const html = renderBrandedEmail({
+      settings,
+      tone: "reminder",
+      eyebrow: "Bezbednost naloga",
+      title: "Lozinka je postavljena",
+      intro: `Zdravo ${user.name}, administrator je postavio ili promenio lozinku za tvoj EMS nalog.`,
+      rows: [
+        { label: "Korisničko ime", value: user.email },
+        { label: "Lozinka", value: params.password }
+      ],
+      ctaLabel: "Otvori EMS",
+      ctaHref: loginUrl,
+      footer: "Ovo je automatska EMS notifikacija za korisnički nalog."
+    });
+
+    await deliverEmailOnce({
+      entityType: "USER",
+      entityId: user.id,
+      dedupeKey: `user:${user.id}:password-set:${Date.now()}:${user.email}`,
+      to: user.email,
+      subject,
+      text,
+      html,
+      settings
+    });
+  } catch (error) {
+    logError("google_workspace.user.password_email_failed", error, { userId: params.userId });
+  }
+}
+
+export async function notifyUserOrganizationChanged(params: {
+  userId: string;
+  previous: {
+    position?: string | null;
+    teamName?: string | null;
+    managerName?: string | null;
+    managerEmail?: string | null;
+  };
+}) {
+  try {
+    const user = await loadUserAccountEmailData(params.userId);
+    if (!user) return;
+
+    const settings = await getGoogleWorkspaceSettings();
+    if (!settings.emailEnabled || !isGoogleWorkspaceConfigured()) return;
+
+    const newManager = userManagerLabel(user.manager);
+    const previousManager = params.previous.managerName
+      ? `${params.previous.managerName}${params.previous.managerEmail ? ` <${params.previous.managerEmail}>` : ""}`
+      : "Nije postavljen";
+    const profileUrl = `${baseUrl()}/profile`;
+    const subject = "EMS · Ažurirana je tvoja organizaciona pozicija";
+    const text = [
+      `Zdravo ${user.name},`,
+      "",
+      "Ažurirana je tvoja organizaciona pozicija u EMS aplikaciji.",
+      `Nova pozicija: ${userPositionLabel(user.position)}`,
+      `Novi tim: ${userTeamLabel(user.team)}`,
+      `Novi nadređeni: ${newManager}`,
+      "",
+      `Prethodna pozicija: ${userPositionLabel(params.previous.position)}`,
+      `Prethodni tim: ${params.previous.teamName || "Nije postavljen"}`,
+      `Prethodni nadređeni: ${previousManager}`,
+      "",
+      profileUrl
+    ].join("\n");
+    const html = renderBrandedEmail({
+      settings,
+      tone: "task",
+      eyebrow: "Organizaciona promena",
+      title: "Ažurirana je tvoja pozicija",
+      intro: `Zdravo ${user.name}, tvoj tim, pozicija ili direktni nadređeni su ažurirani u EMS sistemu.`,
+      rows: [
+        { label: "Nova pozicija", value: userPositionLabel(user.position) },
+        { label: "Novi tim", value: userTeamLabel(user.team) },
+        { label: "Novi nadređeni", value: newManager },
+        { label: "Prethodna pozicija", value: userPositionLabel(params.previous.position) },
+        { label: "Prethodni tim", value: params.previous.teamName || "Nije postavljen" },
+        { label: "Prethodni nadređeni", value: previousManager }
+      ],
+      ctaLabel: "Otvori profil",
+      ctaHref: profileUrl,
+      footer: "Ovo je automatska EMS notifikacija za organizacione promene."
+    });
+
+    await deliverEmailOnce({
+      entityType: "USER",
+      entityId: user.id,
+      dedupeKey: `user:${user.id}:org-change:${Date.now()}:${user.email}`,
+      to: user.email,
+      subject,
+      text,
+      html,
+      settings
+    });
+  } catch (error) {
+    logError("google_workspace.user.org_change_email_failed", error, { userId: params.userId });
+  }
+}
+
 async function upsertCalendarEvent(params: {
   entityType: string;
   entityId: string;

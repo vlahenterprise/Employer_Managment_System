@@ -14,6 +14,7 @@ import { logError, logInfo } from "@/server/log";
 import { isHrModuleEnabled } from "@/server/features";
 import { sanitizeText, withAction } from "@/server/action-utils";
 import { passwordSchema } from "@/server/validation";
+import { notifyUserCreated, notifyUserOrganizationChanged, notifyUserPasswordSet } from "@/server/google-workspace";
 
 const roleSchema = z.enum(["MANAGER", "USER"]);
 const statusSchema = z.enum(["ACTIVE", "INACTIVE"]);
@@ -168,8 +169,9 @@ export async function createUserAction(formData: FormData) {
 
   const passwordHash = password ? await bcrypt.hash(password, 12) : null;
 
+  let createdUserId = "";
   try {
-    await prisma.user.create({
+    const created = await prisma.user.create({
       data: {
         email,
         name,
@@ -185,11 +187,15 @@ export async function createUserAction(formData: FormData) {
         teamId,
         managerId,
         passwordHash
-      }
+      },
+      select: { id: true }
     });
+    createdUserId = created.id;
   } catch {
     redirectError("/admin/users", "Korisnik sa tim email-om već postoji ili su podaci neispravni.");
   }
+
+  await notifyUserCreated({ userId: createdUserId, initialPassword: password });
 
   revalidatePath("/admin/users");
   revalidateOrgUsersData();
@@ -266,6 +272,18 @@ export async function updateUserAction(formData: FormData) {
     redirectError("/admin/users", "Korisnik ne može biti sam sebi manager.");
   }
 
+  const previousUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      position: true,
+      teamId: true,
+      managerId: true,
+      team: { select: { name: true } },
+      manager: { select: { name: true, email: true } }
+    }
+  });
+  if (!previousUser) redirectError("/admin/users", "Korisnik nije pronađen.");
+
   try {
     await prisma.user.update({
       where: { id: userId },
@@ -286,6 +304,19 @@ export async function updateUserAction(formData: FormData) {
     });
   } catch {
     redirectError("/admin/users", "Ne mogu da sačuvam izmene (proveri podatke).");
+  }
+
+  const orgChanged = previousUser.position !== position || previousUser.teamId !== teamId || previousUser.managerId !== managerId;
+  if (orgChanged) {
+    await notifyUserOrganizationChanged({
+      userId,
+      previous: {
+        position: previousUser.position,
+        teamName: previousUser.team?.name ?? null,
+        managerName: previousUser.manager?.name ?? null,
+        managerEmail: previousUser.manager?.email ?? null
+      }
+    });
   }
 
   revalidatePath("/admin/users");
@@ -318,6 +349,8 @@ export async function setUserPasswordAction(formData: FormData) {
   } catch {
     redirectError("/admin/users", "Ne mogu da postavim lozinku.");
   }
+
+  await notifyUserPasswordSet({ userId, password: parsedPassword.data });
 
   revalidatePath("/admin/users");
   redirectSuccess("/admin/users", "Lozinka je postavljena.");
