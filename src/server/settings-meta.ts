@@ -592,6 +592,17 @@ export const KNOWN_SETTINGS: SettingMeta[] = [
     placeholder: "1"
   },
   {
+    key: "GoogleWorkspaceTaskDecisionEmailEnabled",
+    group: "Integrations",
+    type: "boolean",
+    label: { sr: "Email za odluku o tasku", en: "Email for task decisions" },
+    description: {
+      sr: "Šalje email zaposlenom kada je task odobren, vraćen na doradu ili otkazan.",
+      en: "Sends an email to the employee when a task is approved, returned, or cancelled."
+    },
+    placeholder: "1"
+  },
+  {
     key: "GoogleWorkspaceAbsenceDecisionEmailEnabled",
     group: "Integrations",
     type: "boolean",

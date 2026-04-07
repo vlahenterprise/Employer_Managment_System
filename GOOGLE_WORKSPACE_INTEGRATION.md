@@ -37,6 +37,7 @@ Never commit real Google secrets or refresh tokens.
 - Approved absences create/update an all-day blocker event in the configured Google Calendar.
 - Rejected/cancelled absences delete the linked Google Calendar event when one exists.
 - Task creation sends a branded HTML email to the assignee and creates/updates a due-date calendar reminder event.
+- Task approval, return, and cancellation send a branded HTML decision email to the assignee.
 - Approved/cancelled tasks delete their due-date calendar event.
 - Hourly Google Workspace cron sends deduplicated due-date reminder emails for tasks due in the next 24 hours.
 
@@ -49,6 +50,7 @@ The integration can be tuned from `Admin -> Settings -> Integrations` without ch
 - Enable/disable Google Calendar task due-date events.
 - Override the Google Calendar ID if needed.
 - Enable/disable task-created, absence-decision, and due-date reminder emails.
+- Enable/disable task decision emails for approved, returned, and cancelled tasks.
 - Set the task reminder time, default `09:00`.
 - Set the task reminder duration, default `15` minutes.
 - Choose whether task reminders block the calendar; default is `Free`.

@@ -94,6 +94,7 @@ export default async function AbsencePage({
 
   const isManager = isManagerRole(user.role);
   const isAdmin = isLegacyAdminRole(user.role);
+  const canReviewAbsences = isAdmin || isManager;
 
   const rangeDefault = defaultMonthRange();
   const fromIso = String(searchParams.fromIso || rangeDefault.fromIso).trim();
@@ -109,7 +110,7 @@ export default async function AbsencePage({
   const [remaining, myReq, approvals, stats, teams, cal] = await Promise.all([
     getAbsenceRemaining({ id: user.id }),
     getMyAbsenceRequests({ id: user.id }),
-    isManager ? getAbsenceApprovals({ id: user.id, role: user.role }) : Promise.resolve({ ok: true as const, items: [] as any[] }),
+    canReviewAbsences ? getAbsenceApprovals({ id: user.id, role: user.role }) : Promise.resolve({ ok: true as const, items: [] as any[] }),
     isAdmin || isManager
       ? getAbsenceManagerStats({ id: user.id, role: user.role })
       : Promise.resolve({ ok: true as const, year: new Date().getFullYear(), items: [] as any[] }),
@@ -135,10 +136,10 @@ export default async function AbsencePage({
   const guide = lang === "sr"
     ? {
         title: "Kako da koristiš odsustva",
-        description: isAdmin || isManager
+        description: canReviewAbsences
           ? "Prvo proveri dostupnost tima i pending zahteve, pa onda rešavaj pojedinačne odluke."
           : "Prvo proveri preostale dane i kalendar tima, pa onda pošalji zahtev za odsustvo.",
-        items: isAdmin || isManager
+        items: canReviewAbsences
           ? [
               "Kalendar pokazuje ko je odsutan i gde može nastati preklapanje.",
               "Pending zahtevi čekaju tvoje odobrenje ili odbijanje.",
@@ -152,10 +153,10 @@ export default async function AbsencePage({
       }
     : {
         title: "How to use absence",
-        description: isAdmin || isManager
+        description: canReviewAbsences
           ? "Start with team availability and pending requests, then resolve individual decisions."
           : "Start with your remaining balance and team calendar, then submit the absence request.",
-        items: isAdmin || isManager
+        items: canReviewAbsences
           ? [
               "The calendar shows who is away and where overlaps may happen.",
               "Pending requests are waiting for your approval or rejection.",
@@ -188,7 +189,7 @@ export default async function AbsencePage({
                 <a className="button button-secondary" href={pdfSelfHref} target="_blank" rel="noreferrer">
                   <IconPdf size={18} /> {t.absence.exportPdfSelf}
                 </a>
-                {isAdmin || isManager ? (
+                {canReviewAbsences ? (
                   <a className="button" href={pdfTeamHref} target="_blank" rel="noreferrer">
                     <IconPdf size={18} /> {t.absence.exportPdfTeam}
                   </a>
@@ -424,7 +425,7 @@ export default async function AbsencePage({
           )}
         </section>
 
-        {isAdmin ? (
+        {canReviewAbsences ? (
           <section className="panel stack">
             <div className="section-head">
               <div>
@@ -433,15 +434,15 @@ export default async function AbsencePage({
                     label={t.absence.approvalsTitle}
                     tooltip={
                       lang === "sr"
-                        ? "Ovde rešavaš sve zahteve koji čekaju odluku. Otvori zahtev, proveri period i ostavi komentar uz odobrenje ili odbijanje."
-                        : "This is where you resolve requests waiting for a decision. Open the request, review the period, and leave a comment with the approval or rejection."
+                        ? "Ovde rešavaš zahteve koji čekaju tvoju odluku. Otvori zahtev, proveri period i ostavi komentar uz odobrenje ili odbijanje."
+                        : "This is where you resolve requests waiting for your decision. Open the request, review the period, and leave a comment with the approval or rejection."
                     }
                   />
                 </h2>
                 <div className="muted small">
                   {lang === "sr"
-                    ? "Lista zahteva koji trenutno čekaju odluku administratora ili odgovornog odobravaoca."
-                    : "A queue of requests currently waiting for the administrator or approver decision."}
+                    ? "Lista zahteva koji trenutno čekaju odluku odgovornog menadžera."
+                    : "A queue of requests currently waiting for the responsible manager decision."}
                 </div>
               </div>
               <div className="pills">

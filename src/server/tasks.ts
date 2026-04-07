@@ -7,7 +7,7 @@ import { formatInTimeZone, fromZonedTime } from "@/server/time";
 import { normalizeIsoDate } from "./iso-date";
 import { getScopedEmployeeIds, isAdminRole, isManagerRole } from "./rbac";
 import { idSchema, isoDateSchema, requiredTextSchema } from "./validation";
-import { notifyTaskCreated, syncTaskDueCalendarEvent } from "./google-workspace";
+import { notifyTaskCreated, notifyTaskDecision, syncTaskDueCalendarEvent } from "./google-workspace";
 
 function normalizeEmail(value: string) {
   return String(value || "").trim().toLowerCase();
@@ -541,7 +541,16 @@ export async function approveTaskAction(params: {
     }
   });
 
-  await syncTaskDueCalendarEvent(taskId);
+  await Promise.all([
+    syncTaskDueCalendarEvent(taskId),
+    notifyTaskDecision({
+      taskId,
+      decision: "APPROVED",
+      actorName: params.actor.name,
+      actorEmail: params.actor.email,
+      comment
+    })
+  ]);
 
   return { ok: true as const };
 }
@@ -584,6 +593,14 @@ export async function returnTaskAction(params: {
       actorName: params.actor.name,
       comment
     }
+  });
+
+  await notifyTaskDecision({
+    taskId,
+    decision: "RETURNED",
+    actorName: params.actor.name,
+    actorEmail: params.actor.email,
+    comment
   });
 
   return { ok: true as const, returnedCount: next };
@@ -629,7 +646,16 @@ export async function cancelTaskAction(params: {
     }
   });
 
-  await syncTaskDueCalendarEvent(taskId);
+  await Promise.all([
+    syncTaskDueCalendarEvent(taskId),
+    notifyTaskDecision({
+      taskId,
+      decision: "CANCELLED",
+      actorName: params.actor.name,
+      actorEmail: params.actor.email,
+      comment
+    })
+  ]);
 
   return { ok: true as const };
 }

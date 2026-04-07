@@ -179,6 +179,7 @@ type GoogleWorkspaceRuntimeSettings = {
   calendarEnabled: boolean;
   taskCalendarEnabled: boolean;
   taskCreatedEmailEnabled: boolean;
+  taskDecisionEmailEnabled: boolean;
   absenceDecisionEmailEnabled: boolean;
   dueReminderEmailEnabled: boolean;
   taskReminderTime: string;
@@ -243,6 +244,7 @@ async function getGoogleWorkspaceSettings(): Promise<GoogleWorkspaceRuntimeSetti
     taskCalendarEnabled:
       config.googleWorkspace.taskCalendarEnabled && parseBoolSetting(map.GoogleWorkspaceTaskCalendarEnabled, true),
     taskCreatedEmailEnabled: parseBoolSetting(map.GoogleWorkspaceTaskCreatedEmailEnabled, true),
+    taskDecisionEmailEnabled: parseBoolSetting(map.GoogleWorkspaceTaskDecisionEmailEnabled, true),
     absenceDecisionEmailEnabled: parseBoolSetting(map.GoogleWorkspaceAbsenceDecisionEmailEnabled, true),
     dueReminderEmailEnabled: parseBoolSetting(map.GoogleWorkspaceDueReminderEmailEnabled, true),
     taskReminderTime: parseTimeSetting(map.GoogleWorkspaceTaskReminderTime, "09:00"),
@@ -789,6 +791,86 @@ export async function notifyTaskCreated(taskId: string) {
     });
   } catch (error) {
     logError("google_workspace.task.email_failed", error, { taskId });
+  }
+}
+
+export async function notifyTaskDecision(params: {
+  taskId: string;
+  decision: "APPROVED" | "RETURNED" | "CANCELLED";
+  actorName: string;
+  actorEmail: string;
+  comment?: string | null;
+}) {
+  try {
+    const task = await prisma.task.findUnique({
+      where: { id: params.taskId },
+      select: {
+        id: true,
+        title: true,
+        dueDate: true,
+        priority: true,
+        assignee: { select: { name: true, email: true } }
+      }
+    });
+    if (!task) return;
+
+    const settings = await getGoogleWorkspaceSettings();
+    if (!settings.taskDecisionEmailEnabled) return;
+
+    const decisionLabel =
+      params.decision === "APPROVED" ? "odobren" : params.decision === "RETURNED" ? "vraćen na doradu" : "otkazan";
+    const decisionTitle =
+      params.decision === "APPROVED" ? "Task je odobren" : params.decision === "RETURNED" ? "Task je vraćen" : "Task je otkazan";
+    const dueLabel = task.dueDate ? formatInTimeZone(task.dueDate, APP_TIMEZONE, "yyyy-MM-dd") : "";
+    const managerComment = String(params.comment || "").trim();
+    const actorDisplay = params.actorEmail ? `${params.actorName} <${params.actorEmail}>` : params.actorName;
+    const subject = `EMS · ${decisionTitle}: ${task.title}`;
+    const text = [
+      `Zdravo ${task.assignee.name},`,
+      "",
+      `${decisionTitle}.`,
+      `Naziv: ${task.title}`,
+      `Status: ${decisionLabel}`,
+      `Prioritet: ${task.priority}`,
+      dueLabel ? `Rok: ${dueLabel}` : "",
+      `Obradio/la: ${actorDisplay}`,
+      managerComment ? `Komentar menadžera: ${managerComment}` : "",
+      "",
+      `${baseUrl()}/tasks`
+    ]
+      .filter(Boolean)
+      .join("\n");
+    const html = renderBrandedEmail({
+      settings,
+      tone: params.decision === "APPROVED" ? "absence-ok" : "absence-danger",
+      eyebrow: "Task odluka",
+      title: `${decisionTitle}: ${task.title}`,
+      intro: `Zdravo ${task.assignee.name}, status taska je ažuriran u EMS sistemu.`,
+      rows: [
+        { label: "Status", value: decisionLabel },
+        { label: "Zadužen/a", value: task.assignee.name },
+        { label: "Obradio/la", value: actorDisplay },
+        { label: "Prioritet", value: task.priority },
+        { label: "Rok", value: dueLabel || "—" },
+        { label: "Komentar menadžera", value: managerComment }
+      ],
+      ctaLabel: "Otvori taskove",
+      ctaHref: `${baseUrl()}/tasks`,
+      footer: settings.taskFooter
+    });
+
+    await deliverEmailOnce({
+      entityType: "TASK",
+      entityId: task.id,
+      dedupeKey: `task:${task.id}:decision:${params.decision}:${task.assignee.email}`,
+      to: task.assignee.email,
+      subject,
+      text,
+      html,
+      settings
+    });
+  } catch (error) {
+    logError("google_workspace.task.decision_email_failed", error, { taskId: params.taskId, decision: params.decision });
   }
 }
 
