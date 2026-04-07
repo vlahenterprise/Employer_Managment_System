@@ -19,7 +19,15 @@ const envSchema = z.object({
   CHROMIUM_PACK_URL: z.string().optional(),
   ENABLE_HR_MODULE: z.string().optional(),
   UPSTASH_REDIS_REST_URL: z.string().optional(),
-  UPSTASH_REDIS_REST_TOKEN: z.string().optional()
+  UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
+  GOOGLE_WORKSPACE_CLIENT_ID: z.string().optional(),
+  GOOGLE_WORKSPACE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_WORKSPACE_REFRESH_TOKEN: z.string().optional(),
+  GOOGLE_WORKSPACE_BOT_EMAIL: z.string().optional(),
+  GOOGLE_WORKSPACE_CALENDAR_ID: z.string().optional(),
+  GOOGLE_WORKSPACE_EMAIL_ENABLED: z.string().optional(),
+  GOOGLE_WORKSPACE_CALENDAR_ENABLED: z.string().optional(),
+  GOOGLE_WORKSPACE_TASK_CALENDAR_ENABLED: z.string().optional()
 });
 
 export const env = envSchema.parse(process.env);
@@ -84,5 +92,15 @@ export const config = {
   },
   features: {
     hrModuleEnabled: parseBool(env.ENABLE_HR_MODULE, false)
+  },
+  googleWorkspace: {
+    clientId: env.GOOGLE_WORKSPACE_CLIENT_ID?.trim() || "",
+    clientSecret: env.GOOGLE_WORKSPACE_CLIENT_SECRET?.trim() || "",
+    refreshToken: env.GOOGLE_WORKSPACE_REFRESH_TOKEN?.trim() || "",
+    botEmail: env.GOOGLE_WORKSPACE_BOT_EMAIL?.trim() || "",
+    calendarId: env.GOOGLE_WORKSPACE_CALENDAR_ID?.trim() || "",
+    emailEnabled: parseBool(env.GOOGLE_WORKSPACE_EMAIL_ENABLED, true),
+    calendarEnabled: parseBool(env.GOOGLE_WORKSPACE_CALENDAR_ENABLED, true),
+    taskCalendarEnabled: parseBool(env.GOOGLE_WORKSPACE_TASK_CALENDAR_ENABLED, true)
   }
 };

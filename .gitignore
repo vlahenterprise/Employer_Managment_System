@@ -28,3 +28,12 @@ pnpm-debug.log*
 # prisma
 /prisma/dev.db
 .vercel
+
+# claude code
+.claude/
+
+# temp / output
+/tmp/
+/output/
+scripts/guides/
+scripts/capture-test.mjs

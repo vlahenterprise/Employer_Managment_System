@@ -882,6 +882,47 @@ model HrAuditLog {
   @@index([action])
 }
 
+model ExternalCalendarEvent {
+  id            String   @id @default(cuid())
+  entityType    String
+  entityId      String
+  calendarId    String
+  googleEventId String
+  status        String   @default("ACTIVE")
+  lastSyncedAt  DateTime @default(now())
+  errorMessage  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([entityType, entityId, calendarId])
+  @@index([entityType, entityId])
+  @@index([calendarId])
+  @@index([status, lastSyncedAt])
+}
+
+model NotificationDelivery {
+  id                String    @id @default(cuid())
+  channel           String
+  provider          String    @default("GOOGLE_WORKSPACE")
+  entityType        String
+  entityId          String
+  recipientEmail    String
+  subject           String
+  status            String    @default("PENDING")
+  dedupeKey         String    @unique
+  providerMessageId String?
+  scheduledAt       DateTime  @default(now())
+  sentAt            DateTime?
+  failedAt          DateTime?
+  errorMessage      String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([status, scheduledAt])
+  @@index([entityType, entityId])
+  @@index([recipientEmail, createdAt])
+}
+
 model Setting {
   key       String   @id
   value     String
