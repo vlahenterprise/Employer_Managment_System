@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -94,6 +95,12 @@ export default function LoginForm({ lang, googleEnabled }: { lang: Lang; googleE
             required
           />
         </label>
+
+        <div className="inline" style={{ justifyContent: "flex-end" }}>
+          <Link className="muted small" href="/forgot-password">
+            {t.login.forgotPassword}
+          </Link>
+        </div>
 
         {error ? <div className="error">{error}</div> : null}
 

@@ -457,6 +457,54 @@ async function deliverEmailOnce(params: {
   });
 }
 
+export async function sendPasswordResetEmail(params: {
+  to: string;
+  name: string;
+  resetUrl: string;
+  tokenId: string;
+  expiresMinutes: number;
+}) {
+  const settings = await getGoogleWorkspaceSettings();
+  if (!settings.emailEnabled || !isGoogleWorkspaceConfigured()) return;
+
+  const subject = "EMS · Reset lozinke";
+  const text = [
+    `Zdravo ${params.name},`,
+    "",
+    "Zatražen je reset lozinke za tvoj EMS nalog.",
+    `Link važi ${params.expiresMinutes} minuta i može da se iskoristi samo jednom.`,
+    "",
+    params.resetUrl,
+    "",
+    "Ako ti nisi tražio/la reset lozinke, ignoriši ovaj email."
+  ].join("\n");
+  const html = renderBrandedEmail({
+    settings,
+    tone: "reminder",
+    eyebrow: "Bezbednost naloga",
+    title: "Reset lozinke",
+    intro: `Zdravo ${params.name}, zatražen je reset lozinke za tvoj EMS nalog.`,
+    rows: [
+      { label: "Važi", value: `${params.expiresMinutes} minuta` },
+      { label: "Sigurnost", value: "Link je jednokratan" }
+    ],
+    ctaLabel: "Promeni lozinku",
+    ctaHref: params.resetUrl,
+    footer: "Ako ti nisi tražio/la reset lozinke, ignoriši ovaj email."
+  });
+
+  await deliverEmailOnce({
+    entityType: "PASSWORD_RESET",
+    entityId: params.tokenId,
+    dedupeKey: `password-reset:${params.tokenId}:${params.to}`,
+    to: params.to,
+    subject,
+    text,
+    html,
+    settings
+  });
+}
+
 async function upsertCalendarEvent(params: {
   entityType: string;
   entityId: string;

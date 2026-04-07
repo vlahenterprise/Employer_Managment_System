@@ -1,12 +1,12 @@
 "use server";
 
-import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/server/db";
 import { requireActiveUser } from "@/server/current-user";
 import { revalidatePath } from "next/cache";
 import { passwordSchema } from "@/server/validation";
-import { logInfo, logWarn } from "@/server/log";
+import { logInfo } from "@/server/log";
+import { changeOwnPassword } from "@/server/password-reset";
 
 const changePasswordInputSchema = z.object({
   currentPassword: z.string().min(1, "REQUIRED"),
@@ -34,31 +34,15 @@ export async function changePasswordAction(formData: FormData) {
     return { ok: false as const, error: "PASSWORDS_DO_NOT_MATCH" };
   }
 
-  // Učitaj trenutni hash
-  const user = await prisma.user.findUnique({
-    where: { id: actor.id },
-    select: { passwordHash: true }
+  const result = await changeOwnPassword({
+    userId: actor.id,
+    currentPassword,
+    newPassword,
+    confirmPassword
   });
 
-  if (!user?.passwordHash) {
-    // Korisnici koji se prijavljuju samo Google-om nemaju lozinku
-    return { ok: false as const, error: "NO_PASSWORD_SET" };
-  }
+  if (!result.ok) return result;
 
-  const currentPasswordOk = await bcrypt.compare(currentPassword, user.passwordHash);
-  if (!currentPasswordOk) {
-    logWarn("profile.change_password.wrong_current", { userId: actor.id });
-    return { ok: false as const, error: "WRONG_CURRENT_PASSWORD" };
-  }
-
-  const newHash = await bcrypt.hash(newPassword, 12);
-
-  await prisma.user.update({
-    where: { id: actor.id },
-    data: { passwordHash: newHash, updatedAt: new Date() }
-  });
-
-  logInfo("profile.change_password.success", { userId: actor.id });
   revalidatePath("/profile");
   return { ok: true as const };
 }

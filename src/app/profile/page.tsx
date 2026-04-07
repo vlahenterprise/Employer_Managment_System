@@ -8,6 +8,7 @@ import UserMenu from "../dashboard/UserMenu";
 import { IconArrowLeft, IconArrowRight, IconCalendar, IconCheckCircle, IconTasks, IconUsers } from "@/components/icons";
 import { GuidancePanel } from "@/components/GuidancePanel";
 import { updateProfileLinksAction as _updateProfileLinksAction } from "./actions";
+import ChangePasswordForm from "./ChangePasswordForm";
 
 async function updateProfileLinksAction(formData: FormData): Promise<void> {
   "use server";
@@ -331,6 +332,8 @@ export default async function ProfilePage({
             ) : null}
           </section>
         </div>
+
+        {profile.isSelf ? <ChangePasswordForm lang={lang} /> : null}
       </div>
     </main>
   );
