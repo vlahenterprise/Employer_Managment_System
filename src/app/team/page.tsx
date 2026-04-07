@@ -5,6 +5,7 @@ import { getRequestLang } from "@/i18n/server";
 import { isHrModuleEnabled } from "@/server/features";
 import UserMenu from "../dashboard/UserMenu";
 import { IconArrowLeft, IconArrowRight, IconCalendar, IconTasks, IconUsers } from "@/components/icons";
+import { GuidancePanel } from "@/components/GuidancePanel";
 
 function copy(lang: "sr" | "en") {
   if (lang === "sr") {
@@ -22,7 +23,15 @@ function copy(lang: "sr" | "en") {
       profile: "Profil",
       reportSubmitted: "Predat",
       reportMissing: "Nedostaje",
-      noValue: "—"
+      noValue: "—",
+      guideTitle: "Kako da koristiš Team pregled",
+      guideDescription: "Ovo je brz menadžerski pregled tima — za odluke, ne za duboku administraciju.",
+      guideItems: [
+        "Nedostajući izveštaji pokazuju gde treba podsetnik ili provera.",
+        "Zakasneli taskovi pokazuju gde posao stoji ili treba podrška.",
+        "Odsutni danas pomaže da odmah vidiš dostupnost tima."
+      ],
+      emptyTeam: "Nema zaposlenih u tvom opsegu."
     };
   }
 
@@ -38,7 +47,17 @@ function copy(lang: "sr" | "en") {
     employees: "Employees",
     report: "Today report",
     profile: "Profile",
-    noValue: "—"
+    reportSubmitted: "Submitted",
+    reportMissing: "Missing",
+    noValue: "—",
+    guideTitle: "How to use Team",
+    guideDescription: "This is a fast manager view of the team — for decisions, not deep administration.",
+    guideItems: [
+      "Missing reports show where a reminder or check-in may be needed.",
+      "Overdue tasks show where work is stuck or support is needed.",
+      "Absent today helps you understand team availability immediately."
+    ],
+    emptyTeam: "No employees in your scope."
   };
 }
 
@@ -88,6 +107,8 @@ export default async function TeamPage() {
             lang={lang}
           />
         </div>
+
+        <GuidancePanel title={c.guideTitle} description={c.guideDescription} items={c.guideItems} />
 
         <div className={`${hrEnabled ? "grid4" : "grid3"} profile-metrics`}>
           <div className="item item-compact kpi-card">
@@ -147,6 +168,7 @@ export default async function TeamPage() {
                 </div>
               </div>
             ))}
+            {workspace.rows.length === 0 ? <div className="muted">{c.emptyTeam}</div> : null}
           </div>
         </section>
       </div>

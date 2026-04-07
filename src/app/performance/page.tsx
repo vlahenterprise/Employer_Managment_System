@@ -20,6 +20,7 @@ import {
   IconUsers
 } from "@/components/icons";
 import { isManagerRole } from "@/server/rbac";
+import { GuidancePanel } from "@/components/GuidancePanel";
 
 function isoToDate(iso: string) {
   const m = String(iso || "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -266,6 +267,37 @@ export default async function PerformancePage({
     const left = diffDaysIso(todayIso, selfDeadlineIso);
     return { pct, selfDeadlineIso, selfDaysLeft: left };
   };
+  const guide = lang === "sr"
+    ? {
+        title: "Kako da čitaš performance ciklus",
+        description: "Logika se ne menja: ciljevi nose 70%, personalna evaluacija 30%, a finalni rezultat može preći 100% jer goal score može ići do 200%.",
+        items: canViewTeam
+          ? [
+              "Open znači da zaposleni još radi self-assessment ili da ciklus nije završen.",
+              "Needs review znači da menadžer treba da unese finalne score-ove.",
+              "Closed/Locked je završen ciklus i koristi se za KPI/bonus vidljivost."
+            ]
+          : [
+              "U self-assessment-u ocenjuješ sebe po svakom cilju.",
+              "Menadžer daje finalni score po cilju i personalnu evaluaciju 1–10.",
+              "Finalni score ostaje KPI rezultat za kvartal kada ciklus bude zatvoren."
+            ]
+      }
+    : {
+        title: "How to read the performance cycle",
+        description: "The logic is unchanged: goals are 70%, personal evaluation is 30%, and the final result may exceed 100% because goal scores can go up to 200%.",
+        items: canViewTeam
+          ? [
+              "Open means the employee is still doing self-assessment or the cycle is not finished.",
+              "Needs review means the manager needs to enter final goal scores.",
+              "Closed/Locked is the finalized cycle used for KPI/bonus visibility."
+            ]
+          : [
+              "In self-assessment, you rate yourself for each goal.",
+              "The manager gives the final goal score and a 1–10 personal evaluation.",
+              "The final score remains the quarterly KPI result when the cycle is closed."
+            ]
+      };
 
   return (
     <main className="page">
@@ -298,6 +330,8 @@ export default async function PerformancePage({
         </div>
 
         {message && messageType ? <div className={messageType === "success" ? "success" : "error"}>{message}</div> : null}
+
+        <GuidancePanel title={guide.title} description={guide.description} items={guide.items} />
 
         {myWaitingSelf > 0 || teamNeedsReview > 0 || teamCritical > 0 ? (
           <div className={`notice ${teamCritical > 0 || teamNeedsReview > 0 ? "notice-warning" : "notice-neutral"}`}>

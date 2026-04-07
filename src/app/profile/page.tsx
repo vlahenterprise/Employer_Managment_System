@@ -6,6 +6,7 @@ import { getRequestLang } from "@/i18n/server";
 import { isHrModuleEnabled } from "@/server/features";
 import UserMenu from "../dashboard/UserMenu";
 import { IconArrowLeft, IconArrowRight, IconCalendar, IconCheckCircle, IconTasks, IconUsers } from "@/components/icons";
+import { GuidancePanel } from "@/components/GuidancePanel";
 
 function copy(lang: "sr" | "en") {
   if (lang === "sr") {
@@ -35,7 +36,14 @@ function copy(lang: "sr" | "en") {
       directReports: "Direktni članovi tima",
       currentCycle: "Aktuelni ciklus",
       activeOnboarding: "Aktivan onboarding",
-      noValue: "—"
+      noValue: "—",
+      guideTitle: "Kako da koristiš profil",
+      guideDescription: "Profil je centralno mesto za osnovne informacije, operativni kontekst i Drive dokumenta vezana za poziciju.",
+      guideItems: [
+        "Osnovne informacije pokazuju tim, poziciju i reporting liniju.",
+        "Operativni pregled pomaže da brzo vidiš taskove, odsustvo i performance ciklus.",
+        "Drive linkovi vode ka opisu posla i radnim instrukcijama bez čuvanja fajlova u bazi."
+      ]
     };
   }
 
@@ -65,7 +73,14 @@ function copy(lang: "sr" | "en") {
     directReports: "Direct reports",
     currentCycle: "Current cycle",
     activeOnboarding: "Active onboarding",
-    noValue: "—"
+    noValue: "—",
+    guideTitle: "How to use the profile",
+    guideDescription: "The profile is the central place for core information, operational context, and Drive documents tied to the position.",
+    guideItems: [
+      "Basic info shows team, position, and reporting line.",
+      "Operational summary helps you quickly see tasks, absence, and performance cycle.",
+      "Drive links open job descriptions and work instructions without storing files in the database."
+    ]
   };
 }
 
@@ -137,6 +152,8 @@ export default async function ProfilePage({
             lang={lang}
           />
         </div>
+
+        <GuidancePanel title={c.guideTitle} description={c.guideDescription} items={c.guideItems} />
 
         <div className="grid2 profile-grid">
           <section className="panel stack">

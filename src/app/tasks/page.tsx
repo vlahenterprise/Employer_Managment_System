@@ -12,6 +12,7 @@ import { APP_TIMEZONE } from "@/server/app-settings";
 import { IconAlertTriangle, IconArrowLeft, IconBolt, IconCheckCircle, IconClock, IconPdf, IconSparkles, IconTasks } from "@/components/icons";
 import { isManagerRole } from "@/server/rbac";
 import { LabelWithTooltip } from "@/components/Tooltip";
+import { GuidancePanel } from "@/components/GuidancePanel";
 
 function resolveQuickRange(quickRaw: string | undefined, currentFrom: string, currentTo: string) {
   const quick = Number.parseInt(String(quickRaw || ""), 10);
@@ -140,6 +141,41 @@ export default async function TasksPage({
         approvals: "Everything waiting for your decision lives here, so review stays focused and fast.",
         list: "The detailed list remains the main place for work, comments, and task history."
       };
+  const guide = lang === "sr"
+    ? {
+        title: canManage ? "Kako da koristiš task pregled" : "Kako da koristiš svoje taskove",
+        description: canManage
+          ? "Kreni od kašnjenja i review reda, pa tek onda ulazi u detalje pojedinačnog taska."
+          : "Kreni od taskova koji kasne ili čekaju tvoj update, pa zatim zatvori ono što je spremno za review.",
+        items: canManage
+          ? [
+              "Overdue i Critical overdue su prva mesta za reakciju.",
+              "For approval pokazuje šta čeka tvoju odluku kao menadžera.",
+              "Employee workload pomaže da vidiš ko je preopterećen i gde posao stoji."
+            ]
+          : [
+              "Open i In progress su taskovi na kojima trenutno radiš.",
+              "Returned znači da task treba dopuniti pre novog slanja na review.",
+              "Submit for review koristi kada je posao završen i spreman za proveru."
+            ]
+      }
+    : {
+        title: canManage ? "How to use the task overview" : "How to use your tasks",
+        description: canManage
+          ? "Start with late work and the review queue, then open individual tasks only when you need detail."
+          : "Start with tasks that are late or need your update, then submit finished work for review.",
+        items: canManage
+          ? [
+              "Overdue and Critical overdue are the first places to react.",
+              "For approval shows what is waiting for your manager decision.",
+              "Employee workload helps you see who is overloaded and where work is stuck."
+            ]
+          : [
+              "Open and In progress are the tasks you are currently working on.",
+              "Returned means the task needs an update before another review.",
+              "Submit for review when the work is finished and ready to be checked."
+            ]
+      };
 
   return (
     <main className="page">
@@ -176,6 +212,8 @@ export default async function TasksPage({
 
         {success ? <div className="success">{success}</div> : null}
         {error ? <div className="error">{error}</div> : null}
+
+        <GuidancePanel title={guide.title} description={guide.description} items={guide.items} />
 
         <section className="panel stack">
           <div className="section-head">

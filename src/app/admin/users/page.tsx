@@ -7,6 +7,7 @@ import { getRequestLang } from "@/i18n/server";
 import { getI18n } from "@/i18n";
 import { getAccessSummary } from "@/server/rbac";
 import { isHrModuleEnabled } from "@/server/features";
+import { GuidancePanel } from "@/components/GuidancePanel";
 
 export default async function AdminUsersPage({
   searchParams
@@ -67,8 +68,30 @@ export default async function AdminUsersPage({
           : `Set the base role, Admin add-on, team, manager, and Drive links here. These values affect the rest of the system.${hrEnabled ? " HR add-on access is also available." : " HR and hiring are currently disabled."}`
       }
     >
+      <GuidancePanel
+        title={lang === "sr" ? "Bezbedan redosled izmene korisnika" : "Safe user update order"}
+        description={
+          lang === "sr"
+            ? "Ovaj ekran utiče na pristup, timove i reporting linije. Menjaj samo ono što je potrebno i proveri menadžera/tim pre čuvanja."
+            : "This screen affects access, teams, and reporting lines. Change only what is needed and verify manager/team before saving."
+        }
+        items={
+          lang === "sr"
+            ? [
+                "Base role određuje osnovni nivo rada: USER ili MANAGER.",
+                "Admin add-on daje konfiguracioni pristup i treba ga davati pažljivo.",
+                hrEnabled ? "HR add-on je dodatni pristup, nije osnovna rola." : "HR add-on je sakriven dok je HR modul isključen."
+              ]
+            : [
+                "Base role controls the core work level: USER or MANAGER.",
+                "Admin add-on grants configuration access and should be assigned carefully.",
+                hrEnabled ? "HR add-on is an extra access layer, not a base role." : "HR add-on is hidden while the HR module is disabled."
+              ]
+        }
+        tone="warning"
+      />
 
-        <section className="panel stack">
+      <section className="panel stack">
           <h2 className="h2">{t.admin.users.newUser}</h2>
 
           <form className="stack" action={createUserAction}>

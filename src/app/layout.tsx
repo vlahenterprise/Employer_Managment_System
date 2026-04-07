@@ -25,10 +25,12 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const themeVars = await getThemeCssVars();
   const lang = getRequestLang();
-  const branding = await getBrandingSettings();
-  const user = await getCurrentUser();
+  const [themeVars, branding, user] = await Promise.all([
+    getThemeCssVars(),
+    getBrandingSettings(),
+    getCurrentUser()
+  ]);
   const navItems = user
     ? getPrimaryNavigation({ role: user.role, hrAddon: user.hrAddon, adminAddon: user.adminAddon }, lang)
     : [];

@@ -7,6 +7,7 @@ import { getRequestLang } from "@/i18n/server";
 import { getI18n } from "@/i18n";
 import { IconArrowLeft } from "@/components/icons";
 import { hasAccessAdmin } from "@/server/rbac";
+import { GuidancePanel } from "@/components/GuidancePanel";
 
 export default async function OrganizationPage({
   searchParams
@@ -49,6 +50,29 @@ export default async function OrganizationPage({
             lang={lang}
           />
         </div>
+
+        <GuidancePanel
+          title={lang === "sr" ? "Kako da koristiš ORG System" : "How to use ORG System"}
+          description={
+            lang === "sr"
+              ? "ORG System je mapa kompanije i centar za opise poslova, instrukcije i procese vezane za pozicije."
+              : "ORG System is the company map and the hub for job descriptions, instructions, and position-related processes."
+          }
+          items={
+            lang === "sr"
+              ? [
+                  "Koristi pretragu za ljude, pozicije, dokumenta i instrukcije.",
+                  "Klik na poziciju otvara desni panel sa ljudima, hijerarhijom i Drive linkovima.",
+                  "Zoom i full screen su tu kada želiš da pregledaš celu strukturu bez gužve."
+                ]
+              : [
+                  "Use search for people, positions, documents, and instructions.",
+                  "Click a position to open the side panel with people, hierarchy, and Drive links.",
+                  "Use zoom and full screen when you want to inspect the full structure without clutter."
+                ]
+          }
+          tone="neutral"
+        />
 
         <section className="panel stack">
           <OrgChart

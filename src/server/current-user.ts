@@ -33,12 +33,12 @@ const getUserById = cache((userId: string) =>
   })
 );
 
-export async function getCurrentUser() {
+export const getCurrentUser = cache(async () => {
   const session = await getServerSession(authOptions);
   const userId = session?.user?.id;
   if (!userId) return null;
   return getUserById(userId);
-}
+});
 
 export async function requireActiveUser() {
   const user = await getCurrentUser();

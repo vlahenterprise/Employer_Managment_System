@@ -15,6 +15,7 @@ import { getScopedEmployeeIds, isManagerRole } from "@/server/rbac";
 import { loadOrgUsers } from "@/server/org";
 import UserMenu from "../../dashboard/UserMenu";
 import { LabelWithTooltip } from "@/components/Tooltip";
+import { GuidancePanel } from "@/components/GuidancePanel";
 
 function fmtMin(minutes: number) {
   const min = Math.max(0, Math.floor(Number(minutes || 0)));
@@ -120,6 +121,27 @@ export default async function ReportsManagerPage({
         allTypes: "Wider time distribution across all activity types for a complete overview.",
         grid: "Detailed view by employee and day when you need the exact record."
       };
+  const guide = lang === "sr"
+    ? {
+        title: "Kako da čitaš manager izveštaje",
+        description: "Ovaj ekran je za odluke: ko nije poslao izveštaj, gde postoje blokade i gde tim troši vreme.",
+        items: [
+          "Filteri su prvi korak — suzi period, tim ili zaposlenog pre analize.",
+          "KPI blok daje brz rezime ukupnog rada u opsegu.",
+          "Detaljna tabela ostaje mesto za proveru konkretnog dana i zaposlenog."
+        ],
+        scope: "Pregled je ograničen na tvoju reporting liniju."
+      }
+    : {
+        title: "How to read manager reports",
+        description: "This screen is for decisions: who did not submit, where blockers exist, and where team time goes.",
+        items: [
+          "Filters are the first step — narrow the period, team, or employee before analysis.",
+          "The KPI block gives a fast summary of total work in scope.",
+          "The detailed table remains the place to verify a specific day and employee."
+        ],
+        scope: "Scope is limited to your reporting line."
+      };
 
   function pageHref(page: number) {
     const params = new URLSearchParams();
@@ -174,6 +196,8 @@ export default async function ReportsManagerPage({
 
         {success ? <div className="success">{success}</div> : null}
         {error ? <div className="error">{error}</div> : null}
+
+        <GuidancePanel title={guide.title} description={guide.description} items={guide.items} />
 
         <section className="panel stack">
           <div className="section-head">
@@ -246,7 +270,7 @@ export default async function ReportsManagerPage({
               </button>
             </div>
           </form>
-          <div className="muted small">Scope is limited to your reporting line.</div>
+          <div className="muted small">{guide.scope}</div>
         </section>
 
         <section className="panel stack">

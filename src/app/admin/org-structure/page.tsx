@@ -19,6 +19,7 @@ import { getRequestLang } from "@/i18n/server";
 import { getI18n } from "@/i18n";
 import { IconPlus, IconTrash } from "@/components/icons";
 import { LabelWithTooltip } from "@/components/Tooltip";
+import { GuidancePanel } from "@/components/GuidancePanel";
 
 function tierOptions(lang: "sr" | "en") {
   if (lang === "sr") {
@@ -502,6 +503,29 @@ export default async function AdminOrgStructurePage({
           : "Admins maintain the org structure, positions, Drive documents, and global processes/instructions here. ORG System and profiles read from this source."
       }
     >
+      <GuidancePanel
+        title={lang === "sr" ? "Preporučeni redosled rada" : "Recommended setup order"}
+        description={
+          lang === "sr"
+            ? "Da bi ORG System ostao čist, prvo postavi hijerarhiju, zatim ljude, pa tek onda Drive dokumenta i globalne procese."
+            : "To keep ORG System clean, set hierarchy first, then people, then Drive documents and global processes."
+        }
+        items={
+          lang === "sr"
+            ? [
+                "Senioritet određuje boju i nivo kartice u chart-u.",
+                "Parent određuje linije i reporting odnos u strukturi.",
+                "Dokumenta drži na Drive-u, a ovde čuvaj samo link i kratak opis."
+              ]
+            : [
+                "Seniority controls chart color and card level.",
+                "Parent controls the connectors and reporting relationship.",
+                "Keep documents in Drive and store only the link and short description here."
+              ]
+        }
+        tone="neutral"
+      />
+
       {positions.length === 0 ? (
         <section className="panel stack">
           <div className="item item-compact admin-org-import-banner">

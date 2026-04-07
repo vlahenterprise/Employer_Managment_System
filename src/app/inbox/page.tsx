@@ -5,6 +5,7 @@ import { getInboxData } from "@/server/inbox";
 import { getRequestLang } from "@/i18n/server";
 import UserMenu from "../dashboard/UserMenu";
 import { IconArrowLeft, IconArrowRight, IconBolt, IconCheckCircle, IconClock } from "@/components/icons";
+import { GuidancePanel } from "@/components/GuidancePanel";
 
 function copy(lang: "sr" | "en") {
   if (lang === "sr") {
@@ -19,7 +20,14 @@ function copy(lang: "sr" | "en") {
       open: "Otvori",
       needsActionHint: "Stavke koje traže tvoju odluku, odgovor ili sledeći korak.",
       assignedHint: "Stavke koje su ti trenutno dodeljene za rad ili praćenje.",
-      updatesHint: "Nove informacije koje je dobro da vidiš, iako možda ne traže hitnu akciju."
+      updatesHint: "Nove informacije koje je dobro da vidiš, iako možda ne traže hitnu akciju.",
+      guideTitle: "Kako da koristiš Inbox",
+      guideDescription: "Inbox je najbrži način da ne lutaš po modulima — prvo reši ono što traži tvoju akciju.",
+      guideItems: [
+        "Needs My Action je prioritet: tu su odluke, review i stvari koje čekaju tebe.",
+        "Assigned To Me pokazuje posao koji je trenutno kod tebe.",
+        "Recent Updates je informativno — koristi ga za praćenje promena."
+      ]
     };
   }
 
@@ -34,7 +42,14 @@ function copy(lang: "sr" | "en") {
     open: "Open",
     needsActionHint: "Items that need your decision, response, or next step.",
     assignedHint: "Items currently assigned to you for follow-up or work.",
-    updatesHint: "Recent changes that are useful to see even when they do not need immediate action."
+    updatesHint: "Recent changes that are useful to see even when they do not need immediate action.",
+    guideTitle: "How to use Inbox",
+    guideDescription: "Inbox is the fastest way to avoid jumping between modules — start with what needs your action.",
+    guideItems: [
+      "Needs My Action is the priority: decisions, reviews, and items waiting on you.",
+      "Assigned To Me shows work currently owned by you.",
+      "Recent Updates is informational — use it to track changes."
+    ]
   };
 }
 
@@ -89,6 +104,8 @@ export default async function InboxPage() {
             lang={lang}
           />
         </div>
+
+        <GuidancePanel title={c.guideTitle} description={c.guideDescription} items={c.guideItems} />
 
         <div className="grid3 inbox-grid">
           {sections.map((section) => (

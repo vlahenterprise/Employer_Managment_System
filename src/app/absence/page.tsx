@@ -14,6 +14,7 @@ import { IconArrowLeft, IconCalendar, IconPdf } from "@/components/icons";
 import AbsenceCalendarView from "./AbsenceCalendarView";
 import AbsenceRequestForm from "./AbsenceRequestForm";
 import { isLegacyAdminRole, isManagerRole } from "@/server/rbac";
+import { GuidancePanel } from "@/components/GuidancePanel";
 
 function defaultMonthRange() {
   const now = new Date();
@@ -131,6 +132,41 @@ export default async function AbsencePage({
 
   const message = msgFromCode(t, success, true) || msgFromCode(t, error, false);
   const messageType = success ? "success" : error ? "error" : null;
+  const guide = lang === "sr"
+    ? {
+        title: "Kako da koristiš odsustva",
+        description: isAdmin || isManager
+          ? "Prvo proveri dostupnost tima i pending zahteve, pa onda rešavaj pojedinačne odluke."
+          : "Prvo proveri preostale dane i kalendar tima, pa onda pošalji zahtev za odsustvo.",
+        items: isAdmin || isManager
+          ? [
+              "Kalendar pokazuje ko je odsutan i gde može nastati preklapanje.",
+              "Pending zahtevi čekaju tvoje odobrenje ili odbijanje.",
+              "Team summary služi za brz pregled kapaciteta, ne za menjanje pravila odsustva."
+            ]
+          : [
+              "Preostali dani pokazuju trenutno dostupne limite.",
+              "Sistem upozorava ako postoji preklapanje sa kolegama iz tima.",
+              "Posle slanja zahtev čeka odobrenje odgovorne osobe."
+            ]
+      }
+    : {
+        title: "How to use absence",
+        description: isAdmin || isManager
+          ? "Start with team availability and pending requests, then resolve individual decisions."
+          : "Start with your remaining balance and team calendar, then submit the absence request.",
+        items: isAdmin || isManager
+          ? [
+              "The calendar shows who is away and where overlaps may happen.",
+              "Pending requests are waiting for your approval or rejection.",
+              "Team summary is for capacity visibility, not for changing absence rules."
+            ]
+          : [
+              "Remaining balance shows your currently available limits.",
+              "The system warns you when there is a team overlap.",
+              "After submission, the request waits for the responsible approver."
+            ]
+      };
 
   return (
     <main className="page">
@@ -174,6 +210,8 @@ export default async function AbsencePage({
         </div>
 
         {message && messageType ? <div className={messageType === "success" ? "success" : "error"}>{message}</div> : null}
+
+        <GuidancePanel title={guide.title} description={guide.description} items={guide.items} />
 
         <section className="panel stack">
           <h2 className="h2">

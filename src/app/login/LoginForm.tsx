@@ -1,13 +1,12 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { getI18n, Lang } from "@/i18n";
 
 export default function LoginForm({ lang, googleEnabled }: { lang: Lang; googleEnabled: boolean }) {
   const t = getI18n(lang);
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   const initialError = useMemo(() => {
@@ -50,7 +49,7 @@ export default function LoginForm({ lang, googleEnabled }: { lang: Lang; googleE
       return;
     }
 
-    router.push(result.url ?? "/dashboard");
+    window.location.assign(result.url ?? "/dashboard");
   }
 
   return (
