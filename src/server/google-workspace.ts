@@ -3,7 +3,8 @@ import "server-only";
 import { config } from "./config";
 import { prisma } from "./db";
 import { APP_TIMEZONE } from "./app-settings";
-import { formatInTimeZone } from "./time";
+import { getAllSettingsMap } from "./settings";
+import { formatInTimeZone, fromZonedTime } from "./time";
 import { logError, logInfo, logWarn } from "./log";
 
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -134,20 +135,226 @@ function clampMessage(value: string, maxLength: number) {
   return trimmed.length > maxLength ? `${trimmed.slice(0, maxLength - 1)}…` : trimmed;
 }
 
-async function sendGoogleMail(params: { to: string; subject: string; text: string }) {
+type GoogleWorkspaceRuntimeSettings = {
+  appTitle: string;
+  appSubtitle: string;
+  accentColor: string;
+  backgroundColor: string;
+  panelColor: string;
+  textColor: string;
+  mutedTextColor: string;
+  okColor: string;
+  dangerColor: string;
+  taskFooter: string;
+  absenceFooter: string;
+  calendarId: string;
+  emailEnabled: boolean;
+  calendarEnabled: boolean;
+  taskCalendarEnabled: boolean;
+  taskCreatedEmailEnabled: boolean;
+  absenceDecisionEmailEnabled: boolean;
+  dueReminderEmailEnabled: boolean;
+  taskReminderTime: string;
+  taskReminderDurationMinutes: number;
+  taskReminderBusy: boolean;
+  absenceBlocksCalendar: boolean;
+  taskColorId: string;
+  absenceColorIds: Record<string, string>;
+};
+
+function parseBoolSetting(value: string | undefined, fallback: boolean) {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (!normalized) return fallback;
+  return ["1", "true", "yes", "y", "on"].includes(normalized);
+}
+
+function parseIntSetting(value: string | undefined, fallback: number, min: number, max: number) {
+  const parsed = Number.parseInt(String(value ?? "").trim(), 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+}
+
+function parseTimeSetting(value: string | undefined, fallback: string) {
+  const trimmed = String(value ?? "").trim();
+  const match = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return fallback;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return fallback;
+  }
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function parseColorIdSetting(value: string | undefined, fallback: string) {
+  return String(parseIntSetting(value, Number(fallback), 1, 11));
+}
+
+function safeHexColor(value: string | undefined, fallback: string) {
+  const trimmed = String(value ?? "").trim();
+  return /^#[0-9a-fA-F]{6}$/.test(trimmed) ? trimmed : fallback;
+}
+
+async function getGoogleWorkspaceSettings(): Promise<GoogleWorkspaceRuntimeSettings> {
+  const map = await getAllSettingsMap();
+
+  return {
+    appTitle: map.AppTitle?.trim() || "Employer Management System",
+    appSubtitle: map.AppSubtitle?.trim() || "Internal operations platform",
+    accentColor: safeHexColor(map.SecondaryColor, "#F05123"),
+    backgroundColor: safeHexColor(map.Dark1, "#0B0B0B"),
+    panelColor: safeHexColor(map.Dark2, "#161616"),
+    textColor: safeHexColor(map.MainFontColor, "#E4EEF0"),
+    mutedTextColor: safeHexColor(map.SecondaryFontColor, "#A0A7A8"),
+    okColor: safeHexColor(map.OkColor, "#1E8E6A"),
+    dangerColor: safeHexColor(map.DangerColor, "#C62828"),
+    taskFooter: map.EmailFooterTask?.trim() || "Ovo je automatska EMS notifikacija za zadatke.",
+    absenceFooter: map.EmailFooterLeave?.trim() || "Ovo je automatska EMS notifikacija za odsustva.",
+    calendarId: map.GoogleWorkspaceCalendarId?.trim() || config.googleWorkspace.calendarId,
+    emailEnabled: config.googleWorkspace.emailEnabled && parseBoolSetting(map.GoogleWorkspaceEmailEnabled, true),
+    calendarEnabled: config.googleWorkspace.calendarEnabled && parseBoolSetting(map.GoogleWorkspaceCalendarEnabled, true),
+    taskCalendarEnabled:
+      config.googleWorkspace.taskCalendarEnabled && parseBoolSetting(map.GoogleWorkspaceTaskCalendarEnabled, true),
+    taskCreatedEmailEnabled: parseBoolSetting(map.GoogleWorkspaceTaskCreatedEmailEnabled, true),
+    absenceDecisionEmailEnabled: parseBoolSetting(map.GoogleWorkspaceAbsenceDecisionEmailEnabled, true),
+    dueReminderEmailEnabled: parseBoolSetting(map.GoogleWorkspaceDueReminderEmailEnabled, true),
+    taskReminderTime: parseTimeSetting(map.GoogleWorkspaceTaskReminderTime, "09:00"),
+    taskReminderDurationMinutes: parseIntSetting(map.GoogleWorkspaceTaskReminderDurationMinutes, 15, 5, 240),
+    taskReminderBusy: parseBoolSetting(map.GoogleWorkspaceTaskReminderBusy, false),
+    absenceBlocksCalendar: parseBoolSetting(map.GoogleWorkspaceAbsenceBlocksCalendar, true),
+    taskColorId: parseColorIdSetting(map.GoogleWorkspaceTaskColorId, "6"),
+    absenceColorIds: {
+      ANNUAL_LEAVE: parseColorIdSetting(map.GoogleWorkspaceAbsenceAnnualLeaveColorId, "2"),
+      HOME_OFFICE: parseColorIdSetting(map.GoogleWorkspaceAbsenceHomeOfficeColorId, "9"),
+      SLAVA: parseColorIdSetting(map.GoogleWorkspaceAbsenceSlavaColorId, "5"),
+      SICK: parseColorIdSetting(map.GoogleWorkspaceAbsenceSickColorId, "11"),
+      OTHER: parseColorIdSetting(map.GoogleWorkspaceAbsenceOtherColorId, "8")
+    }
+  };
+}
+
+function htmlEscape(value: string | number | null | undefined) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function renderEmailRows(rows: Array<{ label: string; value: string | number | null | undefined }>, borderColor: string) {
+  return rows
+    .filter((row) => String(row.value ?? "").trim().length > 0)
+    .map(
+      (row) => `
+        <tr>
+          <td style="padding:10px 0;border-bottom:1px solid ${borderColor};color:#a0a7a8;font-size:12px;text-transform:uppercase;letter-spacing:.08em;">${htmlEscape(row.label)}</td>
+          <td style="padding:10px 0;border-bottom:1px solid ${borderColor};color:#e4eef0;font-size:14px;text-align:right;font-weight:700;">${htmlEscape(row.value)}</td>
+        </tr>`
+    )
+    .join("");
+}
+
+function renderBrandedEmail(params: {
+  settings: GoogleWorkspaceRuntimeSettings;
+  tone: "task" | "reminder" | "absence-ok" | "absence-danger";
+  eyebrow: string;
+  title: string;
+  intro: string;
+  rows: Array<{ label: string; value: string | number | null | undefined }>;
+  ctaLabel: string;
+  ctaHref: string;
+  footer: string;
+}) {
+  const accent =
+    params.tone === "absence-ok"
+      ? params.settings.okColor
+      : params.tone === "absence-danger"
+        ? params.settings.dangerColor
+        : params.tone === "reminder"
+          ? "#FFB703"
+          : params.settings.accentColor;
+  const borderColor = "rgba(228,238,240,.14)";
+  const rows = renderEmailRows(params.rows, borderColor);
+
+  return `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:${params.settings.backgroundColor};font-family:Inter,Arial,sans-serif;color:${params.settings.textColor};">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${params.settings.backgroundColor};padding:28px 14px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:${params.settings.panelColor};border:1px solid ${borderColor};border-radius:24px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.35);">
+            <tr>
+              <td style="padding:28px 30px 20px;border-bottom:1px solid ${borderColor};background:linear-gradient(135deg,rgba(240,81,35,.20),rgba(255,255,255,.03));">
+                <div style="font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:${accent};">${htmlEscape(params.eyebrow)}</div>
+                <h1 style="margin:10px 0 6px;color:${params.settings.textColor};font-size:28px;line-height:1.15;">${htmlEscape(params.title)}</h1>
+                <p style="margin:0;color:${params.settings.mutedTextColor};font-size:14px;line-height:1.65;">${htmlEscape(params.intro)}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px 30px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">${rows}</table>
+                <div style="padding-top:24px;">
+                  <a href="${htmlEscape(params.ctaHref)}" style="display:inline-block;background:${accent};color:#111111;text-decoration:none;font-weight:900;border-radius:999px;padding:13px 20px;font-size:14px;">${htmlEscape(params.ctaLabel)}</a>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 30px 26px;border-top:1px solid ${borderColor};color:${params.settings.mutedTextColor};font-size:12px;line-height:1.6;">
+                <strong style="color:${params.settings.textColor};">${htmlEscape(params.settings.appTitle)}</strong><br/>
+                ${htmlEscape(params.footer)}<br/>
+                ${htmlEscape(params.settings.appSubtitle)}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
+function taskReminderWindow(dueIso: string, settings: GoogleWorkspaceRuntimeSettings) {
+  const start = fromZonedTime(`${dueIso}T${settings.taskReminderTime}:00`, APP_TIMEZONE);
+  const end = new Date(start.getTime() + settings.taskReminderDurationMinutes * 60 * 1000);
+  return { startIso: start.toISOString(), endIso: end.toISOString() };
+}
+
+async function sendGoogleMail(params: { to: string; subject: string; text: string; html?: string }) {
   if (!config.googleWorkspace.emailEnabled || !isGoogleWorkspaceConfigured()) return { ok: false as const, skipped: true as const };
   const accessToken = await getAccessToken();
   if (!accessToken) return { ok: false as const, skipped: false as const, error: "NO_ACCESS_TOKEN" };
 
-  const raw = [
-    `From: EMS <${config.googleWorkspace.botEmail}>`,
-    `To: ${params.to}`,
-    `Subject: ${mimeSubject(params.subject)}`,
-    "MIME-Version: 1.0",
-    'Content-Type: text/plain; charset="UTF-8"',
-    "",
-    params.text
-  ].join("\r\n");
+  const boundary = `ems_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const raw = params.html
+    ? [
+        `From: EMS <${config.googleWorkspace.botEmail}>`,
+        `To: ${params.to}`,
+        `Subject: ${mimeSubject(params.subject)}`,
+        "MIME-Version: 1.0",
+        `Content-Type: multipart/alternative; boundary="${boundary}"`,
+        "",
+        `--${boundary}`,
+        'Content-Type: text/plain; charset="UTF-8"',
+        "Content-Transfer-Encoding: 8bit",
+        "",
+        params.text,
+        `--${boundary}`,
+        'Content-Type: text/html; charset="UTF-8"',
+        "Content-Transfer-Encoding: 8bit",
+        "",
+        params.html,
+        `--${boundary}--`
+      ].join("\r\n")
+    : [
+        `From: EMS <${config.googleWorkspace.botEmail}>`,
+        `To: ${params.to}`,
+        `Subject: ${mimeSubject(params.subject)}`,
+        "MIME-Version: 1.0",
+        'Content-Type: text/plain; charset="UTF-8"',
+        "",
+        params.text
+      ].join("\r\n");
 
   const response = await googleFetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
     method: "POST",
@@ -171,9 +378,12 @@ async function deliverEmailOnce(params: {
   to: string;
   subject: string;
   text: string;
+  html?: string;
+  settings?: GoogleWorkspaceRuntimeSettings;
 }) {
   if (!params.to.trim()) return;
-  if (!config.googleWorkspace.emailEnabled || !isGoogleWorkspaceConfigured()) return;
+  const settings = params.settings ?? (await getGoogleWorkspaceSettings());
+  if (!settings.emailEnabled || !isGoogleWorkspaceConfigured()) return;
 
   const existing = await prisma.notificationDelivery.findUnique({
     where: { dedupeKey: params.dedupeKey },
@@ -201,7 +411,7 @@ async function deliverEmailOnce(params: {
     }
   });
 
-  const result = await sendGoogleMail({ to: params.to, subject: params.subject, text: params.text });
+  const result = await sendGoogleMail({ to: params.to, subject: params.subject, text: params.text, html: params.html });
   if (result.ok) {
     await prisma.notificationDelivery.update({
       where: { dedupeKey: params.dedupeKey },
@@ -218,12 +428,20 @@ async function deliverEmailOnce(params: {
   });
 }
 
-async function upsertCalendarEvent(params: { entityType: string; entityId: string; event: Record<string, unknown> }) {
-  if (!isGoogleWorkspaceCalendarConfigured()) return { ok: false as const, skipped: true as const };
+async function upsertCalendarEvent(params: {
+  entityType: string;
+  entityId: string;
+  event: Record<string, unknown>;
+  settings?: GoogleWorkspaceRuntimeSettings;
+}) {
+  const settings = params.settings ?? (await getGoogleWorkspaceSettings());
+  if (!settings.calendarEnabled || !settings.calendarId || !isGoogleWorkspaceConfigured()) {
+    return { ok: false as const, skipped: true as const };
+  }
   const accessToken = await getAccessToken();
   if (!accessToken) return { ok: false as const, skipped: false as const, error: "NO_ACCESS_TOKEN" };
 
-  const calendarId = config.googleWorkspace.calendarId;
+  const calendarId = settings.calendarId;
   const existing = await prisma.externalCalendarEvent.findUnique({
     where: { entityType_entityId_calendarId: { entityType: params.entityType, entityId: params.entityId, calendarId } },
     select: { googleEventId: true }
@@ -280,30 +498,33 @@ async function upsertCalendarEvent(params: { entityType: string; entityId: strin
 }
 
 async function deleteCalendarEvent(params: { entityType: string; entityId: string }) {
-  if (!isGoogleWorkspaceCalendarConfigured()) return;
-  const calendarId = config.googleWorkspace.calendarId;
-  const existing = await prisma.externalCalendarEvent.findUnique({
-    where: { entityType_entityId_calendarId: { entityType: params.entityType, entityId: params.entityId, calendarId } },
-    select: { googleEventId: true }
+  const settings = await getGoogleWorkspaceSettings();
+  if (!settings.calendarEnabled || !isGoogleWorkspaceConfigured()) return;
+  const existingEvents = await prisma.externalCalendarEvent.findMany({
+    where: { entityType: params.entityType, entityId: params.entityId, status: { not: "DELETED" } },
+    select: { calendarId: true, googleEventId: true }
   });
-  if (!existing?.googleEventId || existing.googleEventId === "pending") return;
+  const deletableEvents = existingEvents.filter((event) => event.googleEventId && event.googleEventId !== "pending");
+  if (!deletableEvents.length) return;
 
   const accessToken = await getAccessToken();
   if (!accessToken) return;
 
-  const response = await googleFetch(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(existing.googleEventId)}?sendUpdates=all`,
-    { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } }
-  );
+  for (const event of deletableEvents) {
+    const response = await googleFetch(
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(event.calendarId)}/events/${encodeURIComponent(event.googleEventId)}?sendUpdates=all`,
+      { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } }
+    );
 
-  await prisma.externalCalendarEvent.update({
-    where: { entityType_entityId_calendarId: { entityType: params.entityType, entityId: params.entityId, calendarId } },
-    data: {
-      status: response.ok || response.status === 410 || response.status === 404 ? "DELETED" : "FAILED",
-      errorMessage: response.ok || response.status === 410 || response.status === 404 ? null : `CALENDAR_DELETE_FAILED:${response.status}`,
-      lastSyncedAt: new Date()
-    }
-  });
+    await prisma.externalCalendarEvent.update({
+      where: { entityType_entityId_calendarId: { entityType: params.entityType, entityId: params.entityId, calendarId: event.calendarId } },
+      data: {
+        status: response.ok || response.status === 410 || response.status === 404 ? "DELETED" : "FAILED",
+        errorMessage: response.ok || response.status === 410 || response.status === 404 ? null : `CALENDAR_DELETE_FAILED:${response.status}`,
+        lastSyncedAt: new Date()
+      }
+    });
+  }
 }
 
 export async function syncAbsenceWithGoogleWorkspace(absenceId: string) {
@@ -323,6 +544,7 @@ export async function syncAbsenceWithGoogleWorkspace(absenceId: string) {
       }
     });
     if (!absence) return;
+    const settings = await getGoogleWorkspaceSettings();
 
     if (absence.status !== "APPROVED") {
       await deleteCalendarEvent({ entityType: "ABSENCE", entityId: absence.id });
@@ -348,11 +570,12 @@ export async function syncAbsenceWithGoogleWorkspace(absenceId: string) {
         .join("\n"),
       start: { date: startIso },
       end: { date: endIso },
-      transparency: "transparent",
+      transparency: settings.absenceBlocksCalendar ? "opaque" : "transparent",
+      colorId: settings.absenceColorIds[absence.type] || settings.absenceColorIds.OTHER,
       reminders: { useDefault: false, overrides: [{ method: "email", minutes: 24 * 60 }] }
     };
 
-    const result = await upsertCalendarEvent({ entityType: "ABSENCE", entityId: absence.id, event });
+    const result = await upsertCalendarEvent({ entityType: "ABSENCE", entityId: absence.id, event, settings });
     if (result.ok) logInfo("google_workspace.absence.synced", { absenceId: absence.id, googleEventId: result.googleEventId });
   } catch (error) {
     logError("google_workspace.absence.sync_failed", error, { absenceId });
@@ -375,15 +598,18 @@ export async function notifyAbsenceDecision(absenceId: string) {
       }
     });
     if (!absence || (absence.status !== "APPROVED" && absence.status !== "REJECTED" && absence.status !== "CANCELLED")) return;
+    const settings = await getGoogleWorkspaceSettings();
+    if (!settings.absenceDecisionEmailEnabled) return;
 
     const statusLabel = absence.status === "APPROVED" ? "odobren" : absence.status === "REJECTED" ? "odbijen" : "otkazan";
     const subject = `EMS · Zahtev za odsustvo je ${statusLabel}`;
+    const period = `${formatInTimeZone(absence.dateFrom, APP_TIMEZONE, "yyyy-MM-dd")} → ${formatInTimeZone(absence.dateTo, APP_TIMEZONE, "yyyy-MM-dd")}`;
     const text = [
       `Zdravo ${absence.employee.name},`,
       "",
       `Tvoj zahtev za odsustvo je ${statusLabel}.`,
       `Tip: ${absenceTypeLabel(absence.type)}`,
-      `Period: ${formatInTimeZone(absence.dateFrom, APP_TIMEZONE, "yyyy-MM-dd")} → ${formatInTimeZone(absence.dateTo, APP_TIMEZONE, "yyyy-MM-dd")}`,
+      `Period: ${period}`,
       `Dana: ${absence.days}`,
       absence.approver ? `Obradio/la: ${absence.approver.name}` : "",
       "",
@@ -391,6 +617,22 @@ export async function notifyAbsenceDecision(absenceId: string) {
     ]
       .filter(Boolean)
       .join("\n");
+    const html = renderBrandedEmail({
+      settings,
+      tone: absence.status === "APPROVED" ? "absence-ok" : "absence-danger",
+      eyebrow: "Odsustvo",
+      title: `Zahtev za odsustvo je ${statusLabel}`,
+      intro: `Zdravo ${absence.employee.name}, status tvog zahteva je ažuriran u EMS sistemu.`,
+      rows: [
+        { label: "Tip", value: absenceTypeLabel(absence.type) },
+        { label: "Period", value: period },
+        { label: "Dana", value: absence.days },
+        { label: "Obradio/la", value: absence.approver?.name || "" }
+      ],
+      ctaLabel: "Otvori odsustva",
+      ctaHref: `${baseUrl()}/absence`,
+      footer: settings.absenceFooter
+    });
 
     await deliverEmailOnce({
       entityType: "ABSENCE",
@@ -398,7 +640,9 @@ export async function notifyAbsenceDecision(absenceId: string) {
       dedupeKey: `absence:${absence.id}:decision:${absence.status}`,
       to: absence.employee.email,
       subject,
-      text
+      text,
+      html,
+      settings
     });
   } catch (error) {
     logError("google_workspace.absence.email_failed", error, { absenceId });
@@ -407,7 +651,8 @@ export async function notifyAbsenceDecision(absenceId: string) {
 
 export async function syncTaskDueCalendarEvent(taskId: string) {
   try {
-    if (!config.googleWorkspace.taskCalendarEnabled) return;
+    const settings = await getGoogleWorkspaceSettings();
+    if (!settings.taskCalendarEnabled) return;
     const task = await prisma.task.findUnique({
       where: { id: taskId },
       select: {
@@ -428,6 +673,7 @@ export async function syncTaskDueCalendarEvent(taskId: string) {
     }
 
     const dueIso = formatInTimeZone(task.dueDate, APP_TIMEZONE, "yyyy-MM-dd");
+    const reminderWindow = taskReminderWindow(dueIso, settings);
     const event = {
       summary: `Task due · ${task.title}`,
       description: [
@@ -440,13 +686,15 @@ export async function syncTaskDueCalendarEvent(taskId: string) {
       ]
         .filter(Boolean)
         .join("\n"),
-      start: { date: dueIso },
-      end: { date: addDaysIso(dueIso, 1) },
+      start: { dateTime: reminderWindow.startIso, timeZone: APP_TIMEZONE },
+      end: { dateTime: reminderWindow.endIso, timeZone: APP_TIMEZONE },
+      transparency: settings.taskReminderBusy ? "opaque" : "transparent",
+      colorId: settings.taskColorId,
       attendees: [{ email: task.assignee.email }, { email: task.delegator.email }],
       reminders: { useDefault: false, overrides: [{ method: "email", minutes: 24 * 60 }, { method: "popup", minutes: 60 }] }
     };
 
-    await upsertCalendarEvent({ entityType: "TASK_DUE", entityId: task.id, event });
+    await upsertCalendarEvent({ entityType: "TASK_DUE", entityId: task.id, event, settings });
   } catch (error) {
     logError("google_workspace.task.calendar_failed", error, { taskId });
   }
@@ -467,20 +715,40 @@ export async function notifyTaskCreated(taskId: string) {
       }
     });
     if (!task) return;
+    const settings = await getGoogleWorkspaceSettings();
+    if (!settings.taskCreatedEmailEnabled) return;
     const subject = `EMS · Novi task: ${task.title}`;
+    const dueLabel = task.dueDate ? formatInTimeZone(task.dueDate, APP_TIMEZONE, "yyyy-MM-dd") : "";
     const text = [
       `Zdravo ${task.assignee.name},`,
       "",
       `${task.delegator.name} ti je dodelio/la novi task.`,
       `Naziv: ${task.title}`,
       `Prioritet: ${task.priority}`,
-      task.dueDate ? `Rok: ${formatInTimeZone(task.dueDate, APP_TIMEZONE, "yyyy-MM-dd")}` : "",
+      dueLabel ? `Rok: ${dueLabel}` : "",
       task.description ? `Opis: ${task.description}` : "",
       "",
       `${baseUrl()}/tasks`
     ]
       .filter(Boolean)
       .join("\n");
+    const html = renderBrandedEmail({
+      settings,
+      tone: "task",
+      eyebrow: "Novi task",
+      title: task.title,
+      intro: `${task.delegator.name} ti je dodelio/la novi task u EMS sistemu.`,
+      rows: [
+        { label: "Zadužen/a", value: task.assignee.name },
+        { label: "Dodelio/la", value: task.delegator.name },
+        { label: "Prioritet", value: task.priority },
+        { label: "Rok", value: dueLabel || "—" },
+        { label: "Opis", value: task.description || "" }
+      ],
+      ctaLabel: "Otvori taskove",
+      ctaHref: `${baseUrl()}/tasks`,
+      footer: settings.taskFooter
+    });
 
     await deliverEmailOnce({
       entityType: "TASK",
@@ -488,7 +756,9 @@ export async function notifyTaskCreated(taskId: string) {
       dedupeKey: `task:${task.id}:created:${task.assignee.email}`,
       to: task.assignee.email,
       subject,
-      text
+      text,
+      html,
+      settings
     });
   } catch (error) {
     logError("google_workspace.task.email_failed", error, { taskId });
@@ -496,7 +766,8 @@ export async function notifyTaskCreated(taskId: string) {
 }
 
 export async function runGoogleWorkspaceDueReminders() {
-  if (!config.googleWorkspace.emailEnabled || !isGoogleWorkspaceConfigured()) {
+  const settings = await getGoogleWorkspaceSettings();
+  if (!settings.emailEnabled || !settings.dueReminderEmailEnabled || !isGoogleWorkspaceConfigured()) {
     return { ok: true as const, checked: 0, processed: 0, skipped: "NOT_CONFIGURED" as const };
   }
 
@@ -534,13 +805,31 @@ export async function runGoogleWorkspaceDueReminders() {
       "",
       `${baseUrl()}/tasks`
     ].join("\n");
+    const html = renderBrandedEmail({
+      settings,
+      tone: "reminder",
+      eyebrow: "Podsetnik",
+      title: `Task rok: ${task.title}`,
+      intro: `Ovo je EMS podsetnik da task ima rok ${dueIso}.`,
+      rows: [
+        { label: "Zadužen/a", value: task.assignee.name },
+        { label: "Dodelio/la", value: task.delegator.name },
+        { label: "Prioritet", value: task.priority },
+        { label: "Rok", value: dueIso }
+      ],
+      ctaLabel: "Otvori taskove",
+      ctaHref: `${baseUrl()}/tasks`,
+      footer: settings.taskFooter
+    });
     await deliverEmailOnce({
       entityType: "TASK",
       entityId: task.id,
       dedupeKey: `task:${task.id}:due:${dueIso}:${task.assignee.email}`,
       to: task.assignee.email,
       subject,
-      text
+      text,
+      html,
+      settings
     });
     sent += 1;
   }

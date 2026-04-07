@@ -12,6 +12,7 @@ export type SettingGroup =
   | "Absence"
   | "Performance"
   | "Backup"
+  | "Integrations"
   | "Advanced";
 
 export type SettingMeta = {
@@ -532,6 +533,201 @@ export const KNOWN_SETTINGS: SettingMeta[] = [
       en: "Logical group name under which backup ZIP files are stored and listed."
     },
     placeholder: "backups"
+  },
+
+  // Integrations
+  {
+    key: "GoogleWorkspaceEmailEnabled",
+    group: "Integrations",
+    type: "boolean",
+    label: { sr: "Google email notifikacije", en: "Google email notifications" },
+    description: {
+      sr: "Uključuje/isključuje slanje EMS email notifikacija preko Google Workspace bot naloga.",
+      en: "Turns EMS email notifications through the Google Workspace bot account on/off."
+    },
+    placeholder: "1"
+  },
+  {
+    key: "GoogleWorkspaceCalendarEnabled",
+    group: "Integrations",
+    type: "boolean",
+    label: { sr: "Google Calendar za odsustva", en: "Google Calendar for absence" },
+    description: {
+      sr: "Kreira događaje u Google Calendar-u kada se odsustvo odobri.",
+      en: "Creates Google Calendar events when absence is approved."
+    },
+    placeholder: "1"
+  },
+  {
+    key: "GoogleWorkspaceTaskCalendarEnabled",
+    group: "Integrations",
+    type: "boolean",
+    label: { sr: "Google Calendar za task rokove", en: "Google Calendar for task due dates" },
+    description: {
+      sr: "Kreira kratak reminder događaj na dan roka taska.",
+      en: "Creates a short reminder event on the task due date."
+    },
+    placeholder: "1"
+  },
+  {
+    key: "GoogleWorkspaceCalendarId",
+    group: "Integrations",
+    type: "text",
+    label: { sr: "Google Calendar ID", en: "Google Calendar ID" },
+    description: {
+      sr: "Ako je prazno, koristi se Calendar ID iz Vercel env podešavanja.",
+      en: "If empty, the Calendar ID from Vercel env settings is used."
+    },
+    placeholder: "c_...@group.calendar.google.com"
+  },
+  {
+    key: "GoogleWorkspaceTaskCreatedEmailEnabled",
+    group: "Integrations",
+    type: "boolean",
+    label: { sr: "Email kada se dodeli task", en: "Email when a task is assigned" },
+    description: {
+      sr: "Šalje branded email zaposlenom kada mu je dodeljen novi task.",
+      en: "Sends a branded email to the employee when a new task is assigned."
+    },
+    placeholder: "1"
+  },
+  {
+    key: "GoogleWorkspaceAbsenceDecisionEmailEnabled",
+    group: "Integrations",
+    type: "boolean",
+    label: { sr: "Email za odluku o odsustvu", en: "Email for absence decisions" },
+    description: {
+      sr: "Šalje email kada je zahtev za odsustvo odobren, odbijen ili otkazan.",
+      en: "Sends an email when an absence request is approved, rejected, or cancelled."
+    },
+    placeholder: "1"
+  },
+  {
+    key: "GoogleWorkspaceDueReminderEmailEnabled",
+    group: "Integrations",
+    type: "boolean",
+    label: { sr: "Email podsetnik za rok taska", en: "Task due reminder email" },
+    description: {
+      sr: "Cron šalje deduplikovan email podsetnik za taskove koji uskoro imaju rok.",
+      en: "Cron sends a deduplicated email reminder for tasks due soon."
+    },
+    placeholder: "1"
+  },
+  {
+    key: "GoogleWorkspaceTaskReminderTime",
+    group: "Integrations",
+    type: "time",
+    label: { sr: "Vreme task reminder-a", en: "Task reminder time" },
+    description: {
+      sr: "Vreme u danu kada se pravi Google Calendar reminder za due date taska.",
+      en: "Time of day for creating the Google Calendar reminder on the task due date."
+    },
+    placeholder: "09:00"
+  },
+  {
+    key: "GoogleWorkspaceTaskReminderDurationMinutes",
+    group: "Integrations",
+    type: "number",
+    label: { sr: "Trajanje task reminder-a (min)", en: "Task reminder duration (min)" },
+    description: {
+      sr: "Koliko minuta traje Google Calendar reminder za task. Preporuka: 15.",
+      en: "How many minutes the Google Calendar task reminder lasts. Recommended: 15."
+    },
+    min: 5,
+    max: 240,
+    step: 5,
+    placeholder: "15"
+  },
+  {
+    key: "GoogleWorkspaceTaskReminderBusy",
+    group: "Integrations",
+    type: "boolean",
+    label: { sr: "Task reminder blokira kalendar", en: "Task reminder blocks calendar" },
+    description: {
+      sr: "Ako je 1, task reminder se tretira kao Busy. Ako je 0, prikazuje se kao Free.",
+      en: "If 1, the task reminder is Busy. If 0, it is shown as Free."
+    },
+    placeholder: "0"
+  },
+  {
+    key: "GoogleWorkspaceAbsenceBlocksCalendar",
+    group: "Integrations",
+    type: "boolean",
+    label: { sr: "Odsustva blokiraju kalendar", en: "Absence blocks calendar" },
+    description: {
+      sr: "Ako je 1, odobrena odsustva se u Google Calendar-u vode kao Busy/blocker.",
+      en: "If 1, approved absences are shown as Busy/blockers in Google Calendar."
+    },
+    placeholder: "1"
+  },
+  {
+    key: "GoogleWorkspaceTaskColorId",
+    group: "Integrations",
+    type: "number",
+    label: { sr: "Boja task reminder-a (1–11)", en: "Task reminder color (1–11)" },
+    description: {
+      sr: "Google Calendar color ID za task reminder događaje.",
+      en: "Google Calendar color ID for task reminder events."
+    },
+    min: 1,
+    max: 11,
+    step: 1,
+    placeholder: "6"
+  },
+  {
+    key: "GoogleWorkspaceAbsenceAnnualLeaveColorId",
+    group: "Integrations",
+    type: "number",
+    label: { sr: "Boja godišnjeg odmora (1–11)", en: "Annual leave color (1–11)" },
+    description: { sr: "Google Calendar color ID za godišnji odmor.", en: "Google Calendar color ID for annual leave." },
+    min: 1,
+    max: 11,
+    step: 1,
+    placeholder: "2"
+  },
+  {
+    key: "GoogleWorkspaceAbsenceHomeOfficeColorId",
+    group: "Integrations",
+    type: "number",
+    label: { sr: "Boja home office-a (1–11)", en: "Home office color (1–11)" },
+    description: { sr: "Google Calendar color ID za rad od kuće.", en: "Google Calendar color ID for home office." },
+    min: 1,
+    max: 11,
+    step: 1,
+    placeholder: "9"
+  },
+  {
+    key: "GoogleWorkspaceAbsenceSlavaColorId",
+    group: "Integrations",
+    type: "number",
+    label: { sr: "Boja slave (1–11)", en: "Slava color (1–11)" },
+    description: { sr: "Google Calendar color ID za slavu.", en: "Google Calendar color ID for slava." },
+    min: 1,
+    max: 11,
+    step: 1,
+    placeholder: "5"
+  },
+  {
+    key: "GoogleWorkspaceAbsenceSickColorId",
+    group: "Integrations",
+    type: "number",
+    label: { sr: "Boja bolovanja (1–11)", en: "Sick leave color (1–11)" },
+    description: { sr: "Google Calendar color ID za bolovanje.", en: "Google Calendar color ID for sick leave." },
+    min: 1,
+    max: 11,
+    step: 1,
+    placeholder: "11"
+  },
+  {
+    key: "GoogleWorkspaceAbsenceOtherColorId",
+    group: "Integrations",
+    type: "number",
+    label: { sr: "Boja ostalih odsustava (1–11)", en: "Other absence color (1–11)" },
+    description: { sr: "Google Calendar color ID za ostale tipove odsustva.", en: "Google Calendar color ID for other absence types." },
+    min: 1,
+    max: 11,
+    step: 1,
+    placeholder: "8"
   }
 ];
 
@@ -544,6 +740,7 @@ export function groupLabel(lang: Lang, group: SettingGroup) {
     Absence: { sr: "Odsustva", en: "Absence" },
     Performance: { sr: "Performanse", en: "Performance" },
     Backup: { sr: "Backup", en: "Backup" },
+    Integrations: { sr: "Integracije", en: "Integrations" },
     Advanced: { sr: "Napredno", en: "Advanced" }
   };
   return labels[group][lang];
