@@ -13,6 +13,7 @@ import { importLegacyDataset } from "@/server/legacy-import";
 import { logError, logInfo } from "@/server/log";
 import { isHrModuleEnabled } from "@/server/features";
 import { sanitizeText, withAction } from "@/server/action-utils";
+import { passwordSchema } from "@/server/validation";
 
 const roleSchema = z.enum(["MANAGER", "USER"]);
 const statusSchema = z.enum(["ACTIVE", "INACTIVE"]);
@@ -156,6 +157,15 @@ export async function createUserAction(formData: FormData) {
   });
   if (!ok.success) redirectError("/admin/users", "Proveri email i ime.");
 
+  // Validiraj lozinku ako je zadana
+  if (password) {
+    const parsedPassword = passwordSchema.safeParse(password);
+    if (!parsedPassword.success) {
+      const firstError = parsedPassword.error.errors[0]?.message ?? "VALIDATION_ERROR";
+      redirectError("/admin/users", firstError);
+    }
+  }
+
   const passwordHash = password ? await bcrypt.hash(password, 12) : null;
 
   try {
@@ -291,9 +301,14 @@ export async function setUserPasswordAction(formData: FormData) {
   const password = String(formData.get("password") ?? "").trim();
 
   if (!userId) redirectError("/admin/users", "Nedostaje userId.");
-  if (password.length < 6) redirectError("/admin/users", "Lozinka mora imati bar 6 karaktera.");
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  const parsedPassword = passwordSchema.safeParse(password);
+  if (!parsedPassword.success) {
+    const firstError = parsedPassword.error.errors[0]?.message ?? "VALIDATION_ERROR";
+    redirectError("/admin/users", firstError);
+  }
+
+  const passwordHash = await bcrypt.hash(parsedPassword.data, 12);
 
   try {
     await prisma.user.update({

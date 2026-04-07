@@ -7,6 +7,12 @@ import { isHrModuleEnabled } from "@/server/features";
 import UserMenu from "../dashboard/UserMenu";
 import { IconArrowLeft, IconArrowRight, IconCalendar, IconCheckCircle, IconTasks, IconUsers } from "@/components/icons";
 import { GuidancePanel } from "@/components/GuidancePanel";
+import { updateProfileLinksAction as _updateProfileLinksAction } from "./actions";
+
+async function updateProfileLinksAction(formData: FormData): Promise<void> {
+  "use server";
+  await _updateProfileLinksAction(formData);
+}
 
 function copy(lang: "sr" | "en") {
   if (lang === "sr") {
@@ -296,6 +302,33 @@ export default async function ProfilePage({
               </Link>
               {!jobDescriptionUrl && !workInstructionsUrl ? <div className="muted small">{c.noValue}</div> : null}
             </div>
+            {profile.isSelf ? (
+              <form action={updateProfileLinksAction} className="stack" style={{ marginTop: "12px" }}>
+                <div className="form-group">
+                  <label className="label">{c.jobDescription} (Drive link)</label>
+                  <input
+                    type="url"
+                    name="jobDescriptionUrl"
+                    className="input"
+                    defaultValue={target.jobDescriptionUrl ?? ""}
+                    placeholder="https://drive.google.com/..."
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="label">{c.workInstructions} (Drive link)</label>
+                  <input
+                    type="url"
+                    name="workInstructionsUrl"
+                    className="input"
+                    defaultValue={target.workInstructionsUrl ?? ""}
+                    placeholder="https://drive.google.com/..."
+                  />
+                </div>
+                <button type="submit" className="button button-primary">
+                  {lang === "sr" ? "Sačuvaj linkove" : "Save links"}
+                </button>
+              </form>
+            ) : null}
           </section>
         </div>
       </div>

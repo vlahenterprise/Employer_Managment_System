@@ -54,6 +54,33 @@ async function googleFetch(input: string, init?: RequestInit) {
   }
 }
 
+// Retry sa exponential backoff za transijentne Google API greške
+async function googleFetchWithRetry(
+  input: string,
+  init?: RequestInit,
+  maxRetries = 3
+): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const res = await googleFetch(input, init);
+      // Ne retry-uj 4xx greške (klijentske greške) - samo 429 i 5xx
+      if (res.ok || (res.status >= 400 && res.status < 500 && res.status !== 429)) {
+        return res;
+      }
+      lastError = new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      lastError = err;
+    }
+    if (attempt < maxRetries - 1) {
+      // Exponential backoff: 500ms, 1000ms, 2000ms
+      const delayMs = 500 * Math.pow(2, attempt);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  throw lastError;
+}
+
 export async function exchangeGoogleWorkspaceCode(params: { code: string; redirectUri: string }) {
   if (!isGoogleWorkspaceOAuthConfigured()) {
     return { ok: false as const, error: "GOOGLE_WORKSPACE_OAUTH_NOT_CONFIGURED" };
@@ -83,7 +110,7 @@ export async function exchangeGoogleWorkspaceCode(params: { code: string; redire
 
 async function getAccessToken() {
   if (!isGoogleWorkspaceConfigured()) return null;
-  const response = await googleFetch(GOOGLE_TOKEN_URL, {
+  const response = await googleFetchWithRetry(GOOGLE_TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({

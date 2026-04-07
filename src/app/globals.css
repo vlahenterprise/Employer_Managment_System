@@ -4514,3 +4514,143 @@ code {
     transform: none !important;
   }
 }
+
+/* ========================================================
+   MOBILE RESPONSIVENESS IMPROVEMENTS
+   ======================================================== */
+
+/* Table wrappers - horizontalni scroll na mobilnom */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+}
+
+.table-scroll table {
+  min-width: 600px;
+}
+
+/* Ensure .show-mobile is hidden by default */
+.show-mobile {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .profile-grid,
+  .profile-summary-grid,
+  .profile-metrics {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Filter bar - stack vertikalno */
+  .filter-bar,
+  .filter-row,
+  [class*="filter"] > form {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .filter-bar select,
+  .filter-bar input,
+  .filter-row select,
+  .filter-row input {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  /* Buttons u filter baru */
+  .filter-bar .button,
+  .filter-row .button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* KPI kartice - 2 kolone na mobilnom */
+  .grid4.profile-metrics {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Table u panel-u */
+  .panel .table-scroll,
+  .card .table-scroll {
+    margin: 0 -4px;
+  }
+
+  /* Hide less important columns on mobile */
+  .hide-mobile {
+    display: none !important;
+  }
+
+  /* Show only on mobile */
+  .show-mobile {
+    display: block !important;
+  }
+
+  /* Form stacks */
+  .form-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* Action buttons */
+  .action-bar,
+  .button-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .action-bar .button,
+  .button-row .button {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+
+  /* Detail list - bolje na mobilnom */
+  .detail-list {
+    font-size: 14px;
+    gap: 8px;
+  }
+
+  /* Page padding */
+  .page {
+    padding: 12px 10px;
+  }
+
+  /* Pills wrap */
+  .pills {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* Inbox list items */
+  .inbox-item,
+  .list-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  /* Modals na mobilnom */
+  .modal-content {
+    width: calc(100vw - 24px) !important;
+    max-width: none !important;
+    padding: 16px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Extra mali ekrani */
+  .grid4.profile-metrics {
+    grid-template-columns: 1fr !important;
+  }
+
+  h1, .brand-title {
+    font-size: clamp(18px, 5vw, 28px);
+  }
+
+  .button {
+    font-size: 13px;
+    padding: 8px 14px;
+  }
+}

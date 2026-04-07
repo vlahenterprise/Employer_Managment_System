@@ -467,7 +467,8 @@ export const I18N = {
         performanceQuestions: "Performance pitanja",
         import: "Import",
         backup: "Backup",
-        org: "Org struktura"
+        org: "Org struktura",
+        auditLog: "Audit Log"
       },
       users: {
         subtitle: "Upravljanje korisnicima i timovima.",
@@ -1154,7 +1155,8 @@ export const I18N = {
         performanceQuestions: "Performance questions",
         import: "Import",
         backup: "Backup",
-        org: "Org structure"
+        org: "Org structure",
+        auditLog: "Audit Log"
       },
       users: {
         subtitle: "Manage users and teams.",

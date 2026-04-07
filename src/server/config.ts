@@ -27,7 +27,9 @@ const envSchema = z.object({
   GOOGLE_WORKSPACE_CALENDAR_ID: z.string().optional(),
   GOOGLE_WORKSPACE_EMAIL_ENABLED: z.string().optional(),
   GOOGLE_WORKSPACE_CALENDAR_ENABLED: z.string().optional(),
-  GOOGLE_WORKSPACE_TASK_CALENDAR_ENABLED: z.string().optional()
+  GOOGLE_WORKSPACE_TASK_CALENDAR_ENABLED: z.string().optional(),
+  LOGIN_RATE_LIMIT_PER_10_MIN: z.string().optional(),
+  FIELD_ENCRYPTION_KEY: z.string().optional()
 });
 
 export const env = envSchema.parse(process.env);
@@ -71,7 +73,8 @@ export const config = {
     googleClientId: env.GOOGLE_CLIENT_ID,
     googleClientSecret: env.GOOGLE_CLIENT_SECRET,
     allowedEmailDomains: parseCsv(env.AUTH_ALLOWED_EMAIL_DOMAINS).map((d) => d.toLowerCase()),
-    autoProvision: parseBool(env.AUTH_AUTO_PROVISION, false)
+    autoProvision: parseBool(env.AUTH_AUTO_PROVISION, false),
+    loginRateLimitPer10Min: parsePositiveInt(env.LOGIN_RATE_LIMIT_PER_10_MIN, 10)
   },
   backup: {
     cronSecret: env.CRON_SECRET?.trim() || "",
@@ -92,6 +95,9 @@ export const config = {
   },
   features: {
     hrModuleEnabled: parseBool(env.ENABLE_HR_MODULE, false)
+  },
+  encryption: {
+    fieldEncryptionKey: env.FIELD_ENCRYPTION_KEY?.trim() || ""
   },
   googleWorkspace: {
     clientId: env.GOOGLE_WORKSPACE_CLIENT_ID?.trim() || "",

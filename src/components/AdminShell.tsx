@@ -13,7 +13,8 @@ export type AdminTabKey =
   | "settings"
   | "performanceQuestions"
   | "import"
-  | "backup";
+  | "backup"
+  | "auditLog";
 
 type AdminShellProps = {
   user: {
@@ -44,7 +45,8 @@ const TAB_ORDER: AdminTabKey[] = [
   "settings",
   "performanceQuestions",
   "import",
-  "backup"
+  "backup",
+  "auditLog"
 ];
 
 const TAB_HREF: Record<AdminTabKey, string> = {
@@ -55,7 +57,8 @@ const TAB_HREF: Record<AdminTabKey, string> = {
   settings: "/admin/settings",
   performanceQuestions: "/admin/performance-questions",
   import: "/admin/import",
-  backup: "/admin/backup"
+  backup: "/admin/backup",
+  auditLog: "/admin/audit-log"
 };
 
 function getAdminNote(lang: Lang) {

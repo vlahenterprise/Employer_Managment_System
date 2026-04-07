@@ -66,7 +66,7 @@ export async function getEmployeeProfile(actor: ProfileActor, targetUserId?: str
 
   if (!user) return { ok: false as const, error: "NOT_FOUND" };
 
-  const [taskCounts, latestReport, absenceSummary, activeAbsence, orgResources] = await Promise.all([
+  const [taskCounts, latestReport, absenceSummary, activeAbsence, orgResources, overdueTasks] = await Promise.all([
     prisma.task.groupBy({
       by: ["status"],
       where: {
@@ -95,17 +95,17 @@ export async function getEmployeeProfile(actor: ProfileActor, targetUserId?: str
       orderBy: [{ dateTo: "asc" }],
       select: { id: true, type: true, dateFrom: true, dateTo: true }
     }),
-    getPositionResourceFallbackByUserId(user.id)
+    getPositionResourceFallbackByUserId(user.id),
+    prisma.task.count({
+      where: {
+        assigneeId: user.id,
+        status: { in: ["OPEN", "IN_PROGRESS", "FOR_APPROVAL", "RETURNED"] },
+        dueDate: { lt: new Date() }
+      }
+    })
   ]);
 
   const openTasks = taskCounts.reduce((sum, item) => sum + item._count._all, 0);
-  const overdueTasks = await prisma.task.count({
-    where: {
-      assigneeId: user.id,
-      status: { in: ["OPEN", "IN_PROGRESS", "FOR_APPROVAL", "RETURNED"] },
-      dueDate: { lt: new Date() }
-    }
-  });
 
   const currentEvaluation = user.evaluations[0] || null;
 

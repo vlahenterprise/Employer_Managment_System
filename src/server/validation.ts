@@ -27,3 +27,11 @@ export function booleanish(value: unknown) {
     .toLowerCase();
   return ["1", "true", "yes", "y", "on"].includes(normalized);
 }
+
+// Minimum 8 karaktera, bar 1 veliko slovo, bar 1 broj
+export const passwordSchema = z
+  .string()
+  .min(8, "PASSWORD_TOO_SHORT")
+  .max(128, "PASSWORD_TOO_LONG")
+  .refine((pw) => /[A-Z]/.test(pw), "PASSWORD_NEEDS_UPPERCASE")
+  .refine((pw) => /[0-9]/.test(pw), "PASSWORD_NEEDS_NUMBER");

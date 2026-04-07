@@ -81,6 +81,28 @@ export const authOptions: NextAuthOptions = {
         const email = normalizeEmail(parsed.data.email);
         if (!isAllowedEmail(email)) return null;
 
+        // Rate limiting: max 10 pokušaja po email-u u 10 minuta
+        const { Ratelimit } = await import("@upstash/ratelimit").catch(() => ({ Ratelimit: null }));
+        const { Redis } = await import("@upstash/redis").catch(() => ({ Redis: null }));
+
+        if (Ratelimit && Redis) {
+          const redisUrl = process.env.UPSTASH_REDIS_REST_URL?.trim();
+          const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+          if (redisUrl && redisToken) {
+            try {
+              const ratelimit = new Ratelimit({
+                redis: new Redis({ url: redisUrl, token: redisToken }),
+                limiter: Ratelimit.slidingWindow(10, "10 m"),
+                analytics: false
+              });
+              const { success } = await ratelimit.limit(`login:${email}`);
+              if (!success) return null;
+            } catch {
+              // Nastavi bez rate limita ako Redis nije dostupan
+            }
+          }
+        }
+
         const user = await prisma.user.findUnique({
           where: { email },
           select: {
