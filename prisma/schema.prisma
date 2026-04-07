@@ -530,6 +530,8 @@ model Task {
   @@index([assigneeId, status])
   @@index([assigneeId, delegatedAt])
   @@index([teamId, delegatedAt])
+  @@index([status, dueDate])
+  @@index([assigneeId, status, dueDate])
 }
 
 model TaskComment {

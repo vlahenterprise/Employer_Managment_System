@@ -13,6 +13,22 @@ export function sanitizeText(input: string, maxLength: number): string {
     .replace(/[\u0000-\u001F\u007F]/g, "");
 }
 
+/**
+ * Validates and returns a safe URL (http/https only).
+ * Returns null if empty, undefined if invalid protocol.
+ */
+export function sanitizeUrl(input: string, maxLength = 2048): string | null {
+  const raw = String(input ?? "").trim().slice(0, maxLength);
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
+    return raw;
+  } catch {
+    return null;
+  }
+}
+
 function isFrameworkControlFlowError(err: unknown) {
   if (!err || typeof err !== "object") return false;
   const digest = "digest" in err ? (err as { digest?: unknown }).digest : undefined;
