@@ -13,6 +13,7 @@ import {
   deleteOrgPositionAction,
   importDefaultOrgStructureAction,
   removeOrgAssignmentAction,
+  syncDefaultOrgStructureAction,
   updateOrgPositionAction
 } from "./actions";
 import { getRequestLang } from "@/i18n/server";
@@ -43,6 +44,24 @@ function tierOptions(lang: "sr" | "en") {
 
 function tierLabel(lang: "sr" | "en", value: string) {
   return tierOptions(lang).find((option) => option.value === value)?.label ?? value;
+}
+
+function nodeKindOptions(lang: "sr" | "en") {
+  if (lang === "sr") {
+    return [
+      { value: "POSITION", label: "Pozicija" },
+      { value: "TEAM", label: "Tim / grupa" }
+    ];
+  }
+
+  return [
+    { value: "POSITION", label: "Position" },
+    { value: "TEAM", label: "Team / group" }
+  ];
+}
+
+function nodeKindLabel(lang: "sr" | "en", value: string) {
+  return nodeKindOptions(lang).find((option) => option.value === value)?.label ?? value;
 }
 
 function docTypeOptions(lang: "sr" | "en") {
@@ -134,7 +153,7 @@ function AdminOrgPositionCard({
 }) {
   const assignedIds = new Set(position.users.map((user) => user.id));
   const missingDocs = position.links.length === 0;
-  const missingPeople = position.users.length === 0;
+  const missingPeople = position.kind === "POSITION" && position.users.length === 0;
   const parentGroups = groupedParentOptions(lang, positionOptions, position.id);
 
   return (
@@ -145,6 +164,8 @@ function AdminOrgPositionCard({
             <div className="item-title">{position.title}</div>
             <div className="pills">
               <span className={`pill pill-org-tier pill-org-tier-${position.tier.toLowerCase()}`}>{tierLabel(lang, position.tier)}</span>
+              <span className="pill">{nodeKindLabel(lang, position.kind)}</span>
+              {position.teamName ? <span className="pill">{position.teamName}</span> : null}
               <span className="pill">
                 {position.users.length} {t.admin.org.people}
               </span>
@@ -161,6 +182,7 @@ function AdminOrgPositionCard({
           <div className="admin-org-card-meta">
             <span>{lang === "sr" ? "Nadređeni" : "Parent"}: {parentTitle}</span>
             <span>{lang === "sr" ? "Putanja" : "Path"}: {hierarchyPath}</span>
+            {position.teamName ? <span>{lang === "sr" ? "Tim" : "Team"}: {position.teamName}</span> : null}
             <span>{t.admin.org.order}: {position.order}</span>
             <span>{position.isActive ? t.common.active : t.common.inactive}</span>
           </div>
@@ -173,11 +195,11 @@ function AdminOrgPositionCard({
           <section className="stack admin-org-panel">
             <div className="admin-org-panel-head">
               <div>
-                <div className="item-title">{lang === "sr" ? "Osnove pozicije" : "Position basics"}</div>
+                <div className="item-title">{lang === "sr" ? "Osnove čvora" : "Node basics"}</div>
                 <div className="muted small">
                   {lang === "sr"
-                    ? "Senioritet određuje boju i nivo u chart prikazu."
-                    : "Seniority controls chart color and hierarchy level."}
+                    ? "Senioritet određuje boju i nivo u chart prikazu, a tip čvora određuje da li je ovo pozicija ili tim."
+                    : "Seniority controls chart color and hierarchy level, while node type controls whether this is a position or team."}
                 </div>
               </div>
               <Link className="button button-secondary" href={`/organization?focus=${position.id}`}>
@@ -197,6 +219,29 @@ function AdminOrgPositionCard({
                     {tierOptions(lang).map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="grid2">
+                <label className="field">
+                  <span className="label">{lang === "sr" ? "Tip čvora" : "Node type"}</span>
+                  <select className="input" name="kind" defaultValue={position.kind}>
+                    {nodeKindOptions(lang).map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span className="label">{lang === "sr" ? "Povezani tim" : "Linked team"}</span>
+                  <select className="input" name="teamId" defaultValue={position.teamId ?? ""}>
+                    <option value="">{lang === "sr" ? "(bez povezanog tima)" : "(no linked team)"}</option>
+                    {pickers.teams.map((team) => (
+                      <option key={team.id} value={team.id}>
+                        {team.name}
                       </option>
                     ))}
                   </select>
@@ -433,6 +478,7 @@ export default async function AdminOrgStructurePage({
       !queryNeedle ||
       normalizeOrgSearchText(position.title).includes(queryNeedle) ||
       normalizeOrgSearchText(position.description).includes(queryNeedle) ||
+      normalizeOrgSearchText(position.teamName).includes(queryNeedle) ||
       position.users.some(
         (userRow) =>
           normalizeOrgSearchText(userRow.name).includes(queryNeedle) ||
@@ -448,13 +494,13 @@ export default async function AdminOrgStructurePage({
     if (!matchesQuery) return false;
     if (tier !== "ALL" && position.tier !== tier) return false;
     if (focus === "needsDocs") return position.links.length === 0;
-    if (focus === "needsPeople") return position.users.length === 0;
+    if (focus === "needsPeople") return position.kind === "POSITION" && position.users.length === 0;
     if (focus === "inactive") return !position.isActive;
     return true;
   });
 
   const positionsWithoutDocs = positions.filter((position) => position.links.length === 0).length;
-  const positionsWithoutPeople = positions.filter((position) => position.users.length === 0).length;
+  const positionsWithoutPeople = positions.filter((position) => position.kind === "POSITION" && position.users.length === 0).length;
   const inactivePositions = positions.filter((position) => !position.isActive).length;
   const tierGroups = ORG_TIER_ORDER.map((tierValue) => ({
     tier: tierValue,
@@ -493,9 +539,16 @@ export default async function AdminOrgStructurePage({
       success={success}
       error={error}
       actions={
-        <Link className="button button-secondary" href="/organization">
-          {t.admin.org.viewChart}
-        </Link>
+        <div className="inline">
+          <form action={syncDefaultOrgStructureAction}>
+            <button className="button button-secondary" type="submit">
+              {lang === "sr" ? "Uskladi finalnu VLAH strukturu" : "Sync final VLAH structure"}
+            </button>
+          </form>
+          <Link className="button button-secondary" href="/organization">
+            {t.admin.org.viewChart}
+          </Link>
+        </div>
       }
       note={
         lang === "sr"
@@ -514,12 +567,12 @@ export default async function AdminOrgStructurePage({
           lang === "sr"
             ? [
                 "Senioritet određuje boju i nivo kartice u chart-u.",
-                "Parent određuje linije i reporting odnos u strukturi.",
+                "Parent određuje linije i reporting odnos; tim može biti podređen menadžeru kao poseban čvor.",
                 "Dokumenta drži na Drive-u, a ovde čuvaj samo link i kratak opis."
               ]
             : [
                 "Seniority controls chart color and card level.",
-                "Parent controls the connectors and reporting relationship.",
+                "Parent controls connectors and reporting; a team can sit under a manager as a separate node.",
                 "Keep documents in Drive and store only the link and short description here."
               ]
         }
@@ -597,6 +650,29 @@ export default async function AdminOrgStructurePage({
             <label className="field">
               <span className="label">{t.admin.org.order}</span>
               <input className="input" name="order" type="number" min={0} defaultValue={0} />
+            </label>
+          </div>
+          <div className="grid2">
+            <label className="field">
+              <span className="label">{lang === "sr" ? "Tip čvora" : "Node type"}</span>
+              <select className="input" name="kind" defaultValue="POSITION">
+                {nodeKindOptions(lang).map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span className="label">{lang === "sr" ? "Povezani tim" : "Linked team"}</span>
+              <select className="input" name="teamId" defaultValue="">
+                <option value="">{lang === "sr" ? "(bez povezanog tima)" : "(no linked team)"}</option>
+                {pickers.teams.map((team) => (
+                  <option key={team.id} value={team.id}>
+                    {team.name}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
           <label className="field">

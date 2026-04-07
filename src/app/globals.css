@@ -2586,6 +2586,10 @@ p {
   background: #9ea6a7;
 }
 
+.org-node-kind-team {
+  border-color: rgba(255 255 255 / 0.2);
+}
+
 .org-title {
   font-weight: 800;
   font-size: calc(11px * var(--org-scale, 1));
@@ -2608,6 +2612,20 @@ p {
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: rgba(17 17 17 / 0.56);
+}
+
+.org-node-kind {
+  align-self: center;
+  max-width: 100%;
+  padding: calc(4px * var(--org-scale, 1)) calc(8px * var(--org-scale, 1));
+  border-radius: 999px;
+  background: rgba(240 81 35 / 0.1);
+  color: rgba(17 17 17 / 0.72);
+  font-size: calc(9px * var(--org-scale, 1));
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .org-people-preview {

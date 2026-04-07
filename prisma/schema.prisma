@@ -124,10 +124,16 @@ enum OrgPositionTier {
   STAFF
 }
 
+enum OrgNodeKind {
+  POSITION
+  TEAM
+}
+
 model Team {
   id        String   @id @default(cuid())
   name      String   @unique
   users     User[]
+  orgPositions OrgPosition[]
   activityTypes ActivityType[]
   tasks     Task[]
   hrProcesses HrProcess[]
@@ -209,6 +215,8 @@ model OrgPosition {
   title       String
   description String?
   parentId    String?
+  kind        OrgNodeKind @default(POSITION)
+  teamId      String?
   tier        OrgPositionTier @default(STAFF)
   order       Int      @default(0)
   isActive    Boolean  @default(true)
@@ -217,6 +225,7 @@ model OrgPosition {
 
   parent    OrgPosition? @relation("OrgPositionTree", fields: [parentId], references: [id], onDelete: SetNull)
   children  OrgPosition[] @relation("OrgPositionTree")
+  team      Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
   links     OrgPositionLink[]
   assignees OrgPositionAssignment[]
   templates OnboardingTemplate[]
@@ -224,6 +233,8 @@ model OrgPosition {
 
   @@index([parentId])
   @@index([parentId, order])
+  @@index([kind])
+  @@index([teamId])
   @@index([order])
   @@index([tier])
   @@index([tier, order])

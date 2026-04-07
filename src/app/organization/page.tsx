@@ -97,6 +97,8 @@ export default async function OrganizationPage({
               lead: t.org.lead,
               supervisor: t.org.supervisor,
               staff: t.org.staff,
+              teamNode: t.org.teamNode,
+              linkedTeam: t.org.linkedTeam,
               jobDescription: t.org.jobDescription,
               workInstructions: t.org.workInstructions,
               positionProcesses: t.org.positionProcesses,

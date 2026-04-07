@@ -286,7 +286,7 @@ const TABLE_EXPORTS: TableExport[] = [
   },
   {
     name: "OrgPosition",
-    columns: ["id", "title", "description", "parentId", "tier", "order", "isActive", "createdAt", "updatedAt"],
+    columns: ["id", "title", "description", "parentId", "kind", "teamId", "tier", "order", "isActive", "createdAt", "updatedAt"],
     fetchRows: () => prisma.orgPosition.findMany({ orderBy: { order: "asc" } }) as any,
     countRows: () => prisma.orgPosition.count()
   },

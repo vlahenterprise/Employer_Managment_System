@@ -609,14 +609,14 @@ export const I18N = {
       org: {
         subtitle: "Organizaciona struktura, pozicije i Drive dokumenta.",
         viewChart: "Prikaži chart",
-        createTitle: "Nova pozicija",
+        createTitle: "Nova pozicija / tim",
         title: "Naziv",
         parent: "Nadređena pozicija",
         order: "Redosled",
         description: "Opis pozicije",
         active: "Aktivno",
-        createBtn: "Kreiraj poziciju",
-        listTitle: "Pozicije",
+        createBtn: "Kreiraj čvor",
+        listTitle: "Pozicije i timovi",
         people: "osoba",
         links: "linkova",
         assignTitle: "Dodela zaposlenih",
@@ -626,7 +626,7 @@ export const I18N = {
         linkLabel: "Naziv linka",
         linkUrl: "URL",
         noLinks: "Nema linkova.",
-        empty: "Nema definisanih pozicija."
+        empty: "Nema definisanih pozicija ili timova."
       }
     },
     org: {
@@ -649,6 +649,8 @@ export const I18N = {
       lead: "Lider",
       supervisor: "Supervizor",
       staff: "Pozicija / tim",
+      teamNode: "Tim",
+      linkedTeam: "Povezani tim",
       jobDescription: "Opis posla",
       workInstructions: "Radne instrukcije",
       positionProcesses: "Procesi vezani za poziciju",
@@ -1298,14 +1300,14 @@ export const I18N = {
       org: {
         subtitle: "Organization structure, positions, and Drive resources.",
         viewChart: "View chart",
-        createTitle: "New position",
+        createTitle: "New position / team",
         title: "Title",
         parent: "Parent position",
         order: "Order",
         description: "Position description",
         active: "Active",
-        createBtn: "Create position",
-        listTitle: "Positions",
+        createBtn: "Create node",
+        listTitle: "Positions and teams",
         people: "people",
         links: "links",
         assignTitle: "Assign employees",
@@ -1315,7 +1317,7 @@ export const I18N = {
         linkLabel: "Link label",
         linkUrl: "URL",
         noLinks: "No links.",
-        empty: "No positions defined."
+        empty: "No positions or teams defined."
       }
     },
     org: {
@@ -1338,6 +1340,8 @@ export const I18N = {
       lead: "Lead",
       supervisor: "Supervisor",
       staff: "Position / team",
+      teamNode: "Team",
+      linkedTeam: "Linked team",
       jobDescription: "Job description",
       workInstructions: "Work instructions",
       positionProcesses: "Position processes",

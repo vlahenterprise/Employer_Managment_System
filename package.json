@@ -19,7 +19,8 @@
     "db:validate": "prisma validate",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
-    "org:import-vlah": "tsx scripts/import-vlah-org-structure.ts"
+    "org:import-vlah": "tsx scripts/import-vlah-org-structure.ts",
+    "org:sync-final-vlah": "tsx scripts/sync-final-vlah-org-structure.ts"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

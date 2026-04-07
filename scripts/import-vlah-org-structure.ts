@@ -15,6 +15,10 @@ async function main() {
         ok: true,
         replaceExisting,
         positionsCreated: result.positionsCreated,
+        positionsUpdated: result.positionsUpdated,
+        positionsDeactivated: result.positionsDeactivated,
+        teamsCreated: result.teamsCreated,
+        teamsUpdated: result.teamsUpdated,
         assignmentsCreated: result.assignmentsCreated,
         missingUsers: result.missingUsers
       },

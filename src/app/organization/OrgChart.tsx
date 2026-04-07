@@ -33,6 +33,9 @@ type OrgNode = {
   title: string;
   description: string | null;
   parentId: string | null;
+  kind: "POSITION" | "TEAM";
+  teamId: string | null;
+  teamName: string | null;
   order: number;
   isActive: boolean;
   level: "director" | "manager" | "lead" | "supervisor" | "staff";
@@ -66,6 +69,8 @@ type OrgLabels = {
   lead: string;
   supervisor: string;
   staff: string;
+  teamNode: string;
+  linkedTeam: string;
   jobDescription: string;
   workInstructions: string;
   positionProcesses: string;
@@ -138,7 +143,7 @@ const OrgNodeCard = memo(function OrgNodeCard({ node, isActive, labels, onSelect
         registerRef(node.id, element);
       }}
       type="button"
-      className={`org-node org-node-${node.level}${isActive ? " is-active" : ""}`}
+      className={`org-node org-node-${node.level} org-node-kind-${node.kind.toLowerCase()}${isActive ? " is-active" : ""}`}
       onClick={() => onSelect(node.id)}
     >
       <div className="org-node-head">
@@ -146,6 +151,11 @@ const OrgNodeCard = memo(function OrgNodeCard({ node, isActive, labels, onSelect
       </div>
       <div className="org-node-body">
         <div className="org-node-level">{levelLabel(node.level, labels)}</div>
+        {node.kind === "TEAM" ? (
+          <div className="org-node-kind">{labels.teamNode}</div>
+        ) : node.teamName ? (
+          <div className="org-node-kind">{node.teamName}</div>
+        ) : null}
         {node.people.length > 0 ? (
           <div className="org-people-preview">
             {node.people.map((person) => (
@@ -264,12 +274,16 @@ export default function OrgChart(props: {
 
     const results: SearchResult[] = [];
     for (const node of props.nodes) {
-      if (normalizeOrgSearchText(node.title).includes(needle) || normalizeOrgSearchText(node.description).includes(needle)) {
+      if (
+        normalizeOrgSearchText(node.title).includes(needle) ||
+        normalizeOrgSearchText(node.description).includes(needle) ||
+        normalizeOrgSearchText(node.teamName).includes(needle)
+      ) {
         results.push({
           id: `position-${node.id}`,
           kind: "position",
           title: node.title,
-          subtitle: node.description,
+          subtitle: node.teamName ? `${node.teamName}${node.description ? ` · ${node.description}` : ""}` : node.description,
           positionId: node.id
         });
       }
@@ -623,7 +637,9 @@ export default function OrgChart(props: {
               <div className="org-detail-head">
                 <div>
                   <div className="org-detail-title">{selected.title}</div>
-                  <div className="org-detail-subtitle">{levelLabel(selected.level, props.labels)}</div>
+                  <div className="org-detail-subtitle">
+                    {levelLabel(selected.level, props.labels)} · {selected.kind === "TEAM" ? props.labels.teamNode : props.labels.linkedTeam}
+                  </div>
                 </div>
                 {props.canEdit ? (
                   <a className="button button-secondary" href={`/admin/org-structure?query=${encodeURIComponent(selected.title)}`}>
@@ -652,6 +668,10 @@ export default function OrgChart(props: {
                     <span className="org-detail-metric-label">{props.labels.linkedDocuments}</span>
                     <strong>{selectedDocumentTotal}</strong>
                   </div>
+                  <div className="org-detail-metric">
+                    <span className="org-detail-metric-label">{props.labels.linkedTeam}</span>
+                    <strong>{selected.teamName ? "1" : "0"}</strong>
+                  </div>
                 </div>
               </div>
 
@@ -679,6 +699,10 @@ export default function OrgChart(props: {
                 <div className="org-detail-meta-card">
                   <div className="org-section-title">{props.labels.reportsTo}</div>
                   <div className="org-detail-meta-value">{selectedParent?.title ?? props.labels.noParent}</div>
+                </div>
+                <div className="org-detail-meta-card">
+                  <div className="org-section-title">{props.labels.linkedTeam}</div>
+                  <div className="org-detail-meta-value">{selected.teamName ?? (selected.kind === "TEAM" ? selected.title : "—")}</div>
                 </div>
                 <div className="org-detail-meta-card">
                   <div className="org-section-title">{props.labels.childPositions}</div>

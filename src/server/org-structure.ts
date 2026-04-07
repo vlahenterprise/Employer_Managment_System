@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { OrgLinkType, OrgPositionTier } from "@prisma/client";
+import type { OrgLinkType, OrgNodeKind, OrgPositionTier } from "@prisma/client";
 import { prisma } from "./db";
 import { mapOrgTierToNodeLevel, normalizeOrgSearchText } from "@/lib/org-system";
 
@@ -19,6 +19,9 @@ export type OrgStructureNode = {
   subtitle?: string | null;
   description: string | null;
   parentId: string | null;
+  kind: OrgNodeKind;
+  teamId: string | null;
+  teamName: string | null;
   tier: OrgPositionTier;
   order: number;
   isActive: boolean;
@@ -48,6 +51,9 @@ export type OrgSystemNode = {
   title: string;
   description: string | null;
   parentId: string | null;
+  kind: OrgNodeKind;
+  teamId: string | null;
+  teamName: string | null;
   order: number;
   isActive: boolean;
   level: "director" | "manager" | "lead" | "supervisor" | "staff";
@@ -60,6 +66,7 @@ async function loadOrgPositions() {
     orderBy: [{ order: "asc" }, { title: "asc" }],
     include: {
       links: { orderBy: [{ order: "asc" }, { createdAt: "asc" }] },
+      team: { select: { id: true, name: true } },
       assignees: {
         include: {
           user: {
@@ -99,7 +106,7 @@ async function loadOrgChartUsers() {
 async function loadOrgPickerPositions() {
   return prisma.orgPosition.findMany({
     orderBy: [{ order: "asc" }, { title: "asc" }],
-    select: { id: true, title: true, tier: true, order: true, parentId: true }
+    select: { id: true, title: true, tier: true, kind: true, teamId: true, order: true, parentId: true }
   });
 }
 
@@ -108,6 +115,13 @@ async function loadOrgPickerUsers() {
     where: { status: "ACTIVE" },
     orderBy: { name: "asc" },
     select: { id: true, name: true, email: true, status: true }
+  });
+}
+
+async function loadOrgPickerTeams() {
+  return prisma.team.findMany({
+    orderBy: { name: "asc" },
+    select: { id: true, name: true }
   });
 }
 
@@ -191,11 +205,14 @@ export async function getOrgStructure() {
     title: row.title,
     description: row.description ?? null,
     parentId: row.parentId ?? null,
-      order: row.order,
-      tier: row.tier,
-      isActive: row.isActive,
-      links: row.links.map(mapOrgLink),
-      users: row.assignees.map((a) => ({ id: a.user.id, name: a.user.name, email: a.user.email, assignmentId: a.id }))
+    kind: row.kind,
+    teamId: row.teamId ?? null,
+    teamName: row.team?.name ?? null,
+    order: row.order,
+    tier: row.tier,
+    isActive: row.isActive,
+    links: row.links.map(mapOrgLink),
+    users: row.assignees.map((a) => ({ id: a.user.id, name: a.user.name, email: a.user.email, assignmentId: a.id }))
   }));
 
   const globalLinks = globalRows.map(mapOrgLink);
@@ -219,6 +236,9 @@ export async function getUserOrgStructure() {
       title: position.title,
       description: position.description ?? null,
       parentId: position.parentId ?? null,
+      kind: position.kind,
+      teamId: position.teamId ?? null,
+      teamName: position.team?.name ?? null,
       order: position.order,
       isActive: position.isActive,
       level: mapOrgTierToNodeLevel(position.tier),
@@ -236,10 +256,11 @@ export async function getUserOrgStructure() {
 }
 
 export async function getOrgPickers() {
-  const [positions, users] = await Promise.all([loadOrgPickerPositions(), loadOrgPickerUsers()]);
+  const [positions, users, teams] = await Promise.all([loadOrgPickerPositions(), loadOrgPickerUsers(), loadOrgPickerTeams()]);
 
   return {
     positions,
+    teams,
     users: users.filter((u) => u.status === "ACTIVE")
   };
 }

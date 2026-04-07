@@ -5,8 +5,8 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { ORG_STRUCTURE_CACHE_TAG } from "@/server/cache-tags";
 import { prisma } from "@/server/db";
 import { requireAdminUser } from "@/server/current-user";
-import { importVlahOrgTemplate } from "@/server/org-template-vlah";
-import type { OrgLinkType, OrgPositionTier } from "@prisma/client";
+import { importVlahOrgTemplate, syncVlahOrgTemplate } from "@/server/org-template-vlah";
+import type { OrgLinkType, OrgNodeKind, OrgPositionTier } from "@prisma/client";
 
 function redirectError(message: string): never {
   redirect(`/admin/org-structure?error=${encodeURIComponent(message)}`);
@@ -51,6 +51,12 @@ function normalizeOrgTier(value: FormDataEntryValue | null): OrgPositionTier {
   return "STAFF";
 }
 
+function normalizeOrgNodeKind(value: FormDataEntryValue | null): OrgNodeKind {
+  const kind = String(value ?? "").trim().toUpperCase();
+  if (kind === "TEAM") return "TEAM";
+  return "POSITION";
+}
+
 export async function createOrgPositionAction(formData: FormData) {
   await requireAdminUser();
 
@@ -58,6 +64,9 @@ export async function createOrgPositionAction(formData: FormData) {
   const description = String(formData.get("description") ?? "").trim() || null;
   const parentIdRaw = String(formData.get("parentId") ?? "").trim();
   const parentId = parentIdRaw || null;
+  const kind = normalizeOrgNodeKind(formData.get("kind"));
+  const teamIdRaw = String(formData.get("teamId") ?? "").trim();
+  const teamId = teamIdRaw || null;
   const tier = normalizeOrgTier(formData.get("tier"));
   const order = Math.max(0, Math.floor(Number(formData.get("order") ?? 0)));
   const isActive = String(formData.get("isActive") ?? "1") === "1";
@@ -65,11 +74,11 @@ export async function createOrgPositionAction(formData: FormData) {
   if (!title) redirectError("Naziv pozicije je obavezan.");
 
   await prisma.orgPosition.create({
-    data: { title, description, parentId, tier, order, isActive }
+    data: { title, description, parentId, kind, teamId, tier, order, isActive }
   });
 
   revalidateOrgPages();
-  redirectSuccess("Pozicija je kreirana.");
+  redirectSuccess(kind === "TEAM" ? "Tim je kreiran u strukturi." : "Pozicija je kreirana.");
 }
 
 export async function updateOrgPositionAction(formData: FormData) {
@@ -80,6 +89,9 @@ export async function updateOrgPositionAction(formData: FormData) {
   const description = String(formData.get("description") ?? "").trim() || null;
   const parentIdRaw = String(formData.get("parentId") ?? "").trim();
   const parentId = parentIdRaw || null;
+  const kind = normalizeOrgNodeKind(formData.get("kind"));
+  const teamIdRaw = String(formData.get("teamId") ?? "").trim();
+  const teamId = teamIdRaw || null;
   const tier = normalizeOrgTier(formData.get("tier"));
   const order = Math.max(0, Math.floor(Number(formData.get("order") ?? 0)));
   const isActive = String(formData.get("isActive") ?? "1") === "1";
@@ -90,11 +102,11 @@ export async function updateOrgPositionAction(formData: FormData) {
 
   await prisma.orgPosition.update({
     where: { id },
-    data: { title, description, parentId, tier, order, isActive }
+    data: { title, description, parentId, kind, teamId, tier, order, isActive }
   });
 
   revalidateOrgPages();
-  redirectSuccess("Pozicija je sačuvana.");
+  redirectSuccess(kind === "TEAM" ? "Tim u strukturi je sačuvan." : "Pozicija je sačuvana.");
 }
 
 export async function deleteOrgPositionAction(formData: FormData) {
@@ -212,4 +224,16 @@ export async function importDefaultOrgStructureAction() {
   revalidateOrgPages();
 
   redirectSuccess(`VLAH org struktura je uvezena. Pozicije: ${result.positionsCreated}, dodele: ${result.assignmentsCreated}.`);
+}
+
+export async function syncDefaultOrgStructureAction() {
+  await requireAdminUser();
+
+  const result = await syncVlahOrgTemplate();
+
+  revalidateOrgPages();
+
+  redirectSuccess(
+    `Finalna VLAH struktura je usklađena. Kreirano: ${result.positionsCreated}, ažurirano: ${result.positionsUpdated}, timovi: ${result.teamsCreated + result.teamsUpdated}, deaktivirano: ${result.positionsDeactivated}.`
+  );
 }
