@@ -29,6 +29,7 @@ const navIconByHref = {
   "/reports": IconReport,
   "/reports/manager": IconReport,
   "/absence": IconCalendar,
+  "/company-calendar": IconCalendar,
   "/performance": IconSparkles,
   "/management": IconBriefcase,
   "/profile": IconUser,

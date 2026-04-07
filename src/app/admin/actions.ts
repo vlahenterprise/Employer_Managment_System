@@ -127,6 +127,7 @@ export async function createUserAction(formData: FormData) {
   const passwordRaw = String(formData.get("password") ?? "");
   const hrAddon = hrEnabled && formData.get("hrAddon") != null;
   const adminAddon = formData.get("adminAddon") != null;
+  const companyCalendarAddon = formData.get("companyCalendarAddon") != null;
   const employmentDateRaw = String(formData.get("employmentDate") ?? "");
   const jobDescriptionUrlRaw = String(formData.get("jobDescriptionUrl") ?? "");
   const workInstructionsUrlRaw = String(formData.get("workInstructionsUrl") ?? "");
@@ -179,6 +180,7 @@ export async function createUserAction(formData: FormData) {
         role: parsedRole.data,
         hrAddon,
         adminAddon,
+        companyCalendarAddon,
         status: parsedStatus.data,
         carryOverAnnualLeave: ok.data.carryOverAnnualLeave,
         employmentDate: employmentDate && !Number.isNaN(employmentDate.getTime()) ? employmentDate : null,
@@ -246,6 +248,7 @@ export async function updateUserAction(formData: FormData) {
   const managerIdRaw = String(formData.get("managerId") ?? "");
   const hrAddon = hrEnabled && formData.get("hrAddon") != null;
   const adminAddon = formData.get("adminAddon") != null;
+  const companyCalendarAddon = formData.get("companyCalendarAddon") != null;
   const employmentDateRaw = String(formData.get("employmentDate") ?? "");
   const jobDescriptionUrlRaw = String(formData.get("jobDescriptionUrl") ?? "");
   const workInstructionsUrlRaw = String(formData.get("workInstructionsUrl") ?? "");
@@ -293,6 +296,7 @@ export async function updateUserAction(formData: FormData) {
         role: parsedRole.data,
         hrAddon,
         adminAddon,
+        companyCalendarAddon,
         status: parsedStatus.data,
         carryOverAnnualLeave: carryOverAnnualLeaveParsed.data,
         employmentDate: employmentDate && !Number.isNaN(employmentDate.getTime()) ? employmentDate : null,

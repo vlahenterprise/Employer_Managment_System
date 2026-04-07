@@ -16,6 +16,7 @@ const getUserById = cache((userId: string) =>
       role: true,
       hrAddon: true,
       adminAddon: true,
+      companyCalendarAddon: true,
       status: true,
       carryOverAnnualLeave: true,
       annualLeaveDays: true,

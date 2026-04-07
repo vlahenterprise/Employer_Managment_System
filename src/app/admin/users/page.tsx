@@ -32,6 +32,7 @@ export default async function AdminUsersPage({
         status: true,
         hrAddon: true,
         adminAddon: true,
+        companyCalendarAddon: true,
         carryOverAnnualLeave: true,
         employmentDate: true,
         jobDescriptionUrl: true,
@@ -179,6 +180,25 @@ export default async function AdminUsersPage({
               </label>
 
               <label className="field">
+                <span className="label">
+                  <LabelWithTooltip
+                    label="Company calendar add-on"
+                    tooltip={
+                      lang === "sr"
+                        ? "Daje pravo da korisnik dodaje, menja i uklanja događaje u kompanijskom kalendaru. Svi zaposleni i dalje mogu da vide kalendar."
+                        : "Allows the user to add, edit, and remove company calendar events. All employees can still view the calendar."
+                    }
+                  />
+                </span>
+                <label className="inline" style={{ alignItems: "center" }}>
+                  <input name="companyCalendarAddon" type="checkbox" value="1" />
+                  <span className="muted small">
+                    {lang === "sr" ? "Uređivanje kompanijskog kalendara" : "Company calendar editing"}
+                  </span>
+                </label>
+              </label>
+
+              <label className="field">
                 <span className="label">{t.admin.users.status}</span>
                 <select className="input" name="status" defaultValue="ACTIVE">
                   <option value="ACTIVE">ACTIVE</option>
@@ -303,6 +323,9 @@ export default async function AdminUsersPage({
                       <span className={`pill ${user.adminAddon ? "pill-blue" : "pill-gray"}`}>
                         {user.adminAddon ? "Admin add-on" : "No admin add-on"}
                       </span>
+                      <span className={`pill ${user.companyCalendarAddon ? "pill-blue" : "pill-gray"}`}>
+                        {user.companyCalendarAddon ? "Calendar add-on" : "No calendar add-on"}
+                      </span>
                       {getAccessSummary(user as any).map((entry) => (
                         <span key={`${user.id}-${entry}`} className="pill pill-status pill-status-review">
                           {entry}
@@ -367,6 +390,16 @@ export default async function AdminUsersPage({
                     <label className="inline" style={{ alignItems: "center" }}>
                       <input name="adminAddon" type="checkbox" value="1" defaultChecked={user.adminAddon} />
                       <span className="muted small">Pristup Settings i Access modulima bez promene osnovne role</span>
+                    </label>
+                  </label>
+
+                  <label className="field">
+                    <span className="label">Company calendar add-on</span>
+                    <label className="inline" style={{ alignItems: "center" }}>
+                      <input name="companyCalendarAddon" type="checkbox" value="1" defaultChecked={user.companyCalendarAddon} />
+                      <span className="muted small">
+                        {lang === "sr" ? "Pravo uređivanja kompanijskog kalendara" : "Company calendar editing access"}
+                      </span>
                     </label>
                   </label>
 

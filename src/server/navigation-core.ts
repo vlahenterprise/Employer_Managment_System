@@ -6,6 +6,7 @@ export type NavigationActor = {
   role: UserRole;
   hrAddon?: boolean;
   adminAddon?: boolean;
+  companyCalendarAddon?: boolean;
 };
 
 export type NavItem = {
@@ -31,6 +32,13 @@ export function getPrimaryNavigation(actor: NavigationActor, lang: Lang) {
       label: "ORG System",
       shortLabel: "ORG",
       match: ["/organization"],
+      group: "work"
+    },
+    {
+      href: "/company-calendar",
+      label: navLabel(lang, "Kompanijski kalendar", "Company Calendar"),
+      shortLabel: navLabel(lang, "Kalendar", "Calendar"),
+      match: ["/company-calendar"],
       group: "work"
     }
   ];

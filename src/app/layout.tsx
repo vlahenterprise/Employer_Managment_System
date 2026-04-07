@@ -32,7 +32,15 @@ export default async function RootLayout({
     getCurrentUser()
   ]);
   const navItems = user
-    ? getPrimaryNavigation({ role: user.role, hrAddon: user.hrAddon, adminAddon: user.adminAddon }, lang)
+    ? getPrimaryNavigation(
+        {
+          role: user.role,
+          hrAddon: user.hrAddon,
+          adminAddon: user.adminAddon,
+          companyCalendarAddon: user.companyCalendarAddon
+        },
+        lang
+      )
     : [];
   return (
     <html

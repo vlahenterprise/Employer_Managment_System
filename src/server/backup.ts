@@ -106,6 +106,7 @@ const TABLE_EXPORTS: TableExport[] = [
       "role",
       "hrAddon",
       "adminAddon",
+      "companyCalendarAddon",
       "status",
       "carryOverAnnualLeave",
       "annualLeaveDays",
@@ -121,6 +122,24 @@ const TABLE_EXPORTS: TableExport[] = [
     ],
     fetchRows: () => prisma.user.findMany({ orderBy: { createdAt: "asc" } }) as any,
     countRows: () => prisma.user.count()
+  },
+  {
+    name: "CompanyEvent",
+    columns: ["id", "title", "description", "location", "status", "startsAt", "endsAt", "allDay", "createdById", "createdAt", "updatedAt"],
+    fetchRows: () => prisma.companyEvent.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.companyEvent.count()
+  },
+  {
+    name: "CompanyEventParticipant",
+    columns: ["id", "eventId", "userId", "createdAt"],
+    fetchRows: () => prisma.companyEventParticipant.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.companyEventParticipant.count()
+  },
+  {
+    name: "CompanyEventPosition",
+    columns: ["id", "eventId", "positionId", "createdAt"],
+    fetchRows: () => prisma.companyEventPosition.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.companyEventPosition.count()
   },
   {
     name: "ActivityType",

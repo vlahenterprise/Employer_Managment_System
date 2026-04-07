@@ -6,6 +6,7 @@ export type ScopedActor = {
   role: UserRole;
   hrAddon?: boolean;
   adminAddon?: boolean;
+  companyCalendarAddon?: boolean;
 };
 
 export type ScopedOrgUser = {
@@ -42,6 +43,10 @@ export function hasAdminAddon(actor: Pick<ScopedActor, "role" | "adminAddon">) {
   return Boolean(actor.adminAddon) || actor.role === "ADMIN";
 }
 
+export function hasCompanyCalendarAddon(actor: Pick<ScopedActor, "role" | "companyCalendarAddon">) {
+  return Boolean(actor.companyCalendarAddon) || actor.role === "ADMIN";
+}
+
 export function hasHrSystemAccess(actor: Pick<ScopedActor, "role" | "hrAddon">) {
   return hasHrAddon(actor);
 }
@@ -68,10 +73,11 @@ export function canViewAllProfiles(actor: Pick<ScopedActor, "role" | "hrAddon" |
   return hasHrAddon(actor) || hasAdminAddon(actor);
 }
 
-export function getAccessSummary(actor: Pick<ScopedActor, "role" | "hrAddon" | "adminAddon">) {
+export function getAccessSummary(actor: Pick<ScopedActor, "role" | "hrAddon" | "adminAddon" | "companyCalendarAddon">) {
   const parts = [getBaseRole(actor.role)];
   if (hasHrAddon(actor)) parts.push("HR_ADDON");
   if (hasAdminAddon(actor)) parts.push("ADMIN_ADDON");
+  if (hasCompanyCalendarAddon(actor)) parts.push("COMPANY_CALENDAR_ADDON");
   return parts;
 }
 

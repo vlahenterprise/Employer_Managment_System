@@ -129,6 +129,11 @@ enum OrgNodeKind {
   TEAM
 }
 
+enum CompanyEventStatus {
+  ACTIVE
+  CANCELLED
+}
+
 model Team {
   id        String   @id @default(cuid())
   name      String   @unique
@@ -153,6 +158,7 @@ model User {
   role        UserRole   @default(USER)
   hrAddon     Boolean    @default(false)
   adminAddon  Boolean    @default(false)
+  companyCalendarAddon Boolean @default(false)
   status      UserStatus @default(ACTIVE)
   carryOverAnnualLeave Int @default(0)
   annualLeaveDays Int?
@@ -172,6 +178,8 @@ model User {
   accounts  Account[]
   sessions  Session[]
   passwordResetTokens PasswordResetToken[]
+  createdCompanyEvents CompanyEvent[] @relation("CompanyEventCreatedBy")
+  companyEventParticipants CompanyEventParticipant[]
 
   tasksAssigned   Task[]   @relation("TaskAssignee")
   tasksDelegated  Task[]   @relation("TaskDelegator")
@@ -208,6 +216,7 @@ model User {
   @@index([teamId])
   @@index([hrAddon])
   @@index([adminAddon])
+  @@index([companyCalendarAddon])
 }
 
 model OrgPosition {
@@ -230,6 +239,7 @@ model OrgPosition {
   assignees OrgPositionAssignment[]
   templates OnboardingTemplate[]
   onboardings Onboarding[]
+  companyEvents CompanyEventPosition[]
 
   @@index([parentId])
   @@index([parentId, order])
@@ -239,6 +249,53 @@ model OrgPosition {
   @@index([tier])
   @@index([tier, order])
   @@index([isActive])
+}
+
+model CompanyEvent {
+  id          String             @id @default(cuid())
+  title       String
+  description String?
+  location    String?
+  status      CompanyEventStatus @default(ACTIVE)
+  startsAt    DateTime
+  endsAt      DateTime
+  allDay      Boolean            @default(true)
+  createdById String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  createdBy    User?                     @relation("CompanyEventCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  participants CompanyEventParticipant[]
+  positions    CompanyEventPosition[]
+
+  @@index([status, startsAt, endsAt])
+  @@index([createdById])
+}
+
+model CompanyEventParticipant {
+  id        String   @id @default(cuid())
+  eventId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  event CompanyEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([userId])
+}
+
+model CompanyEventPosition {
+  id         String   @id @default(cuid())
+  eventId    String
+  positionId String
+  createdAt  DateTime @default(now())
+
+  event    CompanyEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  position OrgPosition  @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, positionId])
+  @@index([positionId])
 }
 
 model OrgPositionAssignment {

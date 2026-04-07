@@ -112,6 +112,7 @@ export const authOptions: NextAuthOptions = {
             role: true,
             hrAddon: true,
             adminAddon: true,
+            companyCalendarAddon: true,
             status: true,
             teamId: true,
             passwordHash: true
@@ -131,6 +132,7 @@ export const authOptions: NextAuthOptions = {
           role: user.role,
           hrAddon: user.hrAddon,
           adminAddon: user.adminAddon,
+          companyCalendarAddon: user.companyCalendarAddon,
           status: user.status,
           teamId: user.teamId
         } as any;
@@ -167,6 +169,7 @@ export const authOptions: NextAuthOptions = {
         (token as any).role = (user as any).role;
         (token as any).hrAddon = (user as any).hrAddon ?? false;
         (token as any).adminAddon = (user as any).adminAddon ?? false;
+        (token as any).companyCalendarAddon = (user as any).companyCalendarAddon ?? false;
         (token as any).status = (user as any).status;
         (token as any).teamId = (user as any).teamId ?? null;
         (token as any).iat = nowSeconds;
@@ -184,6 +187,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).role = (token as any).role ?? "USER";
         (session.user as any).hrAddon = (token as any).hrAddon ?? false;
         (session.user as any).adminAddon = (token as any).adminAddon ?? false;
+        (session.user as any).companyCalendarAddon = (token as any).companyCalendarAddon ?? false;
         (session.user as any).status = (token as any).status ?? "ACTIVE";
         (session.user as any).teamId = (token as any).teamId ?? null;
       }

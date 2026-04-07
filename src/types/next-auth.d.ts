@@ -8,6 +8,7 @@ declare module "next-auth" {
       role: UserRole;
       hrAddon: boolean;
       adminAddon: boolean;
+      companyCalendarAddon: boolean;
       status: UserStatus;
       teamId: string | null;
     } & DefaultSession["user"];
@@ -17,6 +18,7 @@ declare module "next-auth" {
     role: UserRole;
     hrAddon: boolean;
     adminAddon: boolean;
+    companyCalendarAddon: boolean;
     status: UserStatus;
     teamId: string | null;
   }
@@ -27,6 +29,7 @@ declare module "next-auth/jwt" {
     role?: UserRole;
     hrAddon?: boolean;
     adminAddon?: boolean;
+    companyCalendarAddon?: boolean;
     status?: UserStatus;
     teamId?: string | null;
   }
