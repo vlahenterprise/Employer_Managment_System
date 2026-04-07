@@ -26,6 +26,15 @@ async function main() {
       renderTimeoutMs: config.pdf.renderTimeoutMs,
       hasCustomChromiumExecutablePath: Boolean(config.pdf.chromiumExecutablePath),
       hasCustomChromiumPackUrl: Boolean(config.pdf.chromiumPackUrl)
+    },
+    googleWorkspace: {
+      hasClientCredentials: Boolean(config.googleWorkspace.clientId && config.googleWorkspace.clientSecret),
+      hasRefreshToken: Boolean(config.googleWorkspace.refreshToken),
+      hasBotEmail: Boolean(config.googleWorkspace.botEmail),
+      hasCalendarId: Boolean(config.googleWorkspace.calendarId),
+      emailEnabled: config.googleWorkspace.emailEnabled,
+      calendarEnabled: config.googleWorkspace.calendarEnabled,
+      taskCalendarEnabled: config.googleWorkspace.taskCalendarEnabled
     }
   };
 

@@ -7,6 +7,7 @@ import { formatInTimeZone, fromZonedTime } from "@/server/time";
 import { normalizeIsoDate } from "./iso-date";
 import { getScopedEmployeeIds, isAdminRole, isManagerRole } from "./rbac";
 import { idSchema, isoDateSchema } from "./validation";
+import { notifyAbsenceDecision, syncAbsenceWithGoogleWorkspace } from "./google-workspace";
 
 function utcDateFromIso(iso: string) {
   const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -439,6 +440,8 @@ export async function approveAbsence(params: {
     }
   });
 
+  await Promise.all([syncAbsenceWithGoogleWorkspace(absenceId), notifyAbsenceDecision(absenceId)]);
+
   return { ok: true as const };
 }
 
@@ -484,6 +487,8 @@ export async function cancelAbsence(params: {
       comment: comment || null
     }
   });
+
+  await Promise.all([syncAbsenceWithGoogleWorkspace(absenceId), notifyAbsenceDecision(absenceId)]);
 
   return { ok: true as const };
 }

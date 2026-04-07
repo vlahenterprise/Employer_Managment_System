@@ -486,6 +486,35 @@ const TABLE_EXPORTS: TableExport[] = [
     countRows: () => prisma.hrAuditLog.count()
   },
   {
+    name: "ExternalCalendarEvent",
+    columns: ["id", "entityType", "entityId", "calendarId", "googleEventId", "status", "lastSyncedAt", "errorMessage", "createdAt", "updatedAt"],
+    fetchRows: () => prisma.externalCalendarEvent.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.externalCalendarEvent.count()
+  },
+  {
+    name: "NotificationDelivery",
+    columns: [
+      "id",
+      "channel",
+      "provider",
+      "entityType",
+      "entityId",
+      "recipientEmail",
+      "subject",
+      "status",
+      "dedupeKey",
+      "providerMessageId",
+      "scheduledAt",
+      "sentAt",
+      "failedAt",
+      "errorMessage",
+      "createdAt",
+      "updatedAt"
+    ],
+    fetchRows: () => prisma.notificationDelivery.findMany({ orderBy: { createdAt: "asc" } }) as any,
+    countRows: () => prisma.notificationDelivery.count()
+  },
+  {
     name: "Account",
     columns: ["id", "userId", "type", "provider", "providerAccountId", "refresh_token", "access_token", "expires_at", "token_type", "scope", "id_token", "session_state"],
     fetchRows: () => prisma.account.findMany({ orderBy: { id: "asc" } }) as any,

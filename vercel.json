@@ -3,6 +3,10 @@
     {
       "path": "/api/internal/backup-cron",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/internal/google-workspace-cron",
+      "schedule": "15 * * * *"
     }
   ]
 }

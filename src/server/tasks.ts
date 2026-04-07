@@ -7,6 +7,7 @@ import { formatInTimeZone, fromZonedTime } from "@/server/time";
 import { normalizeIsoDate } from "./iso-date";
 import { getScopedEmployeeIds, isAdminRole, isManagerRole } from "./rbac";
 import { idSchema, isoDateSchema, requiredTextSchema } from "./validation";
+import { notifyTaskCreated, syncTaskDueCalendarEvent } from "./google-workspace";
 
 function normalizeEmail(value: string) {
   return String(value || "").trim().toLowerCase();
@@ -446,6 +447,8 @@ export async function createTask(params: {
     }
   });
 
+  await Promise.all([notifyTaskCreated(task.id), syncTaskDueCalendarEvent(task.id)]);
+
   return { ok: true as const, taskId: task.id };
 }
 
@@ -494,6 +497,8 @@ export async function submitTaskForApproval(params: {
     }
   });
 
+  await syncTaskDueCalendarEvent(taskId);
+
   return { ok: true as const };
 }
 
@@ -535,6 +540,8 @@ export async function approveTaskAction(params: {
       comment
     }
   });
+
+  await syncTaskDueCalendarEvent(taskId);
 
   return { ok: true as const };
 }
@@ -621,6 +628,8 @@ export async function cancelTaskAction(params: {
       comment
     }
   });
+
+  await syncTaskDueCalendarEvent(taskId);
 
   return { ok: true as const };
 }
