@@ -12,7 +12,7 @@ import { ORG_STRUCTURE_CACHE_TAG, ORG_USERS_CACHE_TAG, SETTINGS_CACHE_TAG } from
 import { importLegacyDataset } from "@/server/legacy-import";
 import { logError, logInfo } from "@/server/log";
 import { isHrModuleEnabled } from "@/server/features";
-import { sanitizeText, withAction } from "@/server/action-utils";
+import { sanitizeText, sanitizeUrl, withAction } from "@/server/action-utils";
 
 const roleSchema = z.enum(["MANAGER", "USER"]);
 const statusSchema = z.enum(["ACTIVE", "INACTIVE"]);
@@ -141,8 +141,8 @@ export async function createUserAction(formData: FormData) {
   const managerId = managerIdRaw.trim() || null;
   const password = passwordRaw.trim() || null;
   const employmentDate = employmentDateRaw.trim() ? new Date(`${employmentDateRaw.trim()}T00:00:00`) : null;
-  const jobDescriptionUrl = jobDescriptionUrlRaw.trim() || null;
-  const workInstructionsUrl = workInstructionsUrlRaw.trim() || null;
+  const jobDescriptionUrl = sanitizeUrl(jobDescriptionUrlRaw);
+  const workInstructionsUrl = sanitizeUrl(workInstructionsUrlRaw);
 
   const baseSchema = z.object({
     email: z.string().email(),
@@ -245,8 +245,8 @@ export async function updateUserAction(formData: FormData) {
   const teamId = teamIdRaw.trim() || null;
   const managerId = managerIdRaw.trim() || null;
   const employmentDate = employmentDateRaw.trim() ? new Date(`${employmentDateRaw.trim()}T00:00:00`) : null;
-  const jobDescriptionUrl = jobDescriptionUrlRaw.trim() || null;
-  const workInstructionsUrl = workInstructionsUrlRaw.trim() || null;
+  const jobDescriptionUrl = sanitizeUrl(jobDescriptionUrlRaw);
+  const workInstructionsUrl = sanitizeUrl(workInstructionsUrlRaw);
   const carryOverAnnualLeaveParsed = z.coerce.number().int().min(0).safeParse(carryOverAnnualLeaveRaw);
   if (!carryOverAnnualLeaveParsed.success) {
     redirectError("/admin/users", "CarryOverAnnualLeave mora biti broj (0 ili više).");

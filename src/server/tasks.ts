@@ -237,6 +237,19 @@ export async function getTaskDashboard(actor: { id: string; email: string; role:
     }
   });
 
+  // Precompute approval context once for all unique assignees (fixes N+1)
+  const uniqueAssigneeIds = [...new Set(tasks.map((t) => t.assignee.id))];
+  let approvalContextCache: Awaited<ReturnType<typeof buildApprovalHierarchyContext>> | null = null;
+  let approvalSettingAllowAncestor = false;
+  if (!isAdminRole(actor.role) && uniqueAssigneeIds.length > 0) {
+    const settings = await getAppSettings();
+    approvalSettingAllowAncestor = Boolean(Number(settings.AllowAncestorApprovalTasks || 0));
+    approvalContextCache = await buildApprovalHierarchyContext({
+      allowAncestor: approvalSettingAllowAncestor,
+      employeeIds: uniqueAssigneeIds
+    });
+  }
+
   const items: TaskDashboardItem[] = [];
   for (const t of tasks) {
     const delegatedIso = formatInTimeZone(t.delegatedAt, APP_TIMEZONE, "yyyy-MM-dd");
@@ -252,7 +265,11 @@ export async function getTaskDashboard(actor: { id: string; email: string; role:
       approvedLate = !approvedOnTime;
     }
 
-    const canApprove = await canApproveTask(actor, t.assignee.id);
+    const canApprove = isAdminRole(actor.role)
+      ? true
+      : actor.id !== t.assignee.id && approvalContextCache != null
+        ? canManagerApproveEmployee(actor.id, t.assignee.id, approvalContextCache)
+        : false;
 
     items.push({
       taskId: t.id,
@@ -419,31 +436,33 @@ export async function createTask(params: {
   const delegatedAt = new Date();
   const dueDate = fromZonedTime(`${dueIso}T00:00:00`, APP_TIMEZONE);
 
-  const task = await prisma.task.create({
-    data: {
-      title,
-      description,
-      priority: params.payload.priority,
-      status: "OPEN",
-      delegatorId: params.actor.id,
-      assigneeId,
-      teamId: params.payload.teamId,
-      delegatedAt,
-      dueDate,
-      returnedCount: 0
-    },
-    select: { id: true }
-  });
-
-  await prisma.taskEvent.create({
-    data: {
-      taskId: task.id,
-      action: "CREATED",
-      actorId: params.actor.id,
-      actorEmail: normalizeEmail(params.actor.email),
-      actorName: params.actor.name,
-      comment: `Delegated to ${assigneeId}`
-    }
+  const task = await prisma.$transaction(async (tx) => {
+    const created = await tx.task.create({
+      data: {
+        title,
+        description,
+        priority: params.payload.priority,
+        status: "OPEN",
+        delegatorId: params.actor.id,
+        assigneeId,
+        teamId: params.payload.teamId,
+        delegatedAt,
+        dueDate,
+        returnedCount: 0
+      },
+      select: { id: true }
+    });
+    await tx.taskEvent.create({
+      data: {
+        taskId: created.id,
+        action: "CREATED",
+        actorId: params.actor.id,
+        actorEmail: normalizeEmail(params.actor.email),
+        actorName: params.actor.name,
+        comment: `Delegated to ${assigneeId}`
+      }
+    });
+    return created;
   });
 
   return { ok: true as const, taskId: task.id };
@@ -474,25 +493,22 @@ export async function submitTaskForApproval(params: {
   if (task.status === "FOR_APPROVAL") return { ok: false as const, error: "ALREADY_FOR_APPROVAL" };
   if (task.status === "APPROVED") return { ok: false as const, error: "ALREADY_APPROVED" };
 
-  await prisma.task.update({
-    where: { id: taskId },
-    data: {
-      status: "FOR_APPROVAL",
-      forApprovalAt: new Date(),
-      employeeComment: comment
-    }
-  });
-
-  await prisma.taskEvent.create({
-    data: {
-      taskId,
-      action: "SUBMIT_FOR_APPROVAL",
-      actorId: params.actor.id,
-      actorEmail: normalizeEmail(params.actor.email),
-      actorName: params.actor.name,
-      comment
-    }
-  });
+  await prisma.$transaction([
+    prisma.task.update({
+      where: { id: taskId },
+      data: { status: "FOR_APPROVAL", forApprovalAt: new Date(), employeeComment: comment }
+    }),
+    prisma.taskEvent.create({
+      data: {
+        taskId,
+        action: "SUBMIT_FOR_APPROVAL",
+        actorId: params.actor.id,
+        actorEmail: normalizeEmail(params.actor.email),
+        actorName: params.actor.name,
+        comment
+      }
+    })
+  ]);
 
   return { ok: true as const };
 }
@@ -516,25 +532,22 @@ export async function approveTaskAction(params: {
 
   const comment = String(params.comment || "").trim();
 
-  await prisma.task.update({
-    where: { id: taskId },
-    data: {
-      status: "APPROVED",
-      approvedAt: new Date(),
-      adminComment: comment
-    }
-  });
-
-  await prisma.taskEvent.create({
-    data: {
-      taskId,
-      action: "APPROVED",
-      actorId: params.actor.id,
-      actorEmail: normalizeEmail(params.actor.email),
-      actorName: params.actor.name,
-      comment
-    }
-  });
+  await prisma.$transaction([
+    prisma.task.update({
+      where: { id: taskId },
+      data: { status: "APPROVED", approvedAt: new Date(), adminComment: comment }
+    }),
+    prisma.taskEvent.create({
+      data: {
+        taskId,
+        action: "APPROVED",
+        actorId: params.actor.id,
+        actorEmail: normalizeEmail(params.actor.email),
+        actorName: params.actor.name,
+        comment
+      }
+    })
+  ]);
 
   return { ok: true as const };
 }
@@ -559,25 +572,22 @@ export async function returnTaskAction(params: {
   const comment = String(params.comment || "").trim();
   const next = (task.returnedCount || 0) + 1;
 
-  await prisma.task.update({
-    where: { id: taskId },
-    data: {
-      status: "RETURNED",
-      returnedCount: next,
-      adminComment: comment
-    }
-  });
-
-  await prisma.taskEvent.create({
-    data: {
-      taskId,
-      action: "RETURNED",
-      actorId: params.actor.id,
-      actorEmail: normalizeEmail(params.actor.email),
-      actorName: params.actor.name,
-      comment
-    }
-  });
+  await prisma.$transaction([
+    prisma.task.update({
+      where: { id: taskId },
+      data: { status: "RETURNED", returnedCount: next, adminComment: comment }
+    }),
+    prisma.taskEvent.create({
+      data: {
+        taskId,
+        action: "RETURNED",
+        actorId: params.actor.id,
+        actorEmail: normalizeEmail(params.actor.email),
+        actorName: params.actor.name,
+        comment
+      }
+    })
+  ]);
 
   return { ok: true as const, returnedCount: next };
 }
@@ -602,25 +612,22 @@ export async function cancelTaskAction(params: {
 
   const comment = String(params.comment || "").trim();
 
-  await prisma.task.update({
-    where: { id: taskId },
-    data: {
-      status: "CANCELLED",
-      cancelledAt: new Date(),
-      adminComment: comment
-    }
-  });
-
-  await prisma.taskEvent.create({
-    data: {
-      taskId,
-      action: "CANCELLED",
-      actorId: params.actor.id,
-      actorEmail: normalizeEmail(params.actor.email),
-      actorName: params.actor.name,
-      comment
-    }
-  });
+  await prisma.$transaction([
+    prisma.task.update({
+      where: { id: taskId },
+      data: { status: "CANCELLED", cancelledAt: new Date(), adminComment: comment }
+    }),
+    prisma.taskEvent.create({
+      data: {
+        taskId,
+        action: "CANCELLED",
+        actorId: params.actor.id,
+        actorEmail: normalizeEmail(params.actor.email),
+        actorName: params.actor.name,
+        comment
+      }
+    })
+  ]);
 
   return { ok: true as const };
 }

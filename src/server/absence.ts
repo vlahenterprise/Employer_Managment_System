@@ -153,29 +153,32 @@ export async function submitAbsenceRequest(params: {
   const dateFrom = fromZonedTime(`${fromIso}T00:00:00`, APP_TIMEZONE);
   const dateTo = fromZonedTime(`${toIso}T23:59:59.999`, APP_TIMEZONE);
 
-  const absence = await prisma.absence.create({
-    data: {
-      employeeId: params.actor.id,
-      type,
-      status: "PENDING",
-      dateFrom,
-      dateTo,
-      days,
-      comment: comment || null,
-      overlapWarning: overlap.ok ? overlap.count > 0 : false
-    },
-    select: { id: true }
-  });
-
-  await prisma.absenceEvent.create({
-    data: {
-      absenceId: absence.id,
-      action: "SUBMITTED",
-      actorId: params.actor.id,
-      actorEmail: normalizeEmail(params.actor.email),
-      actorName: params.actor.name,
-      comment: comment || null
-    }
+  // Atomic create + audit event — prevents partial write on failure
+  const absence = await prisma.$transaction(async (tx) => {
+    const created = await tx.absence.create({
+      data: {
+        employeeId: params.actor.id,
+        type,
+        status: "PENDING",
+        dateFrom,
+        dateTo,
+        days,
+        comment: comment || null,
+        overlapWarning: overlap.ok ? overlap.count > 0 : false
+      },
+      select: { id: true }
+    });
+    await tx.absenceEvent.create({
+      data: {
+        absenceId: created.id,
+        action: "SUBMITTED",
+        actorId: params.actor.id,
+        actorEmail: normalizeEmail(params.actor.email),
+        actorName: params.actor.name,
+        comment: comment || null
+      }
+    });
+    return created;
   });
 
   return { ok: true as const, absenceId: absence.id, days, overlap: overlap.ok ? overlap : { ok: true as const, count: 0, names: [] } };
@@ -418,26 +421,27 @@ export async function approveAbsence(params: {
 
   const comment = String(params.comment || "").trim();
 
-  await prisma.absence.update({
-    where: { id: absenceId },
-    data: {
-      status: params.status,
-      approverId: params.actor.id,
-      approvedAt: new Date(),
-      comment: comment || null
-    }
-  });
-
-  await prisma.absenceEvent.create({
-    data: {
-      absenceId,
-      action: params.status,
-      actorId: params.actor.id,
-      actorEmail: normalizeEmail(params.actor.email),
-      actorName: params.actor.name,
-      comment: comment || null
-    }
-  });
+  await prisma.$transaction([
+    prisma.absence.update({
+      where: { id: absenceId },
+      data: {
+        status: params.status,
+        approverId: params.actor.id,
+        approvedAt: new Date(),
+        comment: comment || null
+      }
+    }),
+    prisma.absenceEvent.create({
+      data: {
+        absenceId,
+        action: params.status,
+        actorId: params.actor.id,
+        actorEmail: normalizeEmail(params.actor.email),
+        actorName: params.actor.name,
+        comment: comment || null
+      }
+    })
+  ]);
 
   return { ok: true as const };
 }
@@ -464,26 +468,27 @@ export async function cancelAbsence(params: {
 
   const comment = String(params.comment || "").trim();
 
-  await prisma.absence.update({
-    where: { id: absenceId },
-    data: {
-      status: "CANCELLED",
-      approverId: params.actor.id,
-      approvedAt: new Date(),
-      comment: comment || null
-    }
-  });
-
-  await prisma.absenceEvent.create({
-    data: {
-      absenceId,
-      action: "CANCELLED",
-      actorId: params.actor.id,
-      actorEmail: normalizeEmail(params.actor.email),
-      actorName: params.actor.name,
-      comment: comment || null
-    }
-  });
+  await prisma.$transaction([
+    prisma.absence.update({
+      where: { id: absenceId },
+      data: {
+        status: "CANCELLED",
+        approverId: params.actor.id,
+        approvedAt: new Date(),
+        comment: comment || null
+      }
+    }),
+    prisma.absenceEvent.create({
+      data: {
+        absenceId,
+        action: "CANCELLED",
+        actorId: params.actor.id,
+        actorEmail: normalizeEmail(params.actor.email),
+        actorName: params.actor.name,
+        comment: comment || null
+      }
+    })
+  ]);
 
   return { ok: true as const };
 }
