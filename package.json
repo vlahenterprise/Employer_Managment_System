@@ -20,7 +20,8 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "org:import-vlah": "tsx scripts/import-vlah-org-structure.ts",
-    "org:sync-final-vlah": "tsx scripts/sync-final-vlah-org-structure.ts"
+    "org:sync-final-vlah": "tsx scripts/sync-final-vlah-org-structure.ts",
+    "reports:reset-import": "tsx scripts/reset-ops-data-and-import-reports.ts"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
