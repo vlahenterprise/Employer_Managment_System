@@ -76,6 +76,7 @@ export const config = {
     "/candidates/:path*",
     "/talent-pool/:path*",
     "/onboarding/:path*",
-    "/access/:path*"
+    "/access/:path*",
+    "/company-calendar/:path*"
   ]
 };
