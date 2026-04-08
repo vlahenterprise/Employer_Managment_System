@@ -46,9 +46,9 @@ export default async function RootLayout({
   return (
     <html
       lang={lang}
-      style={themeVars as any}
       className={bodyFont.variable}
     >
+      <style dangerouslySetInnerHTML={{ __html: `:root { ${Object.entries(themeVars).map(([k,v]) => `${k}: ${v};`).join(' ')} }` }} />
       <ThemeInit />
       <body>
         <LangToggle lang={lang} />

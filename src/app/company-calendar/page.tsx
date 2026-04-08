@@ -3,7 +3,6 @@ import { endOfMonth, startOfMonth } from "date-fns";
 import { GuidancePanel } from "@/components/GuidancePanel";
 import { LabelWithTooltip } from "@/components/Tooltip";
 import { IconArrowLeft, IconCalendar } from "@/components/icons";
-import UserMenu from "../dashboard/UserMenu";
 import CompanyCalendarView from "./CompanyCalendarView";
 import CompanyEventForm from "./CompanyEventForm";
 import { createCompanyEventAction, deleteCompanyEventAction, updateCompanyEventAction } from "./actions";
@@ -142,16 +141,6 @@ export default async function CompanyCalendarPage({
               </div>
             </div>
           </div>
-          <UserMenu
-            name={user.name}
-            email={user.email}
-            role={user.role}
-            hrAddon={user.hrAddon}
-            adminAddon={user.adminAddon}
-            position={user.position}
-            team={user.team?.name ?? null}
-            lang={lang}
-          />
         </div>
 
         {success ? <div className="success">{success}</div> : null}

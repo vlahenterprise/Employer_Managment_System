@@ -6,6 +6,20 @@ import { IconArrowLeft, IconArrowRight } from "@/components/icons";
 import type { CompanyCalendarItem } from "@/server/company-calendar";
 import type { Lang } from "@/i18n";
 
+const EVENT_COLOR_HEX: Record<string, string> = {
+  orange: "#f05123",
+  blue: "#3b82f6",
+  green: "#22c55e",
+  red: "#ef4444",
+  purple: "#a855f7",
+  yellow: "#eab308",
+  teal: "#14b8a6",
+  pink: "#ec4899",
+};
+function colorHex(color: string) {
+  return EVENT_COLOR_HEX[color] ?? "#f05123";
+}
+
 function pad2(n: number) {
   return String(n).padStart(2, "0");
 }
@@ -176,10 +190,32 @@ export default function CompanyCalendarView(props: {
 
       <div className="cal-legend-grid">
         <div className="legend-group">
-          <div className="legend-group-title">{props.lang === "sr" ? "Događaji" : "Events"}</div>
+          <div className="legend-group-title">{props.lang === "sr" ? "Boje događaja" : "Event colors"}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {(["orange","blue","green","red","purple","yellow","teal","pink"] as const).map((c) => (
+              <span key={c} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600 }}>
+                <span style={{ width: 12, height: 12, borderRadius: "50%", background: colorHex(c), flexShrink: 0, display: "inline-block" }} />
+                <span style={{ color: "var(--color-font-secondary)", textTransform: "capitalize" }}>
+                  {props.lang === "sr" ? {
+                    orange: "Narandžasta",
+                    blue: "Plava",
+                    green: "Zelena",
+                    red: "Crvena",
+                    purple: "Ljubičasta",
+                    yellow: "Žuta",
+                    teal: "Tirkizna",
+                    pink: "Roze",
+                  }[c] : c.charAt(0).toUpperCase() + c.slice(1)}
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="legend-group">
+          <div className="legend-group-title">{props.lang === "sr" ? "Tip događaja" : "Event type"}</div>
           <div className="inline cal-legend">
-            <span className="pill absence-legend annual">{props.lang === "sr" ? "Kompanijski događaj" : "Company event"}</span>
-            <span className="pill absence-legend other">{props.lang === "sr" ? "Pozicije / ljudi" : "Positions / people"}</span>
+            <span className="pill absence-legend annual">{props.lang === "sr" ? "Kompanijski" : "Company"}</span>
+            <span className="pill absence-legend other">{props.lang === "sr" ? "Za ljude/pozicije" : "People/positions"}</span>
           </div>
         </div>
       </div>
@@ -210,10 +246,18 @@ export default function CompanyCalendarView(props: {
                 {show.map((event) => (
                   <div
                     key={`${cell.iso}:${event.eventId}`}
-                    className="absence-chip annual approved"
+                    className="absence-chip"
+                    style={{
+                      background: `${colorHex(event.color)}1f`,
+                      borderColor: `${colorHex(event.color)}50`,
+                      color: "inherit",
+                    }}
                     title={`${event.title}\n${event.startLabel} → ${event.endLabel}\n${participantLabel(event, props.lang)}`}
                   >
-                    <span className="absence-chip-dot approved" />
+                    <span
+                      className="absence-chip-dot"
+                      style={{ background: colorHex(event.color), boxShadow: `0 0 0 4px ${colorHex(event.color)}28` }}
+                    />
                     <span className="absence-chip-name">{event.title}</span>
                     <span className="absence-chip-tag">{firstLine(event)}</span>
                   </div>
@@ -241,7 +285,10 @@ export default function CompanyCalendarView(props: {
             {selectedItems.map((event) => (
               <div key={`${selectedIso}:${event.eventId}`} className="item item-compact">
                 <div>
-                  <div className="item-title">{event.title}</div>
+                  <div className="item-title">
+                    <span style={{ width: 10, height: 10, borderRadius: "50%", background: colorHex(event.color), display: "inline-block", marginRight: 6, flexShrink: 0 }} />
+                    {event.title}
+                  </div>
                   <div className="muted small">
                     {event.allDay ? copy.allDay : copy.time}: {event.startLabel} → {event.endLabel}
                     {event.location ? ` · ${event.location}` : ""}
