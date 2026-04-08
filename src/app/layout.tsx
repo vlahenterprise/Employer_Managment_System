@@ -7,6 +7,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { getCurrentUser } from "@/server/current-user";
 import { getPrimaryNavigation } from "@/server/navigation";
 import { Inter } from "next/font/google";
+import ThemeInit from "@/components/ThemeInit";
 
 const bodyFont = Inter({
   subsets: ["latin", "latin-ext"],
@@ -48,6 +49,7 @@ export default async function RootLayout({
       style={themeVars as any}
       className={bodyFont.variable}
     >
+      <ThemeInit />
       <body>
         <LangToggle lang={lang} />
         {branding.logoUrl ? (
@@ -64,6 +66,7 @@ export default async function RootLayout({
               title={branding.title}
               logoUrl={branding.logoUrl}
               lang={lang}
+              user={user ? { name: user.name, email: user.email, role: user.role, position: user.position, team: user.team?.name ?? null } : null}
             />
           ) : null}
           <ErrorBoundary>

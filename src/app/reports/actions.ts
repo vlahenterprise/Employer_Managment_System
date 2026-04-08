@@ -45,6 +45,34 @@ export async function deleteDailyReportAction(params: { dateIso: string; targetE
   return res;
 }
 
+export async function getMyReportsInRangeAction(params: { fromIso: string; toIso: string }) {
+  const user = await requireActiveUser();
+  const fromIso = String(params.fromIso || "").trim();
+  const toIso = String(params.toIso || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fromIso) || !/^\d{4}-\d{2}-\d{2}$/.test(toIso)) {
+    return { ok: false as const, error: "INVALID_DATE" };
+  }
+
+  const { prisma } = await import("@/server/db");
+  const reports = await prisma.dailyReport.findMany({
+    where: {
+      userId: user.id,
+      dateIso: { gte: fromIso, lte: toIso }
+    },
+    orderBy: { dateIso: "desc" },
+    select: {
+      id: true,
+      dateIso: true,
+      totalMinutes: true,
+      activities: {
+        select: { type: true, desc: true, minutes: true },
+        orderBy: { createdAt: "asc" }
+      }
+    }
+  });
+  return { ok: true as const, reports };
+}
+
 function redirectError(path: string, message: string): never {
   redirect(`${path}?error=${encodeURIComponent(message)}`);
 }

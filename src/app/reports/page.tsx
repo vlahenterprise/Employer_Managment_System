@@ -4,6 +4,7 @@ import { getActivityTypesForTeam } from "@/server/reports";
 import { getAppSettings } from "@/server/app-settings";
 import { prisma } from "@/server/db";
 import ReportEntry from "./ReportEntry";
+import ReportHistory from "./ReportHistory";
 import UserMenu from "../dashboard/UserMenu";
 import { getRequestLang } from "@/i18n/server";
 import { getI18n } from "@/i18n";
@@ -148,6 +149,8 @@ export default async function ReportsPage() {
             maxAct: settings.MaxActivitiesPerDay
           }}
         />
+
+        <ReportHistory lang={lang} />
 
       </div>
     </main>

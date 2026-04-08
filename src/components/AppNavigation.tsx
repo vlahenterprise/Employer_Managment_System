@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import type { NavItem } from "@/server/navigation";
 import {
   IconArrowRight,
@@ -12,6 +13,7 @@ import {
   IconClose,
   IconHome,
   IconInbox,
+  IconLogout,
   IconMenu,
   IconReport,
   IconSettings,
@@ -20,6 +22,7 @@ import {
   IconUser,
   IconUsers
 } from "@/components/icons";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const navIconByHref = {
   "/dashboard": IconHome,
@@ -46,12 +49,14 @@ export default function AppNavigation({
   items,
   title,
   logoUrl,
-  lang
+  lang,
+  user
 }: {
   items: NavItem[];
   title: string;
   logoUrl?: string | null;
   lang: "sr" | "en";
+  user?: { name: string; email: string; role: string; position?: string | null; team?: string | null } | null;
 }) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -213,6 +218,31 @@ export default function AppNavigation({
               </section>
             ))}
           </nav>
+
+          <div className="app-nav-footer">
+            {user ? (
+              <div className="app-nav-user">
+                <div className="app-nav-user-avatar" aria-hidden="true">
+                  <IconUser size={16} />
+                </div>
+                <div className="app-nav-user-info">
+                  <div className="app-nav-user-name">{user.name}</div>
+                  <div className="app-nav-user-sub">{user.email}</div>
+                  {user.team ? <div className="app-nav-user-meta">{user.team}</div> : null}
+                </div>
+              </div>
+            ) : null}
+            <div className="app-nav-footer-actions">
+              <ThemeToggle lang={lang} />
+              <button
+                type="button"
+                className="button button-secondary app-nav-logout"
+                onClick={() => signOut({ callbackUrl: "/login" })}
+              >
+                <IconLogout size={14} /> {lang === "sr" ? "Odjavi se" : "Sign out"}
+              </button>
+            </div>
+          </div>
         </div>
       </aside>
     </>

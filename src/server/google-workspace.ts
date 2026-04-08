@@ -546,7 +546,7 @@ export async function notifyUserCreated(params: { userId: string; initialPasswor
 
     const passwordLabel = params.initialPassword?.trim()
       ? params.initialPassword.trim()
-      : "Lozinka nije postavljena. Koristi opciju „Zaboravili ste lozinku?” na login strani.";
+      : "Lozinka nije postavljena. Na login strani klikni „Zaboravili ste lozinku?” da podežiš lozinku.";
     const loginUrl = `${baseUrl()}/login`;
     const subject = "EMS · Kreiran je tvoj korisnički nalog";
     const employmentDate = user.employmentDate ? formatInTimeZone(user.employmentDate, APP_TIMEZONE, "yyyy-MM-dd") : "";
@@ -948,6 +948,153 @@ export async function notifyAbsenceDecision(absenceId: string) {
     });
   } catch (error) {
     logError("google_workspace.absence.email_failed", error, { absenceId });
+  }
+}
+
+export async function notifyTaskSubmittedForApproval(taskId: string) {
+  try {
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      select: {
+        id: true,
+        title: true,
+        priority: true,
+        dueDate: true,
+        employeeComment: true,
+        assignee: { select: { name: true, email: true } },
+        delegator: { select: { name: true, email: true } }
+      }
+    });
+    if (!task) return;
+    const settings = await getGoogleWorkspaceSettings();
+    if (!settings.emailEnabled || !isGoogleWorkspaceConfigured()) return;
+    if (!settings.taskDecisionEmailEnabled) return;
+
+    const dueIso = task.dueDate ? formatInTimeZone(task.dueDate, APP_TIMEZONE, "yyyy-MM-dd") : "—";
+    const priorityLabel = ({ LOW: "Nisko", MED: "Srednje", HIGH: "Visoko", CRIT: "Kritično" } as Record<string, string>)[task.priority] || task.priority;
+    const taskUrl = `${baseUrl()}/tasks`;
+    const subject = `EMS · Zadatak čeka odobrenje: ${task.title}`;
+
+    const text = [
+      `Zdravo,`,
+      "",
+      `Zaposleni ${task.assignee.name} je podneo/la zadatak na odobrenje.`,
+      `Zadatak: ${task.title}`,
+      `Prioritet: ${priorityLabel}`,
+      `Rok: ${dueIso}`,
+      task.employeeComment ? `Komentar: ${task.employeeComment}` : "",
+      "",
+      `Molimo da pregledate i odobrite ili vratite zadatak u EMS aplikaciji.`,
+      "",
+      taskUrl
+    ].filter(Boolean).join("\n");
+
+    const html = renderBrandedEmail({
+      settings,
+      tone: "task",
+      eyebrow: "Odobrenje zadatka",
+      title: `Zadatak čeka odobrenje`,
+      intro: `${task.assignee.name} je podneo/la zadatak na odobrenje u EMS sistemu.`,
+      rows: [
+        { label: "Zadatak", value: task.title },
+        { label: "Prioritet", value: priorityLabel },
+        { label: "Rok", value: dueIso },
+        { label: "Komentar", value: task.employeeComment || "" }
+      ],
+      ctaLabel: "Otvori zadatke",
+      ctaHref: taskUrl,
+      footer: settings.taskFooter
+    });
+
+    await deliverEmailOnce({
+      entityType: "TASK",
+      entityId: task.id,
+      dedupeKey: `task:${task.id}:submitted_for_approval`,
+      to: task.delegator.email,
+      subject,
+      text,
+      html,
+      settings
+    });
+  } catch (error) {
+    logError("google_workspace.task.submitted_for_approval_email_failed", error, { taskId });
+  }
+}
+
+export async function notifyAbsenceSubmitted(absenceId: string) {
+  try {
+    const absence = await prisma.absence.findUnique({
+      where: { id: absenceId },
+      select: {
+        id: true,
+        type: true,
+        dateFrom: true,
+        dateTo: true,
+        days: true,
+        comment: true,
+        employee: {
+          select: {
+            name: true,
+            email: true,
+            manager: { select: { name: true, email: true } }
+          }
+        }
+      }
+    });
+    if (!absence || !absence.employee.manager?.email) return;
+    const settings = await getGoogleWorkspaceSettings();
+    if (!settings.emailEnabled || !isGoogleWorkspaceConfigured()) return;
+    if (!settings.absenceDecisionEmailEnabled) return;
+
+    const period = `${formatInTimeZone(absence.dateFrom, APP_TIMEZONE, "yyyy-MM-dd")} → ${formatInTimeZone(absence.dateTo, APP_TIMEZONE, "yyyy-MM-dd")}`;
+    const typeLabel = absenceTypeLabel(absence.type);
+    const absenceUrl = `${baseUrl()}/absence`;
+    const subject = `EMS · Zahtev za odsustvo na odobrenju: ${absence.employee.name}`;
+
+    const text = [
+      `Zdravo ${absence.employee.manager.name},`,
+      "",
+      `${absence.employee.name} je podneo/la zahtev za odsustvo.`,
+      `Tip: ${typeLabel}`,
+      `Period: ${period}`,
+      `Dana: ${absence.days}`,
+      absence.comment ? `Komentar: ${absence.comment}` : "",
+      "",
+      `Molimo da pregledate i odlučite u EMS aplikaciji.`,
+      "",
+      absenceUrl
+    ].filter(Boolean).join("\n");
+
+    const html = renderBrandedEmail({
+      settings,
+      tone: "absence-ok",
+      eyebrow: "Zahtev za odsustvo",
+      title: `Zahtev za odsustvo na odobrenju`,
+      intro: `${absence.employee.name} je podneo/la zahtev za odsustvo koji čeka vašu odluku.`,
+      rows: [
+        { label: "Zaposleni", value: absence.employee.name },
+        { label: "Tip", value: typeLabel },
+        { label: "Period", value: period },
+        { label: "Dana", value: absence.days },
+        { label: "Komentar", value: absence.comment || "" }
+      ],
+      ctaLabel: "Otvori odsustva",
+      ctaHref: absenceUrl,
+      footer: settings.absenceFooter
+    });
+
+    await deliverEmailOnce({
+      entityType: "ABSENCE",
+      entityId: absence.id,
+      dedupeKey: `absence:${absence.id}:submitted`,
+      to: absence.employee.manager.email,
+      subject,
+      text,
+      html,
+      settings
+    });
+  } catch (error) {
+    logError("google_workspace.absence.submitted_email_failed", error, { absenceId });
   }
 }
 
