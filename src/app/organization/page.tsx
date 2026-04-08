@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { requireActiveUser } from "@/server/current-user";
 import { getUserOrgStructure } from "@/server/org-structure";
-import UserMenu from "../dashboard/UserMenu";
 import OrgChart from "./OrgChart";
 import { getRequestLang } from "@/i18n/server";
 import { getI18n } from "@/i18n";
@@ -38,17 +37,6 @@ export default async function OrganizationPage({
               </div>
             </div>
           </div>
-
-          <UserMenu
-            name={user.name}
-            email={user.email}
-            role={user.role}
-            hrAddon={user.hrAddon}
-            adminAddon={user.adminAddon}
-            position={user.position}
-            team={user.team?.name ?? null}
-            lang={lang}
-          />
         </div>
 
         <GuidancePanel

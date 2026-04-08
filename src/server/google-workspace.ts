@@ -1098,6 +1098,93 @@ export async function notifyAbsenceSubmitted(absenceId: string) {
   }
 }
 
+export async function notifyCompanyEventParticipants(eventId: string, isUpdate = false) {
+  try {
+    const event = await prisma.companyEvent.findUnique({
+      where: { id: eventId },
+      select: {
+        id: true,
+        title: true,
+        startsAt: true,
+        endsAt: true,
+        allDay: true,
+        description: true,
+        location: true,
+        createdBy: { select: { name: true, email: true } },
+        participants: {
+          select: { user: { select: { name: true, email: true } } }
+        }
+      }
+    });
+    if (!event || event.participants.length === 0) return;
+
+    const settings = await getGoogleWorkspaceSettings();
+    if (!settings.emailEnabled || !isGoogleWorkspaceConfigured()) return;
+
+    const startLabel = event.allDay
+      ? formatInTimeZone(event.startsAt, APP_TIMEZONE, "yyyy-MM-dd")
+      : formatInTimeZone(event.startsAt, APP_TIMEZONE, "yyyy-MM-dd HH:mm");
+    const endLabel = event.allDay
+      ? formatInTimeZone(event.endsAt, APP_TIMEZONE, "yyyy-MM-dd")
+      : formatInTimeZone(event.endsAt, APP_TIMEZONE, "yyyy-MM-dd HH:mm");
+
+    const subject = isUpdate
+      ? `EMS · Kompanijski događaj izmenjen: ${event.title}`
+      : `EMS · Poziv na kompanijski događaj: ${event.title}`;
+    const calUrl = `${baseUrl()}/company-calendar`;
+
+    for (const { user } of event.participants) {
+      const text = [
+        `Zdravo ${user.name},`,
+        "",
+        isUpdate
+          ? `Kompanijski događaj "${event.title}" je izmenjen.`
+          : `Pozvan/a si na kompanijski događaj: "${event.title}"`,
+        `Početak: ${startLabel}`,
+        `Kraj: ${endLabel}`,
+        event.location ? `Lokacija: ${event.location}` : "",
+        event.description ? `Opis: ${event.description}` : "",
+        event.createdBy ? `Organizator: ${event.createdBy.name}` : "",
+        "",
+        calUrl
+      ].filter(Boolean).join("\n");
+
+      const html = renderBrandedEmail({
+        settings,
+        tone: "task",
+        eyebrow: "Kompanijski kalendar",
+        title: isUpdate ? `Događaj izmenjen: ${event.title}` : `Poziv: ${event.title}`,
+        intro: isUpdate
+          ? `Zdravo ${user.name}, detalji kompanijskog događaja su promenjeni.`
+          : `Zdravo ${user.name}, pozvan/a si na kompanijski događaj.`,
+        rows: [
+          { label: "Događaj", value: event.title },
+          { label: "Početak", value: startLabel },
+          { label: "Kraj", value: endLabel },
+          { label: "Lokacija", value: event.location || "" },
+          { label: "Organizator", value: event.createdBy?.name || "" },
+        ],
+        ctaLabel: "Otvori kalendar",
+        ctaHref: calUrl,
+        footer: "Ovo je automatska EMS notifikacija za kompanijski kalendar."
+      });
+
+      await deliverEmailOnce({
+        entityType: "COMPANY_EVENT" as any,
+        entityId: event.id,
+        dedupeKey: `company-event:${event.id}:participant:${user.email}:${isUpdate ? "update" : "create"}`,
+        to: user.email,
+        subject,
+        text,
+        html,
+        settings
+      });
+    }
+  } catch (error) {
+    logError("google_workspace.company_event.notify_failed", error, { eventId });
+  }
+}
+
 export async function syncTaskDueCalendarEvent(taskId: string) {
   try {
     const settings = await getGoogleWorkspaceSettings();

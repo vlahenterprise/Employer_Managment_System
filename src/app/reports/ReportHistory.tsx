@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect, useCallback } from "react";
+import { useState, useTransition, useEffect, useCallback, useMemo } from "react";
 import { getMyReportsInRangeAction, deleteDailyReportAction } from "./actions";
 import { getI18n, Lang } from "@/i18n";
 import { IconTrash } from "@/components/icons";
@@ -83,6 +83,28 @@ export default function ReportHistory({ lang }: { lang: Lang }) {
     });
   }
 
+  const analytics = useMemo(() => {
+    if (reports.length === 0) return null;
+    const totalMinutes = reports.reduce((s, r) => s + r.totalMinutes, 0);
+
+    // Aggregate by activity type
+    const typeMap = new Map<string, number>();
+    for (const r of reports) {
+      for (const a of r.activities) {
+        typeMap.set(a.type, (typeMap.get(a.type) ?? 0) + a.minutes);
+      }
+    }
+    const sorted = [...typeMap.entries()]
+      .map(([type, minutes]) => ({ type, minutes }))
+      .sort((a, b) => b.minutes - a.minutes);
+
+    const topMost = sorted.slice(0, 5);
+    const topLeast = sorted.length >= 6 ? [...sorted].reverse().slice(0, 5) : [];
+    const maxMinutes = sorted[0]?.minutes ?? 1;
+
+    return { totalMinutes, topMost, topLeast, maxMinutes };
+  }, [reports]);
+
   void t;
 
   return (
@@ -123,6 +145,76 @@ export default function ReportHistory({ lang }: { lang: Lang }) {
       {message ? (
         <div className={`alert ${messageType === "success" ? "alert-ok" : "alert-error"}`}>
           {message}
+        </div>
+      ) : null}
+
+      {loaded && analytics ? (
+        <div className="stack">
+          <div className="grid3 reports-kpi-grid">
+            <div className="item item-compact kpi-card">
+              <div>
+                <div className="kpi-value">{Math.floor(analytics.totalMinutes / 60)}h {String(analytics.totalMinutes % 60).padStart(2, "0")}m</div>
+                <div className="kpi-label">{lang === "sr" ? "Ukupno u periodu" : "Total in period"}</div>
+              </div>
+            </div>
+            <div className="item item-compact kpi-card">
+              <div>
+                <div className="kpi-value">{reports.length}</div>
+                <div className="kpi-label">{lang === "sr" ? "Izveštaja" : "Reports"}</div>
+              </div>
+            </div>
+            <div className="item item-compact kpi-card">
+              <div>
+                <div className="kpi-value">{analytics.topMost.length > 0 ? analytics.topMost[0].type : "—"}</div>
+                <div className="kpi-label">{lang === "sr" ? "Najčešća aktivnost" : "Top activity"}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid2">
+            <div className="item stack">
+              <div className="section-header">
+                <h3 className="section-title" style={{fontSize: "14px"}}>{lang === "sr" ? "Top 5 aktivnosti" : "Top 5 activities"}</h3>
+              </div>
+              <div className="rank-list">
+                {analytics.topMost.map((x, i) => {
+                  const pct = Math.round((x.minutes / analytics.maxMinutes) * 100);
+                  return (
+                    <div key={x.type} className="rank-row">
+                      <div className="rank-badge">{i + 1}</div>
+                      <div className="rank-body">
+                        <div className="rank-title">{x.type}</div>
+                        <div className="rank-bar"><span style={{ width: `${pct}%` }} /></div>
+                      </div>
+                      <div className="rank-value">{Math.floor(x.minutes / 60)}h {String(x.minutes % 60).padStart(2, "0")}m</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            {analytics.topLeast.length > 0 ? (
+              <div className="item stack">
+                <div className="section-header">
+                  <h3 className="section-title" style={{fontSize: "14px"}}>{lang === "sr" ? "Najmanje 5 aktivnosti" : "Bottom 5 activities"}</h3>
+                </div>
+                <div className="rank-list">
+                  {analytics.topLeast.map((x, i) => {
+                    const pct = Math.round((x.minutes / analytics.maxMinutes) * 100);
+                    return (
+                      <div key={x.type} className="rank-row">
+                        <div className="rank-badge">{i + 1}</div>
+                        <div className="rank-body">
+                          <div className="rank-title">{x.type}</div>
+                          <div className="rank-bar"><span style={{ width: `${pct}%` }} /></div>
+                        </div>
+                        <div className="rank-value">{Math.floor(x.minutes / 60)}h {String(x.minutes % 60).padStart(2, "0")}m</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
       ) : null}
 

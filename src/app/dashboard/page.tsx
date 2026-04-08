@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { requireActiveUser } from "@/server/current-user";
-import UserMenu from "./UserMenu";
 import { getRequestLang } from "@/i18n/server";
 import {
   IconAlertTriangle,
@@ -698,17 +697,6 @@ export default async function DashboardPage() {
               </div>
             </div>
           </div>
-
-          <UserMenu
-            name={user.name}
-            email={user.email}
-            role={user.role}
-            hrAddon={user.hrAddon}
-            adminAddon={user.adminAddon}
-            position={user.position}
-            team={user.team?.name ?? null}
-            lang={lang}
-          />
         </div>
 
         <section className="panel stack dashboard-hero">

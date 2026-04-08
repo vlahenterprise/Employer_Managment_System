@@ -26,6 +26,7 @@ export type CompanyCalendarItem = {
   startLabel: string;
   endLabel: string;
   allDay: boolean;
+  color: string;
   createdBy: { id: string; name: string; email: string } | null;
   participants: Array<{ id: string; name: string; email: string; teamName: string; position: string }>;
   positions: Array<{ id: string; title: string; tier: OrgPositionTier; teamName: string }>;
@@ -34,6 +35,7 @@ export type CompanyCalendarItem = {
 export type CompanyCalendarPickerData = {
   users: Array<{ id: string; name: string; email: string; teamName: string; position: string }>;
   positions: Array<{ id: string; title: string; tier: OrgPositionTier; teamName: string }>;
+  teams: Array<{ id: string; name: string; userIds: string[] }>;
 };
 
 const eventPayloadSchema = z.object({
@@ -46,6 +48,7 @@ const eventPayloadSchema = z.object({
   startTime: z.string().trim().regex(/^\d{2}:\d{2}$/, "INVALID_TIME").optional().default("09:00"),
   endTime: z.string().trim().regex(/^\d{2}:\d{2}$/, "INVALID_TIME").optional().default("10:00"),
   allDay: z.boolean().default(true),
+  color: z.string().trim().max(30).default("orange"),
   userIds: z.array(idSchema).default([]),
   positionIds: z.array(idSchema).default([])
 });
@@ -99,6 +102,7 @@ export function parseCompanyCalendarForm(formData: FormData) {
     startTime: String(formData.get("startTime") ?? "09:00"),
     endTime: String(formData.get("endTime") ?? "10:00"),
     allDay: booleanish(formData.get("allDay")),
+    color: String(formData.get("color") ?? "orange").trim() || "orange",
     userIds: normalizeIds(formData.getAll("userIds")),
     positionIds: normalizeIds(formData.getAll("positionIds"))
   });
@@ -151,6 +155,7 @@ export async function getCompanyCalendar(params: { range: { fromIso: string; toI
       startsAt: true,
       endsAt: true,
       allDay: true,
+      color: true,
       createdBy: { select: { id: true, name: true, email: true } },
       participants: {
         orderBy: { user: { name: "asc" } },
@@ -178,6 +183,7 @@ export async function getCompanyCalendar(params: { range: { fromIso: string; toI
     startLabel: formatInTimeZone(row.startsAt, APP_TIMEZONE, "yyyy-MM-dd HH:mm"),
     endLabel: formatInTimeZone(row.endsAt, APP_TIMEZONE, "yyyy-MM-dd HH:mm"),
     allDay: row.allDay,
+    color: row.color ?? "orange",
     createdBy: row.createdBy,
     participants: row.participants.map(({ user }) => ({
       id: user.id,
@@ -198,7 +204,7 @@ export async function getCompanyCalendar(params: { range: { fromIso: string; toI
 }
 
 export async function getCompanyCalendarPickerData(): Promise<CompanyCalendarPickerData> {
-  const [users, positions] = await Promise.all([
+  const [users, positions, teams] = await Promise.all([
     prisma.user.findMany({
       where: { status: "ACTIVE" },
       orderBy: [{ name: "asc" }, { email: "asc" }],
@@ -208,6 +214,10 @@ export async function getCompanyCalendarPickerData(): Promise<CompanyCalendarPic
       where: { isActive: true, kind: "POSITION" },
       orderBy: [{ tier: "asc" }, { order: "asc" }, { title: "asc" }],
       select: { id: true, title: true, tier: true, team: { select: { name: true } } }
+    }),
+    prisma.team.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, users: { where: { status: "ACTIVE" }, select: { id: true } } }
     })
   ]);
 
@@ -224,6 +234,11 @@ export async function getCompanyCalendarPickerData(): Promise<CompanyCalendarPic
       title: position.title,
       tier: position.tier,
       teamName: position.team?.name ?? ""
+    })),
+    teams: teams.map((team) => ({
+      id: team.id,
+      name: team.name,
+      userIds: team.users.map((u) => u.id)
     }))
   };
 }
@@ -245,6 +260,7 @@ export async function createCompanyEvent(params: {
       startsAt: dates.startsAt,
       endsAt: dates.endsAt,
       allDay: params.payload.allDay,
+      color: params.payload.color,
       createdById: params.actor.id,
       participants: ids.userIds.length ? { createMany: { data: ids.userIds.map((userId) => ({ userId })), skipDuplicates: true } } : undefined,
       positions: ids.positionIds.length ? { createMany: { data: ids.positionIds.map((positionId) => ({ positionId })), skipDuplicates: true } } : undefined
@@ -274,6 +290,7 @@ export async function updateCompanyEvent(params: {
         startsAt: dates.startsAt,
         endsAt: dates.endsAt,
         allDay: params.payload.allDay,
+        color: params.payload.color,
         status: "ACTIVE"
       }
     });

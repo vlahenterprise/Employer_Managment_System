@@ -2,7 +2,6 @@ import Link from "next/link";
 import { requireAdminUser } from "@/server/current-user";
 import { prisma } from "@/server/db";
 import { getRequestLang } from "@/i18n/server";
-import UserMenu from "@/app/dashboard/UserMenu";
 import { IconArrowLeft } from "@/components/icons";
 
 function copy(lang: "sr" | "en") {
@@ -203,17 +202,6 @@ export default async function AuditLogPage({
               </Link>
             </div>
           </div>
-
-          <UserMenu
-            name={user.name}
-            email={user.email}
-            role={user.role}
-            hrAddon={user.hrAddon}
-            adminAddon={user.adminAddon}
-            position={user.position}
-            team={user.team?.name ?? null}
-            lang={lang}
-          />
         </div>
 
         {/* Filter */}

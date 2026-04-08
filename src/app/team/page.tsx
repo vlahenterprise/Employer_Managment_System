@@ -3,7 +3,6 @@ import { requireActiveUser } from "@/server/current-user";
 import { getTeamWorkspace } from "@/server/team";
 import { getRequestLang } from "@/i18n/server";
 import { isHrModuleEnabled } from "@/server/features";
-import UserMenu from "../dashboard/UserMenu";
 import { IconArrowLeft, IconArrowRight, IconCalendar, IconTasks, IconUsers } from "@/components/icons";
 import { GuidancePanel } from "@/components/GuidancePanel";
 
@@ -95,17 +94,6 @@ export default async function TeamPage() {
               </Link>
             </div>
           </div>
-
-          <UserMenu
-            name={user.name}
-            email={user.email}
-            role={user.role}
-            hrAddon={user.hrAddon}
-            adminAddon={user.adminAddon}
-            position={user.position}
-            team={user.team?.name ?? null}
-            lang={lang}
-          />
         </div>
 
         <GuidancePanel title={c.guideTitle} description={c.guideDescription} items={c.guideItems} />

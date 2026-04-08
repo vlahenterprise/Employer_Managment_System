@@ -3,7 +3,6 @@ import { LabelWithTooltip } from "@/components/Tooltip";
 import { requireActiveUser } from "@/server/current-user";
 import { getInboxData } from "@/server/inbox";
 import { getRequestLang } from "@/i18n/server";
-import UserMenu from "../dashboard/UserMenu";
 import { IconArrowLeft, IconArrowRight, IconBolt, IconCheckCircle, IconClock } from "@/components/icons";
 import { GuidancePanel } from "@/components/GuidancePanel";
 
@@ -92,17 +91,6 @@ export default async function InboxPage() {
               </Link>
             </div>
           </div>
-
-          <UserMenu
-            name={user.name}
-            email={user.email}
-            role={user.role}
-            hrAddon={user.hrAddon}
-            adminAddon={user.adminAddon}
-            position={user.position}
-            team={user.team?.name ?? null}
-            lang={lang}
-          />
         </div>
 
         <GuidancePanel title={c.guideTitle} description={c.guideDescription} items={c.guideItems} />

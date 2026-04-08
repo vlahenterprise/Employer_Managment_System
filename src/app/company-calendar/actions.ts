@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireActiveUser } from "@/server/current-user";
 import { createCompanyEvent, deleteCompanyEvent, parseCompanyCalendarForm, updateCompanyEvent } from "@/server/company-calendar";
 import { withAction } from "@/server/action-utils";
+import { notifyCompanyEventParticipants } from "@/server/google-workspace";
 
 const BASE_PATH = "/company-calendar";
 
@@ -33,6 +34,7 @@ export async function createCompanyEventAction(formData: FormData) {
   if (!action.data.ok) redirectError(action.data.error);
 
   revalidatePath(BASE_PATH);
+  notifyCompanyEventParticipants(action.data.eventId).catch(() => {});
   redirectSuccess("Događaj je dodat u kompanijski kalendar.");
 }
 
@@ -49,6 +51,7 @@ export async function updateCompanyEventAction(formData: FormData) {
   if (!action.data.ok) redirectError(action.data.error);
 
   revalidatePath(BASE_PATH);
+  notifyCompanyEventParticipants(parsed.data.eventId!, true).catch(() => {});
   redirectSuccess("Događaj je sačuvan.");
 }
 

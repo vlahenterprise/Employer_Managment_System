@@ -6,14 +6,12 @@ import { getReportsDashboard, getReportsGrid } from "@/server/reports";
 import { deleteDailyReportRedirectAction } from "../actions";
 import { getRequestLang } from "@/i18n/server";
 import { getI18n } from "@/i18n";
-import ReportsCharts from "./ReportsCharts";
 import { IconArrowLeft, IconCalendar, IconPdf, IconReport, IconSparkles, IconTasks } from "@/components/icons";
 import { APP_TIMEZONE } from "@/server/app-settings";
 import { startOfMonth } from "date-fns";
 import { formatInTimeZone } from "@/server/time";
 import { getScopedEmployeeIds, isManagerRole } from "@/server/rbac";
 import { loadOrgUsers } from "@/server/org";
-import UserMenu from "../../dashboard/UserMenu";
 import { LabelWithTooltip } from "@/components/Tooltip";
 import { GuidancePanel } from "@/components/GuidancePanel";
 
@@ -181,17 +179,6 @@ export default async function ReportsManagerPage({
               </div>
             </div>
           </div>
-
-          <UserMenu
-            name={user.name}
-            email={user.email}
-            role={user.role}
-            hrAddon={user.hrAddon}
-            adminAddon={user.adminAddon}
-            position={user.position}
-            team={user.team?.name ?? null}
-            lang={lang}
-          />
         </div>
 
         {success ? <div className="success">{success}</div> : null}
@@ -327,14 +314,6 @@ export default async function ReportsManagerPage({
             </div>
           </div>
         </section>
-
-        <ReportsCharts
-          topMost={dash.topMost}
-          topLeast={dash.topLeast}
-          chart={dash.chart}
-          titles={{ topMost: t.reports.topMost, topLeast: t.reports.topLeast, all: t.reports.allTypesTop12 }}
-          emptyText={t.reports.empty}
-        />
 
         <section className="grid2">
           <div className="panel stack">

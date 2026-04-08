@@ -86,6 +86,27 @@ export type AbsenceRequestItem = {
   overlapWarning: boolean;
 };
 
+async function checkCompanyCalendarOverlap(params: {
+  userId: string;
+  fromIso: string;
+  toIso: string;
+}) {
+  const from = fromZonedTime(`${params.fromIso}T00:00:00`, APP_TIMEZONE);
+  const to = fromZonedTime(`${params.toIso}T23:59:59.999`, APP_TIMEZONE);
+
+  const events = await prisma.companyEvent.findMany({
+    where: {
+      status: "ACTIVE",
+      startsAt: { lte: to },
+      endsAt: { gte: from },
+      participants: { some: { userId: params.userId } }
+    },
+    select: { id: true, title: true, startsAt: true }
+  });
+
+  return { count: events.length, titles: events.map((e) => e.title) };
+}
+
 export async function checkAbsenceOverlap(params: {
   actor: { id: string; teamId: string | null };
   fromIso: string;
@@ -182,7 +203,20 @@ export async function submitAbsenceRequest(params: {
     return created;
   });
 
-  return { ok: true as const, absenceId: absence.id, days, overlap: overlap.ok ? overlap : { ok: true as const, count: 0, names: [] } };
+  const calendarOverlap = await checkCompanyCalendarOverlap({
+    userId: params.actor.id,
+    fromIso,
+    toIso
+  });
+
+  return {
+    ok: true as const,
+    absenceId: absence.id,
+    days,
+    overlap: overlap.ok ? overlap : { ok: true as const, count: 0, names: [] },
+    calendarConflicts: calendarOverlap.count,
+    calendarEventTitles: calendarOverlap.titles
+  };
 }
 
 async function canApproveAbsence(actor: { id: string; role: "ADMIN" | "HR" | "MANAGER" | "USER" }, employeeId: string) {

@@ -5,18 +5,34 @@ import { LabelWithTooltip } from "@/components/Tooltip";
 import { IconArrowLeft, IconCalendar } from "@/components/icons";
 import UserMenu from "../dashboard/UserMenu";
 import CompanyCalendarView from "./CompanyCalendarView";
+import CompanyEventForm from "./CompanyEventForm";
 import { createCompanyEventAction, deleteCompanyEventAction, updateCompanyEventAction } from "./actions";
 import { getRequestLang } from "@/i18n/server";
 import { APP_TIMEZONE } from "@/server/app-settings";
-import { canManageCompanyCalendar, getCompanyCalendar, getCompanyCalendarPickerData, type CompanyCalendarItem, type CompanyCalendarPickerData } from "@/server/company-calendar";
+import { canManageCompanyCalendar, getCompanyCalendar, getCompanyCalendarPickerData } from "@/server/company-calendar";
 import { requireActiveUser } from "@/server/current-user";
 import { formatInTimeZone } from "@/server/time";
+
+const EVENT_COLOR_HEX: Record<string, string> = {
+  orange: "#f05123",
+  blue: "#3b82f6",
+  green: "#22c55e",
+  red: "#ef4444",
+  purple: "#a855f7",
+  yellow: "#eab308",
+  teal: "#14b8a6",
+  pink: "#ec4899",
+};
+
+function colorHex(color: string) {
+  return EVENT_COLOR_HEX[color] ?? "#f05123";
+}
 
 function defaultMonthRange() {
   const now = new Date();
   return {
     fromIso: formatInTimeZone(startOfMonth(now), APP_TIMEZONE, "yyyy-MM-dd"),
-    toIso: formatInTimeZone(endOfMonth(now), APP_TIMEZONE, "yyyy-MM-dd")
+    toIso: formatInTimeZone(endOfMonth(now), APP_TIMEZONE, "yyyy-MM-dd"),
   };
 }
 
@@ -32,32 +48,23 @@ function copyFor(lang: "sr" | "en") {
         back: "Nazad na početnu",
         calendar: "Kalendar",
         guideTitle: "Kako da koristiš kompanijski kalendar",
-        guideDescription: "Svi zaposleni vide događaje. Samo osobe sa Company calendar add-on pristupom mogu da kreiraju, menjaju i uklanjaju događaje.",
+        guideDescription:
+          "Svi zaposleni vide događaje. Samo osobe sa Company calendar add-on pristupom mogu da kreiraju, menjaju i uklanjaju događaje.",
         guideItems: [
           "Klikni dan u kalendaru da vidiš događaje za taj datum.",
           "Događaj može biti vezan za konkretne zaposlene, pozicije ili za celu kompaniju.",
-          "Ako nema izabranih ljudi ili pozicija, događaj se tretira kao kompanijski opšti događaj."
+          "Ako nema izabranih ljudi ili pozicija, događaj se tretira kao kompanijski opšti događaj.",
         ],
         newEvent: "Novi kompanijski događaj",
         manageEvents: "Uredi događaje",
-        readOnly: "Imaš pristup za pregled. Za dodavanje i izmenu događaja potreban je Company calendar add-on pristup.",
-        titleField: "Naziv događaja",
-        description: "Opis",
-        location: "Lokacija / link",
-        from: "Od",
-        to: "Do",
-        startTime: "Početak",
-        endTime: "Kraj",
-        allDay: "Ceo dan",
-        people: "Uključeni zaposleni",
-        positions: "Uključene pozicije",
+        readOnly:
+          "Imaš pristup za pregled. Za dodavanje i izmenu događaja potreban je Company calendar add-on pristup.",
         create: "Dodaj događaj",
         save: "Sačuvaj",
         delete: "Ukloni",
-        optional: "opciono",
         noEvents: "Nema događaja u ovom opsegu.",
         globalEvent: "Svi zaposleni",
-        createdBy: "Kreirao/la"
+        createdBy: "Kreirao/la",
       }
     : {
         title: "Company Calendar",
@@ -65,130 +72,29 @@ function copyFor(lang: "sr" | "en") {
         back: "Back to dashboard",
         calendar: "Calendar",
         guideTitle: "How to use company calendar",
-        guideDescription: "All employees can view events. Only people with Company calendar add-on access can create, edit, and remove events.",
+        guideDescription:
+          "All employees can view events. Only people with Company calendar add-on access can create, edit, and remove events.",
         guideItems: [
           "Click a day in the calendar to see events for that date.",
           "An event can be connected to specific employees, positions, or the entire company.",
-          "If no people or positions are selected, the event is treated as a company-wide event."
+          "If no people or positions are selected, the event is treated as a company-wide event.",
         ],
         newEvent: "New company event",
         manageEvents: "Edit events",
         readOnly: "You have read access. Creating and editing events requires Company calendar add-on access.",
-        titleField: "Event title",
-        description: "Description",
-        location: "Location / link",
-        from: "From",
-        to: "To",
-        startTime: "Start",
-        endTime: "End",
-        allDay: "All day",
-        people: "Included employees",
-        positions: "Included positions",
         create: "Add event",
         save: "Save",
         delete: "Remove",
-        optional: "optional",
         noEvents: "No events in this range.",
         globalEvent: "All employees",
-        createdBy: "Created by"
+        createdBy: "Created by",
       };
 }
 
-function selectedUserIds(event?: CompanyCalendarItem) {
-  return event?.participants.map((participant) => participant.id) ?? [];
-}
-
-function selectedPositionIds(event?: CompanyCalendarItem) {
-  return event?.positions.map((position) => position.id) ?? [];
-}
-
-function timeFromLabel(label: string, fallback: string) {
-  const match = String(label || "").match(/\s(\d{2}:\d{2})$/);
-  return match?.[1] ?? fallback;
-}
-
-function EventForm({
-  copy,
-  pickerData,
-  event,
-  action,
-  submitLabel
-}: {
-  copy: ReturnType<typeof copyFor>;
-  pickerData: CompanyCalendarPickerData;
-  event?: CompanyCalendarItem;
-  action: (formData: FormData) => Promise<void>;
-  submitLabel: string;
-}) {
-  return (
-    <form className="stack" action={action}>
-      {event ? <input type="hidden" name="eventId" value={event.eventId} /> : null}
-      <div className="grid2">
-        <label className="field">
-          <span className="label">{copy.titleField}</span>
-          <input className="input" name="title" type="text" maxLength={180} required defaultValue={event?.title ?? ""} />
-        </label>
-        <label className="field">
-          <span className="label">{copy.location}</span>
-          <input className="input" name="location" type="text" maxLength={240} placeholder={copy.optional} defaultValue={event?.location ?? ""} />
-        </label>
-        <label className="field">
-          <span className="label">{copy.from}</span>
-          <input className="input" name="fromIso" type="date" required defaultValue={event?.fromIso ?? formatInTimeZone(new Date(), APP_TIMEZONE, "yyyy-MM-dd")} />
-        </label>
-        <label className="field">
-          <span className="label">{copy.to}</span>
-          <input className="input" name="toIso" type="date" required defaultValue={event?.toIso ?? formatInTimeZone(new Date(), APP_TIMEZONE, "yyyy-MM-dd")} />
-        </label>
-        <label className="field">
-          <span className="label">{copy.startTime}</span>
-          <input className="input" name="startTime" type="time" defaultValue={event && !event.allDay ? timeFromLabel(event.startLabel, "09:00") : "09:00"} />
-        </label>
-        <label className="field">
-          <span className="label">{copy.endTime}</span>
-          <input className="input" name="endTime" type="time" defaultValue={event && !event.allDay ? timeFromLabel(event.endLabel, "10:00") : "10:00"} />
-        </label>
-        <label className="field">
-          <span className="label">{copy.allDay}</span>
-          <label className="inline" style={{ alignItems: "center" }}>
-            <input name="allDay" type="checkbox" value="1" defaultChecked={event ? event.allDay : true} />
-            <span className="muted small">{copy.allDay}</span>
-          </label>
-        </label>
-        <label className="field">
-          <span className="label">{copy.description}</span>
-          <textarea className="input" name="description" rows={3} maxLength={2000} placeholder={copy.optional} defaultValue={event?.description ?? ""} />
-        </label>
-        <label className="field">
-          <span className="label">{copy.people}</span>
-          <select className="input" name="userIds" multiple size={8} defaultValue={selectedUserIds(event)}>
-            {pickerData.users.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.name} ({user.email}){user.teamName ? ` · ${user.teamName}` : ""}{user.position ? ` · ${user.position}` : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          <span className="label">{copy.positions}</span>
-          <select className="input" name="positionIds" multiple size={8} defaultValue={selectedPositionIds(event)}>
-            {pickerData.positions.map((position) => (
-              <option key={position.id} value={position.id}>
-                {position.title} · {position.tier}{position.teamName ? ` · ${position.teamName}` : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <button className="button" type="submit">{submitLabel}</button>
-    </form>
-  );
-}
-
 export default async function CompanyCalendarPage({
-  searchParams
+  searchParams,
 }: {
-  searchParams: { fromIso?: string; toIso?: string; success?: string; error?: string };
+  searchParams: { fromIso?: string; toIso?: string; success?: string; error?: string; myEvents?: string };
 }) {
   const user = await requireActiveUser();
   const lang = getRequestLang();
@@ -197,13 +103,22 @@ export default async function CompanyCalendarPage({
   const fromIso = String(searchParams.fromIso || rangeDefault.fromIso).trim();
   const toIso = String(searchParams.toIso || rangeDefault.toIso).trim();
   const canManage = canManageCompanyCalendar(user);
+  const myEventsFilter = searchParams.myEvents === "1";
 
   const [calendar, pickerData] = await Promise.all([
     getCompanyCalendar({ range: { fromIso, toIso } }),
-    canManage ? getCompanyCalendarPickerData() : Promise.resolve({ users: [], positions: [] })
+    canManage
+      ? getCompanyCalendarPickerData()
+      : Promise.resolve({ users: [], positions: [], teams: [] }),
   ]);
 
   const events = calendar.ok ? calendar.items : [];
+  const filteredEvents = myEventsFilter
+    ? events.filter(
+        (e) => e.participants.some((p) => p.id === user.id) || e.participants.length === 0
+      )
+    : events;
+
   const success = decodeMessage(searchParams.success);
   const error = decodeMessage(searchParams.error || (!calendar.ok ? calendar.error : undefined));
 
@@ -242,30 +157,72 @@ export default async function CompanyCalendarPage({
         {success ? <div className="success">{success}</div> : null}
         {error ? <div className="error">{error}</div> : null}
 
-        <GuidancePanel title={copy.guideTitle} description={copy.guideDescription} items={copy.guideItems} />
+        <GuidancePanel
+          title={copy.guideTitle}
+          description={copy.guideDescription}
+          items={copy.guideItems}
+        />
 
         <section id="calendar" className="panel stack">
-          <h2 className="h2">
-            <LabelWithTooltip
-              label={copy.calendar}
-              tooltip={
-                lang === "sr"
-                  ? "Ovaj kalendar vide svi zaposleni. Događaje uređuju samo korisnici sa Company calendar add-on pristupom."
-                  : "All employees can view this calendar. Events are managed only by users with Company calendar add-on access."
-              }
-            />
-          </h2>
-          <CompanyCalendarView lang={lang} timeZone={APP_TIMEZONE} fromIso={fromIso} toIso={toIso} items={events} />
+          <div className="header">
+            <h2 className="h2">
+              <LabelWithTooltip
+                label={copy.calendar}
+                tooltip={
+                  lang === "sr"
+                    ? "Ovaj kalendar vide svi zaposleni. Događaje uređuju samo korisnici sa Company calendar add-on pristupom."
+                    : "All employees can view this calendar. Events are managed only by users with Company calendar add-on access."
+                }
+              />
+            </h2>
+            <div className="inline" style={{ gap: 8 }}>
+              <a
+                href={`/company-calendar?fromIso=${fromIso}&toIso=${toIso}${myEventsFilter ? "" : "&myEvents=1"}`}
+                className={`button ${myEventsFilter ? "button-primary" : "button-secondary"}`}
+              >
+                {lang === "sr"
+                  ? myEventsFilter
+                    ? "Moji događaji ✓"
+                    : "Moji događaji"
+                  : myEventsFilter
+                  ? "My events ✓"
+                  : "My events"}
+              </a>
+              {myEventsFilter ? (
+                <a
+                  href={`/company-calendar?fromIso=${fromIso}&toIso=${toIso}`}
+                  className="button button-secondary"
+                >
+                  {lang === "sr" ? "Svi događaji" : "All events"}
+                </a>
+              ) : null}
+            </div>
+          </div>
+          <CompanyCalendarView
+            lang={lang}
+            timeZone={APP_TIMEZONE}
+            fromIso={fromIso}
+            toIso={toIso}
+            items={filteredEvents}
+          />
         </section>
 
         {canManage ? (
           <section className="panel stack">
             <h2 className="h2">{copy.newEvent}</h2>
-            <EventForm copy={copy} pickerData={pickerData} action={createCompanyEventAction} submitLabel={copy.create} />
+            <CompanyEventForm
+              pickerData={pickerData}
+              action={createCompanyEventAction}
+              submitLabel={copy.create}
+              lang={lang}
+              defaultFromIso={fromIso}
+            />
           </section>
         ) : (
           <section className="panel stack">
-            <div className="notice notice-muted"><div className="muted small">{copy.readOnly}</div></div>
+            <div className="notice notice-muted">
+              <div className="muted small">{copy.readOnly}</div>
+            </div>
           </section>
         )}
 
@@ -278,9 +235,22 @@ export default async function CompanyCalendarPage({
                 <details key={event.eventId} className="item stack">
                   <summary className="item-top" style={{ cursor: "pointer" }}>
                     <div>
-                      <div className="item-title">{event.title}</div>
+                      <div className="item-title">
+                        <span
+                          style={{
+                            width: 10,
+                            height: 10,
+                            borderRadius: "50%",
+                            background: colorHex(event.color),
+                            display: "inline-block",
+                            marginRight: 6,
+                          }}
+                        />
+                        {event.title}
+                      </div>
                       <div className="muted small">
-                        {event.startLabel} → {event.endLabel}{event.location ? ` · ${event.location}` : ""}
+                        {event.startLabel} → {event.endLabel}
+                        {event.location ? ` · ${event.location}` : ""}
                       </div>
                       <div className="muted small">
                         {event.participants.length || event.positions.length
@@ -289,12 +259,23 @@ export default async function CompanyCalendarPage({
                         {event.createdBy ? ` · ${copy.createdBy}: ${event.createdBy.name}` : ""}
                       </div>
                     </div>
-                    <div className="pills"><span className="pill absence-legend annual">{copy.calendar}</span></div>
+                    <div className="pills">
+                      <span className="pill absence-legend annual">{copy.calendar}</span>
+                    </div>
                   </summary>
-                  <EventForm copy={copy} pickerData={pickerData} event={event} action={updateCompanyEventAction} submitLabel={copy.save} />
+                  <CompanyEventForm
+                    pickerData={pickerData}
+                    event={event}
+                    action={updateCompanyEventAction}
+                    submitLabel={copy.save}
+                    lang={lang}
+                    defaultFromIso={event.fromIso}
+                  />
                   <form action={deleteCompanyEventAction}>
                     <input type="hidden" name="eventId" value={event.eventId} />
-                    <button className="button button-danger" type="submit">{copy.delete}</button>
+                    <button className="button button-danger" type="submit">
+                      {copy.delete}
+                    </button>
                   </form>
                 </details>
               ))}

@@ -1,0 +1,1 @@
+ALTER TABLE "CompanyEvent" ADD COLUMN IF NOT EXISTS "color" TEXT NOT NULL DEFAULT 'orange';

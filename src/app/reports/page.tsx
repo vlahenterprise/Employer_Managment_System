@@ -5,7 +5,6 @@ import { getAppSettings } from "@/server/app-settings";
 import { prisma } from "@/server/db";
 import ReportEntry from "./ReportEntry";
 import ReportHistory from "./ReportHistory";
-import UserMenu from "../dashboard/UserMenu";
 import { getRequestLang } from "@/i18n/server";
 import { getI18n } from "@/i18n";
 import { IconArrowLeft, IconUsers, IconDownload } from "@/components/icons";
@@ -90,17 +89,6 @@ export default async function ReportsPage() {
               </div>
             </div>
           </div>
-
-          <UserMenu
-            name={user.name}
-            email={user.email}
-            role={user.role}
-            hrAddon={user.hrAddon}
-            adminAddon={user.adminAddon}
-            position={user.position}
-            team={user.team?.name ?? null}
-            lang={lang}
-          />
         </div>
 
         <div className="grid3 reports-kpi-grid">

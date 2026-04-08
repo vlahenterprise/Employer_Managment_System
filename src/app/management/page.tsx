@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { LabelWithTooltip } from "@/components/Tooltip";
 import { getRequestLang } from "@/i18n/server";
 import { requireActiveUser } from "@/server/current-user";
-import UserMenu from "../dashboard/UserMenu";
 import { getManagementPanel, hasManagementPanelAccess } from "@/server/hr";
 import { createHrProcessAction, markHrNotificationReadAction } from "../hr/actions";
 import { isHrModuleEnabled } from "@/server/features";
@@ -167,17 +166,6 @@ export default async function ManagementPage() {
               </Link>
             </div>
           </div>
-
-          <UserMenu
-            name={user.name}
-            email={user.email}
-            role={user.role}
-            hrAddon={user.hrAddon}
-            adminAddon={user.adminAddon}
-            position={user.position}
-            team={user.team?.name ?? null}
-            lang={lang}
-          />
         </div>
 
         <section className="panel stack">
