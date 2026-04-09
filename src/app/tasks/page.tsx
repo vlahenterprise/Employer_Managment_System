@@ -477,6 +477,19 @@ export default async function TasksPage({
                 <textarea className="input textarea" name="description" rows={5} required />
               </label>
 
+              <label className="field">
+                <span className="label">
+                  {lang === "sr" ? "Drive link" : "Drive link"} <span className="muted small">({lang === "sr" ? "opciono" : "optional"})</span>
+                </span>
+                <input
+                  className="input"
+                  name="driveUrl"
+                  type="url"
+                  placeholder="https://drive.google.com/..."
+                  maxLength={2048}
+                />
+              </label>
+
               <button className="button" type="submit">
                 {t.tasks.createBtn}
               </button>
@@ -514,6 +527,15 @@ export default async function TasksPage({
                   {task.empComment ? (
                     <div className="muted small">
                       <b>{t.tasks.employeeComment}:</b> {task.empComment}
+                    </div>
+                  ) : null}
+
+                  {task.driveUrl ? (
+                    <div className="muted small">
+                      <b>Drive link:</b>{" "}
+                      <a href={task.driveUrl} target="_blank" rel="noreferrer noopener" style={{ color: "var(--color-main)" }}>
+                        {task.driveUrl.length > 60 ? task.driveUrl.slice(0, 57) + "..." : task.driveUrl}
+                      </a>
                     </div>
                   ) : null}
 
@@ -576,6 +598,15 @@ export default async function TasksPage({
                 </summary>
 
                 {task.description ? <div className="muted small">{task.description}</div> : null}
+
+                {task.driveUrl ? (
+                  <div className="muted small">
+                    <b>{lang === "sr" ? "Drive link" : "Drive link"}:</b>{" "}
+                    <a href={task.driveUrl} target="_blank" rel="noreferrer noopener" style={{ color: "var(--color-main)" }}>
+                      {task.driveUrl.length > 60 ? task.driveUrl.slice(0, 57) + "..." : task.driveUrl}
+                    </a>
+                  </div>
+                ) : null}
 
                 <div className="grid2">
                   <div className="stack">

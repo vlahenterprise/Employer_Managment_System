@@ -5,6 +5,51 @@ import { normalizeIsoDate } from "./iso-date";
 import { buildPaginationMeta, normalizePagination, type PaginationInput } from "./pagination";
 import { getScopedEmployeeIds, hasHrAddon, isManagerRole } from "./rbac";
 import { loadOrgUsers } from "./org";
+import { fromZonedTime } from "./time";
+
+export async function isReportExemptDay(userId: string, dateIso: string): Promise<{ exempt: boolean; reason?: string }> {
+  const iso = normalizeIsoDate(dateIso);
+  if (!iso) return { exempt: false };
+
+  // Weekend check
+  const dow = new Date(iso + "T12:00:00Z").getUTCDay(); // 0=Sun, 6=Sat
+  if (dow === 0 || dow === 6) return { exempt: true, reason: "WEEKEND" };
+
+  const dateStart = fromZonedTime(`${iso}T00:00:00`, APP_TIMEZONE);
+  const dateEnd = fromZonedTime(`${iso}T23:59:59`, APP_TIMEZONE);
+
+  // Check approved absence (ANNUAL_LEAVE, SICK)
+  const absence = await prisma.absence.findFirst({
+    where: {
+      employeeId: userId,
+      status: "APPROVED",
+      type: { in: ["ANNUAL_LEAVE", "SICK"] },
+      dateFrom: { lte: dateEnd },
+      dateTo: { gte: dateStart }
+    },
+    select: { id: true, type: true }
+  });
+  if (absence) return { exempt: true, reason: absence.type };
+
+  // Check company event (yellow=Kompanijski odmor, indigo=Državni praznik, teal=Team Building)
+  const EXEMPT_COLORS = ["yellow", "indigo", "teal"];
+  const companyEvent = await prisma.companyEvent.findFirst({
+    where: {
+      status: "ACTIVE",
+      color: { in: EXEMPT_COLORS },
+      startsAt: { lte: dateEnd },
+      endsAt: { gte: dateStart },
+      OR: [
+        { participants: { some: { userId } } },
+        { AND: [{ participants: { none: {} } }, { positions: { none: {} } }] }
+      ]
+    },
+    select: { id: true, title: true, color: true }
+  });
+  if (companyEvent) return { exempt: true, reason: `COMPANY_EVENT:${companyEvent.color}` };
+
+  return { exempt: false };
+}
 
 function todayIsoInTz(timeZone: string) {
   return new Intl.DateTimeFormat("sv-SE", {

@@ -45,6 +45,12 @@ export async function deleteDailyReportAction(params: { dateIso: string; targetE
   return res;
 }
 
+export async function checkReportExemptAction(dateIso: string) {
+  const user = await requireActiveUser();
+  const { isReportExemptDay } = await import("@/server/reports");
+  return isReportExemptDay(user.id, dateIso);
+}
+
 export async function getMyReportsInRangeAction(params: { fromIso: string; toIso: string }) {
   const user = await requireActiveUser();
   const fromIso = String(params.fromIso || "").trim();

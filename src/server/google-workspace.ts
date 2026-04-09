@@ -349,16 +349,17 @@ function taskReminderWindow(dueIso: string, settings: GoogleWorkspaceRuntimeSett
   return { startIso: start.toISOString(), endIso: end.toISOString() };
 }
 
-async function sendGoogleMail(params: { to: string; subject: string; text: string; html?: string }) {
+async function sendGoogleMail(params: { to: string | string[]; subject: string; text: string; html?: string }) {
   if (!config.googleWorkspace.emailEnabled || !isGoogleWorkspaceConfigured()) return { ok: false as const, skipped: true as const };
   const accessToken = await getAccessToken();
   if (!accessToken) return { ok: false as const, skipped: false as const, error: "NO_ACCESS_TOKEN" };
 
+  const toHeader = Array.isArray(params.to) ? params.to.join(", ") : params.to;
   const boundary = `ems_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   const raw = params.html
     ? [
         `From: EMS <${config.googleWorkspace.botEmail}>`,
-        `To: ${params.to}`,
+        `To: ${toHeader}`,
         `Subject: ${mimeSubject(params.subject)}`,
         "MIME-Version: 1.0",
         `Content-Type: multipart/alternative; boundary="${boundary}"`,
@@ -377,7 +378,7 @@ async function sendGoogleMail(params: { to: string; subject: string; text: strin
       ].join("\r\n")
     : [
         `From: EMS <${config.googleWorkspace.botEmail}>`,
-        `To: ${params.to}`,
+        `To: ${toHeader}`,
         `Subject: ${mimeSubject(params.subject)}`,
         "MIME-Version: 1.0",
         'Content-Type: text/plain; charset="UTF-8"',
@@ -404,13 +405,14 @@ async function deliverEmailOnce(params: {
   entityType: string;
   entityId: string;
   dedupeKey: string;
-  to: string;
+  to: string | string[];
   subject: string;
   text: string;
   html?: string;
   settings?: GoogleWorkspaceRuntimeSettings;
 }) {
-  if (!params.to.trim()) return;
+  const toStr = Array.isArray(params.to) ? params.to.join(", ") : params.to;
+  if (!toStr.trim()) return;
   const settings = params.settings ?? (await getGoogleWorkspaceSettings());
   if (!settings.emailEnabled || !isGoogleWorkspaceConfigured()) return;
 
@@ -426,13 +428,13 @@ async function deliverEmailOnce(params: {
       channel: "EMAIL",
       entityType: params.entityType,
       entityId: params.entityId,
-      recipientEmail: params.to,
+      recipientEmail: toStr,
       subject: params.subject,
       status: "PENDING",
       dedupeKey: params.dedupeKey
     },
     update: {
-      recipientEmail: params.to,
+      recipientEmail: toStr,
       subject: params.subject,
       status: "PENDING",
       errorMessage: null,
@@ -440,7 +442,7 @@ async function deliverEmailOnce(params: {
     }
   });
 
-  const result = await sendGoogleMail({ to: params.to, subject: params.subject, text: params.text, html: params.html });
+  const result = await sendGoogleMail({ to: toStr, subject: params.subject, text: params.text, html: params.html });
   if (result.ok) {
     await prisma.notificationDelivery.update({
       where: { dedupeKey: params.dedupeKey },
@@ -1121,6 +1123,13 @@ export async function notifyCompanyEventParticipants(eventId: string, isUpdate =
     const settings = await getGoogleWorkspaceSettings();
     if (!settings.emailEnabled || !isGoogleWorkspaceConfigured()) return;
 
+    // Collect all participant emails with valid addresses
+    const recipients = event.participants
+      .map(p => p.user)
+      .filter(u => u.email && u.email.includes("@"));
+
+    if (recipients.length === 0) return;
+
     const startLabel = event.allDay
       ? formatInTimeZone(event.startsAt, APP_TIMEZONE, "yyyy-MM-dd")
       : formatInTimeZone(event.startsAt, APP_TIMEZONE, "yyyy-MM-dd HH:mm");
@@ -1133,53 +1142,54 @@ export async function notifyCompanyEventParticipants(eventId: string, isUpdate =
       : `EMS · Poziv na kompanijski događaj: ${event.title}`;
     const calUrl = `${baseUrl()}/company-calendar`;
 
-    for (const { user } of event.participants) {
-      const text = [
-        `Zdravo ${user.name},`,
-        "",
-        isUpdate
-          ? `Kompanijski događaj "${event.title}" je izmenjen.`
-          : `Pozvan/a si na kompanijski događaj: "${event.title}"`,
-        `Početak: ${startLabel}`,
-        `Kraj: ${endLabel}`,
-        event.location ? `Lokacija: ${event.location}` : "",
-        event.description ? `Opis: ${event.description}` : "",
-        event.createdBy ? `Organizator: ${event.createdBy.name}` : "",
-        "",
-        calUrl
-      ].filter(Boolean).join("\n");
+    const text = [
+      `Zdravo,`,
+      "",
+      isUpdate
+        ? `Kompanijski događaj "${event.title}" je izmenjen.`
+        : `Pozvani ste na kompanijski događaj: "${event.title}"`,
+      `Početak: ${startLabel}`,
+      `Kraj: ${endLabel}`,
+      event.location ? `Lokacija: ${event.location}` : "",
+      event.description ? `Opis: ${event.description}` : "",
+      event.createdBy ? `Organizator: ${event.createdBy.name}` : "",
+      "",
+      calUrl
+    ].filter(Boolean).join("\n");
 
-      const html = renderBrandedEmail({
-        settings,
-        tone: "task",
-        eyebrow: "Kompanijski kalendar",
-        title: isUpdate ? `Događaj izmenjen: ${event.title}` : `Poziv: ${event.title}`,
-        intro: isUpdate
-          ? `Zdravo ${user.name}, detalji kompanijskog događaja su promenjeni.`
-          : `Zdravo ${user.name}, pozvan/a si na kompanijski događaj.`,
-        rows: [
-          { label: "Događaj", value: event.title },
-          { label: "Početak", value: startLabel },
-          { label: "Kraj", value: endLabel },
-          { label: "Lokacija", value: event.location || "" },
-          { label: "Organizator", value: event.createdBy?.name || "" },
-        ],
-        ctaLabel: "Otvori kalendar",
-        ctaHref: calUrl,
-        footer: "Ovo je automatska EMS notifikacija za kompanijski kalendar."
-      });
+    const html = renderBrandedEmail({
+      settings,
+      tone: "task",
+      eyebrow: "Kompanijski kalendar",
+      title: isUpdate ? `Događaj izmenjen: ${event.title}` : `Poziv: ${event.title}`,
+      intro: isUpdate
+        ? `Detalji kompanijskog događaja su promenjeni.`
+        : `Pozvani ste na kompanijski događaj.`,
+      rows: [
+        { label: "Događaj", value: event.title },
+        { label: "Početak", value: startLabel },
+        { label: "Kraj", value: endLabel },
+        { label: "Lokacija", value: event.location || "" },
+        { label: "Organizator", value: event.createdBy?.name || "" },
+      ],
+      ctaLabel: "Otvori kalendar",
+      ctaHref: calUrl,
+      footer: "Ovo je automatska EMS notifikacija za kompanijski kalendar."
+    });
 
-      await deliverEmailOnce({
-        entityType: "COMPANY_EVENT" as any,
-        entityId: event.id,
-        dedupeKey: `company-event:${event.id}:participant:${user.email}:${isUpdate ? "update" : "create"}`,
-        to: user.email,
-        subject,
-        text,
-        html,
-        settings
-      });
-    }
+    const allEmails = recipients.map(u => u.email);
+    const dedupeKey = `company-event:${event.id}:batch:${isUpdate ? "update" : "create"}`;
+
+    await deliverEmailOnce({
+      entityType: "COMPANY_EVENT" as any,
+      entityId: event.id,
+      dedupeKey,
+      to: allEmails,
+      subject,
+      text,
+      html,
+      settings
+    });
   } catch (error) {
     logError("google_workspace.company_event.notify_failed", error, { eventId });
   }
@@ -1246,6 +1256,7 @@ export async function notifyTaskCreated(taskId: string) {
         description: true,
         dueDate: true,
         priority: true,
+        driveUrl: true,
         assignee: { select: { name: true, email: true } },
         delegator: { select: { name: true, email: true } }
       }
@@ -1279,7 +1290,8 @@ export async function notifyTaskCreated(taskId: string) {
         { label: "Dodelio/la", value: task.delegator.name },
         { label: "Prioritet", value: task.priority },
         { label: "Rok", value: dueLabel || "—" },
-        { label: "Opis", value: task.description || "" }
+        { label: "Opis", value: task.description || "" },
+        { label: "Drive link", value: task.driveUrl || "" }
       ],
       ctaLabel: "Otvori taskove",
       ctaHref: `${baseUrl()}/tasks`,
@@ -1518,4 +1530,112 @@ export async function syncCompanyEventWithGoogleCalendar(eventId: string) {
 
 export async function deleteCompanyEventFromCalendar(eventId: string) {
   await deleteCalendarEvent({ entityType: "COMPANY_EVENT", entityId: eventId });
+}
+
+export async function runDailyReportReminderEmails() {
+  const settings = await getGoogleWorkspaceSettings();
+  if (!settings.emailEnabled || !isGoogleWorkspaceConfigured()) {
+    return { ok: true as const, checked: 0, sent: 0, skipped: "NOT_CONFIGURED" as const };
+  }
+
+  // Yesterday's date in app timezone
+  const now = new Date();
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const yesterdayIso = formatInTimeZone(yesterday, APP_TIMEZONE, "yyyy-MM-dd");
+
+  // Skip if yesterday was a weekend (timezone-aware)
+  const dowLocal = new Date(yesterdayIso + "T12:00:00Z").getUTCDay();
+  if (dowLocal === 0 || dowLocal === 6) {
+    return { ok: true as const, checked: 0, sent: 0, skipped: "WEEKEND" as const };
+  }
+
+  // Find all active users
+  const users = await prisma.user.findMany({
+    where: { status: "ACTIVE", email: { not: "" } },
+    select: { id: true, name: true, email: true }
+  });
+
+  const dateStart = fromZonedTime(`${yesterdayIso}T00:00:00`, APP_TIMEZONE);
+  const dateEnd = fromZonedTime(`${yesterdayIso}T23:59:59`, APP_TIMEZONE);
+  const EXEMPT_COLORS = ["yellow", "indigo", "teal"];
+
+  let sent = 0;
+  for (const user of users) {
+    // Check if already has a report for yesterday
+    const hasReport = await prisma.dailyReport.findUnique({
+      where: { userId_dateIso: { userId: user.id, dateIso: yesterdayIso } },
+      select: { id: true }
+    });
+    if (hasReport) continue;
+
+    // Check if on approved absence (ANNUAL_LEAVE, SICK)
+    const onAbsence = await prisma.absence.findFirst({
+      where: {
+        employeeId: user.id,
+        status: "APPROVED",
+        type: { in: ["ANNUAL_LEAVE", "SICK"] },
+        dateFrom: { lte: dateEnd },
+        dateTo: { gte: dateStart }
+      },
+      select: { id: true }
+    });
+    if (onAbsence) continue;
+
+    // Check if exempt company event
+    const exemptEvent = await prisma.companyEvent.findFirst({
+      where: {
+        status: "ACTIVE",
+        color: { in: EXEMPT_COLORS },
+        startsAt: { lte: dateEnd },
+        endsAt: { gte: dateStart },
+        OR: [
+          { participants: { some: { userId: user.id } } },
+          { AND: [{ participants: { none: {} } }, { positions: { none: {} } }] }
+        ]
+      },
+      select: { id: true }
+    });
+    if (exemptEvent) continue;
+
+    // Send reminder
+    const subject = `EMS · Podsetnik: dnevni izveštaj za ${yesterdayIso}`;
+    const reportsUrl = `${baseUrl()}/reports`;
+    const text = [
+      `Zdravo ${user.name},`,
+      "",
+      `Primećeno je da dnevni izveštaj za ${yesterdayIso} nije unet u EMS sistem.`,
+      "",
+      `Molimo da uneseš izveštaj danas do kraja dana.`,
+      "",
+      reportsUrl
+    ].join("\n");
+    const html = renderBrandedEmail({
+      settings,
+      tone: "reminder",
+      eyebrow: "Dnevni izveštaj",
+      title: `Podsetnik: dnevni izveštaj`,
+      intro: `Zdravo ${user.name}, dnevni izveštaj za ${yesterdayIso} još uvek nije unet.`,
+      rows: [
+        { label: "Datum", value: yesterdayIso },
+        { label: "Status", value: "Nije uneto" }
+      ],
+      ctaLabel: "Unesi izveštaj",
+      ctaHref: reportsUrl,
+      footer: "Ovo je automatski EMS podsetnik. Ako si uneo/la izveštaj, ignoriši ovu poruku."
+    });
+
+    await deliverEmailOnce({
+      entityType: "DAILY_REPORT",
+      entityId: `${user.id}:${yesterdayIso}`,
+      dedupeKey: `daily-report:reminder:${user.id}:${yesterdayIso}`,
+      to: user.email,
+      subject,
+      text,
+      html,
+      settings
+    });
+    sent += 1;
+  }
+
+  return { ok: true as const, checked: users.length, sent };
 }

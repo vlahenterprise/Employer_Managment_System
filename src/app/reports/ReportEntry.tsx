@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
-import { checkDailyReportAction, deleteDailyReportAction, saveDailyReportAction } from "./actions";
+import { checkDailyReportAction, checkReportExemptAction, deleteDailyReportAction, saveDailyReportAction } from "./actions";
 import { getI18n, Lang } from "@/i18n";
 import { IconPlus, IconSave, IconTrash } from "@/components/icons";
 
@@ -28,6 +28,7 @@ export default function ReportEntry(props: {
   const [messageType, setMessageType] = useState<"success" | "error" | null>(null);
   const [isPending, startTransition] = useTransition();
   const [initialized, setInitialized] = useState(false);
+  const [exempt, setExempt] = useState<{ exempt: boolean; reason?: string } | null>(null);
 
   const totalMinutes = useMemo(() => activities.reduce((sum, a) => sum + Number(a.minutes || 0), 0), [activities]);
 
@@ -55,6 +56,7 @@ export default function ReportEntry(props: {
     setActivities([]);
     setMessage("");
     setMessageType(null);
+    setExempt(null);
     if (!trimmed) return;
 
     startTransition(async () => {
@@ -68,6 +70,8 @@ export default function ReportEntry(props: {
       setExists(res.exists);
       setMessage(res.exists ? t.reports.msgReportExists : "");
       setMessageType(res.exists ? "error" : null);
+      const exemptRes = await checkReportExemptAction(trimmed);
+      setExempt(exemptRes);
     });
   }, [t.reports]);
 
@@ -250,6 +254,19 @@ export default function ReportEntry(props: {
       </div>
 
       {message ? <div className={messageType === "success" ? "success" : "error"}>{message}</div> : null}
+
+      {exempt?.exempt ? (
+        <div className="muted small" style={{ padding: "6px 0" }}>
+          ⚠️{" "}
+          {exempt.reason === "WEEKEND"
+            ? "Vikend — unos je opcionalan, nema podsetnika"
+            : exempt.reason === "ANNUAL_LEAVE" || exempt.reason === "SICK"
+              ? "Na odmoru/bolovanju — izveštaj nije potreban za ovaj dan"
+              : (exempt.reason?.startsWith("COMPANY_EVENT:"))
+                ? "Kompanijski slobodan dan — izveštaj nije potreban"
+                : null}
+        </div>
+      ) : null}
 
       <div className="inline">
         <button className="button" type="button" onClick={onSave} disabled={isPending || !!exists}>

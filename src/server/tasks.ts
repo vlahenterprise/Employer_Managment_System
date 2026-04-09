@@ -89,6 +89,7 @@ export type TaskDashboardItem = {
   approvedOnTime: boolean;
   approvedLate: boolean;
   empComment: string;
+  driveUrl?: string | null;
   adminComment: string;
   canApprove: boolean;
 };
@@ -233,6 +234,7 @@ export async function getTaskDashboard(actor: { id: string; email: string; role:
       approvedAt: true,
       returnedCount: true,
       employeeComment: true,
+      driveUrl: true,
       adminComment: true,
       updatedAt: true
     }
@@ -289,6 +291,7 @@ export async function getTaskDashboard(actor: { id: string; email: string; role:
       approvedOnTime,
       approvedLate,
       empComment: t.employeeComment ?? "",
+      driveUrl: t.driveUrl ?? null,
       adminComment: t.adminComment ?? "",
       canApprove
     });
@@ -410,7 +413,7 @@ export async function getTaskDashboard(actor: { id: string; email: string; role:
 
 export async function createTask(params: {
   actor: { id: string; role: "ADMIN" | "HR" | "MANAGER" | "USER"; email: string; name: string };
-  payload: { title: string; description: string; priority: "LOW" | "MED" | "HIGH" | "CRIT"; teamId: string | null; assigneeId: string; dueIso: string };
+  payload: { title: string; description: string; priority: "LOW" | "MED" | "HIGH" | "CRIT"; teamId: string | null; assigneeId: string; dueIso: string; driveUrl?: string | null };
 }) {
   if (!isManagerRole(params.actor.role)) return { ok: false as const, error: "NO_ACCESS" };
 
@@ -449,7 +452,8 @@ export async function createTask(params: {
         teamId: params.payload.teamId,
         delegatedAt,
         dueDate,
-        returnedCount: 0
+        returnedCount: 0,
+        driveUrl: params.payload.driveUrl || null
       },
       select: { id: true }
     });

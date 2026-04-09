@@ -7,7 +7,7 @@ import { approveTaskAction, cancelTaskAction, createTask, returnTaskAction, subm
 import { z } from "zod";
 import { normalizeIsoDate } from "@/server/iso-date";
 import { isManagerRole } from "@/server/rbac";
-import { sanitizeText, withAction } from "@/server/action-utils";
+import { sanitizeText, sanitizeUrl, withAction } from "@/server/action-utils";
 import { notifyTaskSubmittedForApproval } from "@/server/google-workspace";
 import { logError } from "@/server/log";
 
@@ -31,6 +31,7 @@ export async function createTaskAction(formData: FormData) {
   const priorityRaw = String(formData.get("priority") ?? "MED");
   const teamIdRaw = String(formData.get("teamId") ?? "");
   const assigneeId = String(formData.get("assigneeId") ?? "");
+  const driveUrl = sanitizeUrl(String(formData.get("driveUrl") ?? "")) ?? null;
 
   const dueIso = normalizeIsoDate(dueIsoRaw);
   if (!dueIso) redirectError("/tasks", "MISSING_DUE_DATE");
@@ -48,7 +49,8 @@ export async function createTaskAction(formData: FormData) {
           priority: priorityParsed.data,
           teamId: teamIdRaw.trim() || null,
           assigneeId,
-          dueIso
+          dueIso,
+          driveUrl
         }
       }),
     "tasks.create"
