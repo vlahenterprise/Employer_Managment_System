@@ -15,6 +15,7 @@ const EVENT_COLOR_HEX: Record<string, string> = {
   yellow: "#eab308",
   teal: "#14b8a6",
   pink: "#ec4899",
+  indigo: "#6366f1",
 };
 function colorHex(color: string) {
   return EVENT_COLOR_HEX[color] ?? "#f05123";
@@ -29,6 +30,7 @@ const EVENT_COLOR_LABELS: Record<string, { sr: string; en: string }> = {
   teal: { sr: "Team Building", en: "Team Building" },
   pink: { sr: "Onboarding", en: "Onboarding" },
   yellow: { sr: "Kompanijski odmor", en: "Company holiday" },
+  indigo: { sr: "Državni praznik", en: "National holiday" },
 };
 
 function eventTypeName(color: string, lang: "sr" | "en"): string {
@@ -117,6 +119,8 @@ export default function CompanyCalendarView(props: {
   fromIso: string;
   toIso: string;
   items: CompanyCalendarItem[];
+  canManage?: boolean;
+  deleteAction?: (formData: FormData) => Promise<void>;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -215,7 +219,8 @@ export default function CompanyCalendarView(props: {
               { color: "green", sr: "Timske aktivnosti", en: "Team activities" },
               { color: "teal", sr: "Team Building", en: "Team Building" },
               { color: "pink", sr: "Onboarding", en: "Onboarding" },
-              { color: "yellow", sr: "Odmor", en: "Holiday" },
+              { color: "yellow", sr: "Komp. odmor", en: "Company holiday" },
+              { color: "indigo", sr: "Državni praznik", en: "National holiday" },
             ] as const).map((t) => (
               <span
                 key={t.color}
@@ -323,7 +328,7 @@ export default function CompanyCalendarView(props: {
                     {copy.participants}: {participantLabel(event, props.lang)}
                   </div>
                   {event.description ? <div className="muted small">{event.description}</div> : null}
-                  <div className="pills" style={{ marginTop: 4 }}>
+                  <div className="inline" style={{ marginTop: 6, gap: 6, flexWrap: "wrap" }}>
                     <span
                       className="pill"
                       style={{
@@ -336,6 +341,32 @@ export default function CompanyCalendarView(props: {
                     >
                       {eventTypeName(event.color, props.lang)}
                     </span>
+                    {props.canManage ? (
+                      <>
+                        <a
+                          href={`#event-${event.eventId}`}
+                          className="button button-secondary"
+                          style={{ fontSize: 12, padding: "3px 12px", height: "auto", lineHeight: "1.5" }}
+                        >
+                          {props.lang === "sr" ? "Uredi" : "Edit"}
+                        </a>
+                        {props.deleteAction ? (
+                          <form action={props.deleteAction} style={{ display: "inline" }}>
+                            <input type="hidden" name="eventId" value={event.eventId} />
+                            <button
+                              className="button button-danger"
+                              type="submit"
+                              style={{ fontSize: 12, padding: "3px 12px", height: "auto", lineHeight: "1.5" }}
+                              onClick={(e) => {
+                                if (!confirm(props.lang === "sr" ? "Obrisati ovaj događaj?" : "Delete this event?")) e.preventDefault();
+                              }}
+                            >
+                              {props.lang === "sr" ? "Obriši" : "Delete"}
+                            </button>
+                          </form>
+                        ) : null}
+                      </>
+                    ) : null}
                   </div>
                 </div>
                 <div className="pills">

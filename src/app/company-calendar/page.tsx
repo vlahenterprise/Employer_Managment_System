@@ -21,6 +21,7 @@ const EVENT_COLOR_HEX: Record<string, string> = {
   yellow: "#eab308",
   teal: "#14b8a6",
   pink: "#ec4899",
+  indigo: "#6366f1",
 };
 
 function colorHex(color: string) {
@@ -193,6 +194,8 @@ export default async function CompanyCalendarPage({
             fromIso={fromIso}
             toIso={toIso}
             items={filteredEvents}
+            canManage={canManage}
+            deleteAction={canManage ? deleteCompanyEventAction : undefined}
           />
         </section>
 
@@ -218,10 +221,12 @@ export default async function CompanyCalendarPage({
         {canManage ? (
           <section className="panel stack">
             <h2 className="h2">{copy.manageEvents}</h2>
+            {/* Auto-open <details> when navigating from calendar edit link */}
+            <script dangerouslySetInnerHTML={{ __html: `(function(){function openHash(){var h=location.hash;if(!h)return;var el=document.querySelector(h);if(el&&el.tagName==='DETAILS'){el.open=true;setTimeout(function(){el.scrollIntoView({behavior:'smooth',block:'start'});},80);}}openHash();window.addEventListener('hashchange',openHash);})();` }} />
             {events.length === 0 ? <div className="muted">{copy.noEvents}</div> : null}
             <div className="list">
               {events.map((event) => (
-                <details key={event.eventId} className="item stack">
+                <details key={event.eventId} id={`event-${event.eventId}`} className="item stack">
                   <summary className="item-top" style={{ cursor: "pointer" }}>
                     <div>
                       <div className="item-title">

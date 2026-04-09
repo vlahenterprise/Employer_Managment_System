@@ -13,6 +13,7 @@ const EVENT_TYPE_OPTIONS = [
   { value: "teal", sr: "Team Building", en: "Team Building", hex: "#14b8a6" },
   { value: "pink", sr: "Onboarding klijenata", en: "Client onboarding", hex: "#ec4899" },
   { value: "yellow", sr: "Kompanijski odmor", en: "Company holiday", hex: "#eab308" },
+  { value: "indigo", sr: "Državni praznik", en: "National holiday", hex: "#6366f1" },
   { value: "orange", sr: "Ostalo", en: "Other", hex: "#f05123" },
 ];
 
