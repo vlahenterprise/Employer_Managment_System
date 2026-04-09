@@ -9,6 +9,7 @@ import { normalizeIsoDate } from "@/server/iso-date";
 import { isManagerRole } from "@/server/rbac";
 import { sanitizeText, withAction } from "@/server/action-utils";
 import { notifyTaskSubmittedForApproval } from "@/server/google-workspace";
+import { logError } from "@/server/log";
 
 function redirectError(path: string, message: string): never {
   redirect(`${path}?error=${encodeURIComponent(message)}`);
@@ -81,7 +82,7 @@ export async function submitForApprovalAction(formData: FormData) {
   if (!res.ok) redirectError("/tasks", res.error);
 
   revalidatePath("/tasks");
-  notifyTaskSubmittedForApproval(taskId).catch(() => {});
+  notifyTaskSubmittedForApproval(taskId).catch((err) => logError("email.task_notify_failed", err, { taskId }));
   redirectSuccess("/tasks", "SUBMITTED");
 }
 

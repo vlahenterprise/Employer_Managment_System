@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { requireActiveUser } from "@/server/current-user";
 import { getRequestLang } from "@/i18n/server";
@@ -659,9 +660,30 @@ function getToneLabel(tone: "review" | "warning" | "info" | "success", lang: "sr
   return lang === "sr" ? "Info" : "Info";
 }
 
-export default async function DashboardPage() {
-  const user = await requireActiveUser();
-  const lang = getRequestLang();
+// ─── Skeleton prikazan dok se podaci učitavaju ───────────────────────────────
+function DashboardBodySkeleton() {
+  return (
+    <div className="stack" style={{ gap: 20 }}>
+      <div className="panel" style={{ padding: "24px 28px" }}>
+        <div className="grid4 dashboard-summary-grid">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="page-loading-block" style={{ height: 88, borderRadius: 10 }} />
+          ))}
+        </div>
+      </div>
+      <div className="grid2 dashboard-home-grid">
+        <div className="page-loading-block" style={{ height: 200, borderRadius: 10 }} />
+        <div className="page-loading-block" style={{ height: 200, borderRadius: 10 }} />
+      </div>
+      <div className="page-loading-block" style={{ height: 120, borderRadius: 10 }} />
+    </div>
+  );
+}
+
+// ─── Async server component — streamed in ────────────────────────────────────
+type ActiveUser = Awaited<ReturnType<typeof requireActiveUser>>;
+
+async function DashboardContent({ user, lang }: { user: ActiveUser; lang: "sr" | "en" }) {
   const hrEnabled = isHrModuleEnabled();
   const copy = getDashboardCopy(lang);
   const home = await getHomeDashboard({
@@ -682,6 +704,116 @@ export default async function DashboardPage() {
   const hero = getHeroContent(copy, home.mode);
 
   return (
+    <>
+      <section className="panel stack dashboard-hero">
+        <div className="dashboard-hero-main">
+          <div className="stack dashboard-hero-copy">
+            <div>
+              <h2 className="h2">{hero.title}</h2>
+              <p className="muted">{hero.text}</p>
+            </div>
+          </div>
+
+          <div className="dashboard-quick-actions">
+            <div className="small muted">{copy.quickActionsTitle}</div>
+            <div className="inline">
+              {quickActions.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <Link key={action.href} className="button button-secondary dashboard-quick-action" href={action.href}>
+                    <Icon size={16} /> {action.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid4 dashboard-summary-grid">
+          {summaryCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <div
+                key={card.label}
+                className={`item item-compact kpi-card${card.tone === "warning" ? " dashboard-kpi-warning" : ""}${
+                  card.tone === "success" ? " dashboard-kpi-success" : ""
+                }`}
+              >
+                <div className="kpi-icon">
+                  <Icon size={18} />
+                </div>
+                <div>
+                  <div className="kpi-value">{card.value}</div>
+                  <div className="kpi-label">{card.label}</div>
+                  <div className="dashboard-kpi-detail">{card.detail}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <div className="grid2 dashboard-home-grid">
+        <section className="panel stack">
+          <div className="dashboard-section-head">
+            <h2 className="h2">
+              <LabelWithTooltip label={copy.actionCenterTitle} tooltip={copy.actionCenterTooltip} />
+            </h2>
+            <Link className="button button-secondary" href="/inbox">
+              {copy.viewInbox} <IconArrowRight size={18} />
+            </Link>
+          </div>
+          <div className="dashboard-action-list">
+            {inboxPreview.map((item) => (
+              <div key={item.id} className="item dashboard-action-row">
+                <div className="dashboard-action-copy">
+                  <div className="dashboard-action-top">
+                    <span className={`pill dashboard-tone-pill dashboard-tone-${item.tone}`}>
+                      {getToneLabel(item.tone, lang)}
+                    </span>
+                    {item.meta ? <span className="muted small">{item.meta}</span> : null}
+                  </div>
+                  <div className="item-title">{item.title}</div>
+                  <div className="muted small">{item.description}</div>
+                </div>
+                <Link className="button button-secondary" href={item.href}>
+                  {copy.open}
+                </Link>
+              </div>
+            ))}
+            {inboxPreview.length === 0 ? <div className="dashboard-empty muted small">{copy.noActions}</div> : null}
+          </div>
+        </section>
+      </div>
+
+      <section className="panel stack">
+        <div className="dashboard-section-head">
+          <h2 className="h2">
+            <LabelWithTooltip label={copy.visibilityTitle} tooltip={copy.visibilityTooltip} />
+          </h2>
+        </div>
+        <div className="dashboard-visibility-list">
+          {visibilityRows.map((row) => (
+            <div key={row.label} className="item dashboard-visibility-row">
+              <div>
+                <div className="item-title">{row.label}</div>
+                {row.detail ? <div className="muted small">{row.detail}</div> : null}
+              </div>
+              <div className="dashboard-visibility-value">{row.value}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </>
+  );
+}
+
+// ─── Page shell — header instant, sadržaj streamed ───────────────────────────
+export default async function DashboardPage() {
+  const user = await requireActiveUser();
+  const lang = getRequestLang();
+
+  return (
     <main className="page">
       <div className="card stack">
         <div className="page-topbar">
@@ -698,108 +830,9 @@ export default async function DashboardPage() {
             </div>
           </div>
         </div>
-
-        <section className="panel stack dashboard-hero">
-          <div className="dashboard-hero-main">
-            <div className="stack dashboard-hero-copy">
-              <div>
-                <h2 className="h2">{hero.title}</h2>
-                <p className="muted">{hero.text}</p>
-              </div>
-            </div>
-
-            <div className="dashboard-quick-actions">
-              <div className="small muted">{copy.quickActionsTitle}</div>
-              <div className="inline">
-                {quickActions.map((action) => {
-                  const Icon = action.icon;
-                  return (
-                    <Link key={action.href} className="button button-secondary dashboard-quick-action" href={action.href}>
-                      <Icon size={16} /> {action.label}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          <div className="grid4 dashboard-summary-grid">
-            {summaryCards.map((card) => {
-              const Icon = card.icon;
-              return (
-                <div
-                  key={card.label}
-                  className={`item item-compact kpi-card${card.tone === "warning" ? " dashboard-kpi-warning" : ""}${
-                    card.tone === "success" ? " dashboard-kpi-success" : ""
-                  }`}
-                >
-                  <div className="kpi-icon">
-                    <Icon size={18} />
-                  </div>
-                  <div>
-                    <div className="kpi-value">{card.value}</div>
-                    <div className="kpi-label">{card.label}</div>
-                    <div className="dashboard-kpi-detail">{card.detail}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        <div className="grid2 dashboard-home-grid">
-          <section className="panel stack">
-            <div className="dashboard-section-head">
-              <h2 className="h2">
-                <LabelWithTooltip label={copy.actionCenterTitle} tooltip={copy.actionCenterTooltip} />
-              </h2>
-              <Link className="button button-secondary" href="/inbox">
-                {copy.viewInbox} <IconArrowRight size={18} />
-              </Link>
-            </div>
-            <div className="dashboard-action-list">
-              {inboxPreview.map((item) => (
-                <div key={item.id} className="item dashboard-action-row">
-                  <div className="dashboard-action-copy">
-                    <div className="dashboard-action-top">
-                      <span
-                        className={`pill dashboard-tone-pill dashboard-tone-${item.tone}`}
-                      >
-                        {getToneLabel(item.tone, lang)}
-                      </span>
-                      {item.meta ? <span className="muted small">{item.meta}</span> : null}
-                    </div>
-                    <div className="item-title">{item.title}</div>
-                    <div className="muted small">{item.description}</div>
-                  </div>
-                  <Link className="button button-secondary" href={item.href}>
-                    {copy.open}
-                  </Link>
-                </div>
-              ))}
-              {inboxPreview.length === 0 ? <div className="dashboard-empty muted small">{copy.noActions}</div> : null}
-            </div>
-          </section>
-        </div>
-
-        <section className="panel stack">
-          <div className="dashboard-section-head">
-            <h2 className="h2">
-              <LabelWithTooltip label={copy.visibilityTitle} tooltip={copy.visibilityTooltip} />
-            </h2>
-          </div>
-          <div className="dashboard-visibility-list">
-            {visibilityRows.map((row) => (
-              <div key={row.label} className="item dashboard-visibility-row">
-                <div>
-                  <div className="item-title">{row.label}</div>
-                  {row.detail ? <div className="muted small">{row.detail}</div> : null}
-                </div>
-                <div className="dashboard-visibility-value">{row.value}</div>
-              </div>
-            ))}
-          </div>
-        </section>
+        <Suspense fallback={<DashboardBodySkeleton />}>
+          <DashboardContent user={user} lang={lang} />
+        </Suspense>
       </div>
     </main>
   );

@@ -6,6 +6,7 @@ import { requireActiveUser } from "@/server/current-user";
 import { createCompanyEvent, deleteCompanyEvent, parseCompanyCalendarForm, updateCompanyEvent } from "@/server/company-calendar";
 import { withAction } from "@/server/action-utils";
 import { notifyCompanyEventParticipants, syncCompanyEventWithGoogleCalendar, deleteCompanyEventFromCalendar } from "@/server/google-workspace";
+import { logError } from "@/server/log";
 
 const BASE_PATH = "/company-calendar";
 
@@ -34,8 +35,8 @@ export async function createCompanyEventAction(formData: FormData) {
   if (!action.data.ok) redirectError(action.data.error);
 
   revalidatePath(BASE_PATH);
-  notifyCompanyEventParticipants(action.data.eventId).catch(() => {});
-  syncCompanyEventWithGoogleCalendar(action.data.eventId).catch(() => {});
+  notifyCompanyEventParticipants(action.data.eventId).catch((err) => logError("email.company_event_notify_failed", err, { eventId: action.data.eventId }));
+  syncCompanyEventWithGoogleCalendar(action.data.eventId).catch((err) => logError("calendar.company_event_sync_failed", err, { eventId: action.data.eventId }));
   redirectSuccess("Događaj je dodat u kompanijski kalendar.");
 }
 
@@ -52,8 +53,8 @@ export async function updateCompanyEventAction(formData: FormData) {
   if (!action.data.ok) redirectError(action.data.error);
 
   revalidatePath(BASE_PATH);
-  notifyCompanyEventParticipants(parsed.data.eventId!, true).catch(() => {});
-  syncCompanyEventWithGoogleCalendar(parsed.data.eventId!).catch(() => {});
+  notifyCompanyEventParticipants(parsed.data.eventId!, true).catch((err) => logError("email.company_event_update_notify_failed", err, { eventId: parsed.data.eventId }));
+  syncCompanyEventWithGoogleCalendar(parsed.data.eventId!).catch((err) => logError("calendar.company_event_update_sync_failed", err, { eventId: parsed.data.eventId }));
   redirectSuccess("Događaj je sačuvan.");
 }
 
@@ -70,6 +71,6 @@ export async function deleteCompanyEventAction(formData: FormData) {
   if (!action.data.ok) redirectError(action.data.error);
 
   revalidatePath(BASE_PATH);
-  deleteCompanyEventFromCalendar(eventId).catch(() => {});
+  deleteCompanyEventFromCalendar(eventId).catch((err) => logError("calendar.company_event_delete_failed", err, { eventId }));
   redirectSuccess("Događaj je uklonjen iz aktivnog kalendara.");
 }

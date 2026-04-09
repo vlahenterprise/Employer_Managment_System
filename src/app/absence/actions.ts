@@ -8,6 +8,7 @@ import { z } from "zod";
 import { normalizeIsoDate } from "@/server/iso-date";
 import { withAction } from "@/server/action-utils";
 import { notifyAbsenceSubmitted } from "@/server/google-workspace";
+import { logError } from "@/server/log";
 
 function redirectError(path: string, message: string): never {
   redirect(`${path}?error=${encodeURIComponent(message)}`);
@@ -47,7 +48,7 @@ export async function submitAbsenceAction(formData: FormData) {
   if (!res.ok) redirectError("/absence", res.error);
 
   revalidatePath("/absence");
-  notifyAbsenceSubmitted(res.absenceId).catch(() => {});
+  notifyAbsenceSubmitted(res.absenceId).catch((err) => logError("email.absence_notify_failed", err, { absenceId: res.absenceId }));
   const overlapMsg = res.overlap.count > 0 ? `OVERLAP:${res.overlap.count}` : "SUBMITTED";
   redirectSuccess("/absence", overlapMsg);
 }
