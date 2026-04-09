@@ -63,6 +63,7 @@ const SESSION_MAX_AGE_SECONDS = 8 * 60 * 60;
 export const authOptions: NextAuthOptions = {
   adapter,
   secret: config.auth.secret,
+  useSecureCookies: process.env.NODE_ENV === "production",
   session: { strategy: "jwt", maxAge: SESSION_MAX_AGE_SECONDS, updateAge: 60 * 60 },
   pages: {
     signIn: "/login"

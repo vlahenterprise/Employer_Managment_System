@@ -542,8 +542,8 @@ export const KNOWN_SETTINGS: SettingMeta[] = [
     type: "boolean",
     label: { sr: "Google email notifikacije", en: "Google email notifications" },
     description: {
-      sr: "Uključuje/isključuje slanje EMS email notifikacija preko Google Workspace bot naloga.",
-      en: "Turns EMS email notifications through the Google Workspace bot account on/off."
+      sr: "Uključuje/isključuje slanje EMS email notifikacija preko Google Workspace bot naloga. Limit: Gmail personal ~500 mejlova/dan, Google Workspace (G Suite) ~2000 mejlova/dan. EMS koristi deduplication — isti mejl se nikada ne šalje dvaput.",
+      en: "Turns EMS email notifications through the Google Workspace bot account on/off. Quota: Gmail personal ~500 emails/day, Google Workspace (G Suite) ~2000 emails/day. EMS uses deduplication — the same email is never sent twice."
     },
     placeholder: "1"
   },
@@ -621,6 +621,17 @@ export const KNOWN_SETTINGS: SettingMeta[] = [
     description: {
       sr: "Cron šalje deduplikovan email podsetnik za taskove koji uskoro imaju rok.",
       en: "Cron sends a deduplicated email reminder for tasks due soon."
+    },
+    placeholder: "1"
+  },
+  {
+    key: "GoogleWorkspaceReportReminderEmailEnabled",
+    group: "Integrations",
+    type: "boolean",
+    label: { sr: "Email podsetnik za zaboravljen izveštaj", en: "Missed report reminder email" },
+    description: {
+      sr: "Cron šalje email sledećeg dana do 12:00 korisnicima koji nisu uneli dnevni izveštaj. Ne šalje vikendima niti korisnicima koji su na odmoru, bolovanju ili slobodnom kompanijskom danu.",
+      en: "Cron sends a reminder email the next day to users who missed their daily report. Skips weekends and users on approved leave, sick leave, or company holidays."
     },
     placeholder: "1"
   },

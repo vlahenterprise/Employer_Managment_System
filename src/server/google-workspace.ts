@@ -1538,6 +1538,13 @@ export async function runDailyReportReminderEmails() {
     return { ok: true as const, checked: 0, sent: 0, skipped: "NOT_CONFIGURED" as const };
   }
 
+  // Admin toggle — can be disabled from Settings > Integrations
+  const settingsMap = await getAllSettingsMap();
+  const rawEnabled = String(settingsMap["GoogleWorkspaceReportReminderEmailEnabled"] ?? "1").toLowerCase().trim();
+  if (["0", "false", "no", "off"].includes(rawEnabled)) {
+    return { ok: true as const, checked: 0, sent: 0, skipped: "DISABLED" as const };
+  }
+
   // Yesterday's date in app timezone
   const now = new Date();
   const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
