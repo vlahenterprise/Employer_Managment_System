@@ -4,7 +4,6 @@ import { LabelWithTooltip } from "@/components/Tooltip";
 import { requireActiveUser } from "@/server/current-user";
 import { getCandidateDetail } from "@/server/candidates";
 import { getRequestLang } from "@/i18n/server";
-import UserMenu from "../../dashboard/UserMenu";
 import { IconArrowLeft, IconArrowRight, IconCalendar, IconPdf, IconUsers } from "@/components/icons";
 import { getCandidateStageMeta } from "@/server/recruiting-presentation";
 import { isHrModuleEnabled } from "@/server/features";
@@ -143,16 +142,6 @@ export default async function CandidateDetailPage({
             </div>
           </div>
 
-          <UserMenu
-            name={user.name}
-            email={user.email}
-            role={user.role}
-            hrAddon={user.hrAddon}
-            adminAddon={user.adminAddon}
-            position={user.position}
-            team={user.team?.name ?? null}
-            lang={lang}
-          />
         </div>
 
         <div className="grid3 profile-metrics">

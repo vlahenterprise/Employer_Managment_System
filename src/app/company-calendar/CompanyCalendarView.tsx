@@ -20,6 +20,21 @@ function colorHex(color: string) {
   return EVENT_COLOR_HEX[color] ?? "#f05123";
 }
 
+const EVENT_COLOR_LABELS: Record<string, { sr: string; en: string }> = {
+  orange: { sr: "Konferencija", en: "Conference" },
+  blue: { sr: "Vebinar / Online konf.", en: "Webinar / Online conf." },
+  purple: { sr: "Radionica", en: "Workshop" },
+  red: { sr: "Q&A Sesija", en: "Q&A Session" },
+  green: { sr: "Timske aktivnosti", en: "Team activities" },
+  teal: { sr: "Team Building", en: "Team Building" },
+  pink: { sr: "Onboarding", en: "Onboarding" },
+  yellow: { sr: "Kompanijski odmor", en: "Company holiday" },
+};
+
+function eventTypeName(color: string, lang: "sr" | "en"): string {
+  return EVENT_COLOR_LABELS[color]?.[lang] ?? (lang === "sr" ? "Ostalo" : "Other");
+}
+
 function pad2(n: number) {
   return String(n).padStart(2, "0");
 }
@@ -189,33 +204,44 @@ export default function CompanyCalendarView(props: {
       </div>
 
       <div className="cal-legend-grid">
-        <div className="legend-group">
-          <div className="legend-group-title">{props.lang === "sr" ? "Boje događaja" : "Event colors"}</div>
+        <div className="legend-group" style={{ gridColumn: "1 / -1" }}>
+          <div className="legend-group-title">{props.lang === "sr" ? "Tipovi događaja" : "Event types"}</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {(["orange","blue","green","red","purple","yellow","teal","pink"] as const).map((c) => (
-              <span key={c} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600 }}>
-                <span style={{ width: 12, height: 12, borderRadius: "50%", background: colorHex(c), flexShrink: 0, display: "inline-block" }} />
-                <span style={{ color: "var(--color-font-secondary)", textTransform: "capitalize" }}>
-                  {props.lang === "sr" ? {
-                    orange: "Narandžasta",
-                    blue: "Plava",
-                    green: "Zelena",
-                    red: "Crvena",
-                    purple: "Ljubičasta",
-                    yellow: "Žuta",
-                    teal: "Tirkizna",
-                    pink: "Roze",
-                  }[c] : c.charAt(0).toUpperCase() + c.slice(1)}
-                </span>
+            {([
+              { color: "orange", sr: "Konferencija", en: "Conference" },
+              { color: "blue", sr: "Vebinar / Online konf.", en: "Webinar / Online" },
+              { color: "purple", sr: "Radionice", en: "Workshops" },
+              { color: "red", sr: "Q&A Sesija", en: "Q&A Session" },
+              { color: "green", sr: "Timske aktivnosti", en: "Team activities" },
+              { color: "teal", sr: "Team Building", en: "Team Building" },
+              { color: "pink", sr: "Onboarding", en: "Onboarding" },
+              { color: "yellow", sr: "Odmor", en: "Holiday" },
+            ] as const).map((t) => (
+              <span
+                key={t.color}
+                className="pill"
+                style={{
+                  background: `${colorHex(t.color)}1a`,
+                  borderColor: `${colorHex(t.color)}44`,
+                  color: colorHex(t.color),
+                  fontWeight: 700,
+                  fontSize: 12,
+                }}
+              >
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: colorHex(t.color),
+                    display: "inline-block",
+                    marginRight: 5,
+                    flexShrink: 0,
+                  }}
+                />
+                {props.lang === "sr" ? t.sr : t.en}
               </span>
             ))}
-          </div>
-        </div>
-        <div className="legend-group">
-          <div className="legend-group-title">{props.lang === "sr" ? "Tip događaja" : "Event type"}</div>
-          <div className="inline cal-legend">
-            <span className="pill absence-legend annual">{props.lang === "sr" ? "Kompanijski" : "Company"}</span>
-            <span className="pill absence-legend other">{props.lang === "sr" ? "Za ljude/pozicije" : "People/positions"}</span>
           </div>
         </div>
       </div>
@@ -297,6 +323,20 @@ export default function CompanyCalendarView(props: {
                     {copy.participants}: {participantLabel(event, props.lang)}
                   </div>
                   {event.description ? <div className="muted small">{event.description}</div> : null}
+                  <div className="pills" style={{ marginTop: 4 }}>
+                    <span
+                      className="pill"
+                      style={{
+                        background: `${colorHex(event.color)}22`,
+                        borderColor: `${colorHex(event.color)}55`,
+                        color: colorHex(event.color),
+                        fontWeight: 700,
+                        fontSize: 11,
+                      }}
+                    >
+                      {eventTypeName(event.color, props.lang)}
+                    </span>
+                  </div>
                 </div>
                 <div className="pills">
                   <span className="pill absence-legend annual">{props.lang === "sr" ? "Događaj" : "Event"}</span>

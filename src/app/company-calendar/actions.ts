@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { requireActiveUser } from "@/server/current-user";
 import { createCompanyEvent, deleteCompanyEvent, parseCompanyCalendarForm, updateCompanyEvent } from "@/server/company-calendar";
 import { withAction } from "@/server/action-utils";
-import { notifyCompanyEventParticipants } from "@/server/google-workspace";
+import { notifyCompanyEventParticipants, syncCompanyEventWithGoogleCalendar, deleteCompanyEventFromCalendar } from "@/server/google-workspace";
 
 const BASE_PATH = "/company-calendar";
 
@@ -35,6 +35,7 @@ export async function createCompanyEventAction(formData: FormData) {
 
   revalidatePath(BASE_PATH);
   notifyCompanyEventParticipants(action.data.eventId).catch(() => {});
+  syncCompanyEventWithGoogleCalendar(action.data.eventId).catch(() => {});
   redirectSuccess("Događaj je dodat u kompanijski kalendar.");
 }
 
@@ -52,6 +53,7 @@ export async function updateCompanyEventAction(formData: FormData) {
 
   revalidatePath(BASE_PATH);
   notifyCompanyEventParticipants(parsed.data.eventId!, true).catch(() => {});
+  syncCompanyEventWithGoogleCalendar(parsed.data.eventId!).catch(() => {});
   redirectSuccess("Događaj je sačuvan.");
 }
 
@@ -68,5 +70,6 @@ export async function deleteCompanyEventAction(formData: FormData) {
   if (!action.data.ok) redirectError(action.data.error);
 
   revalidatePath(BASE_PATH);
+  deleteCompanyEventFromCalendar(eventId).catch(() => {});
   redirectSuccess("Događaj je uklonjen iz aktivnog kalendara.");
 }

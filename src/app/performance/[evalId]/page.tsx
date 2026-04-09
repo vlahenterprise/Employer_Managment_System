@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { LabelWithTooltip } from "@/components/Tooltip";
 import { requireActiveUser } from "@/server/current-user";
-import UserMenu from "../../dashboard/UserMenu";
 import { getRequestLang } from "@/i18n/server";
 import { getI18n, type Lang } from "@/i18n";
 import { getPerformanceEvaluationDetail, getPerformanceHistoryForEmployee } from "@/server/performance";
@@ -307,16 +306,6 @@ export default async function PerformanceEvalPage({
             </div>
           </div>
 
-          <UserMenu
-            name={user.name}
-            email={user.email}
-            role={user.role}
-            hrAddon={user.hrAddon}
-            adminAddon={user.adminAddon}
-            position={user.position}
-            team={user.team?.name ?? null}
-            lang={lang}
-          />
         </div>
 
         {message && messageType ? <div className={messageType === "success" ? "success" : "error"}>{message}</div> : null}

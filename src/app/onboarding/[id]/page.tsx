@@ -4,7 +4,6 @@ import { LabelWithTooltip } from "@/components/Tooltip";
 import { requireActiveUser } from "@/server/current-user";
 import { getOnboardingDetail } from "@/server/onboarding";
 import { getRequestLang } from "@/i18n/server";
-import UserMenu from "../../dashboard/UserMenu";
 import {
   addOnboardingItemAction,
   assignOnboardingProcessAction,
@@ -206,16 +205,6 @@ export default async function OnboardingDetailPage({
             </div>
           </div>
 
-          <UserMenu
-            name={user.name}
-            email={user.email}
-            role={user.role}
-            hrAddon={user.hrAddon}
-            adminAddon={user.adminAddon}
-            position={user.position}
-            team={user.team?.name ?? null}
-            lang={lang}
-          />
         </div>
 
         {success ? <div className="success">{success}</div> : null}

@@ -3,15 +3,17 @@
 import { useState } from "react";
 import type { CompanyCalendarItem, CompanyCalendarPickerData } from "@/server/company-calendar";
 
-const EVENT_COLORS = [
-  { value: "orange", label: "Narandžasta", hex: "#f05123" },
-  { value: "blue", label: "Plava", hex: "#3b82f6" },
-  { value: "green", label: "Zelena", hex: "#22c55e" },
-  { value: "red", label: "Crvena", hex: "#ef4444" },
-  { value: "purple", label: "Ljubičasta", hex: "#a855f7" },
-  { value: "yellow", label: "Žuta", hex: "#eab308" },
-  { value: "teal", label: "Teal", hex: "#14b8a6" },
-  { value: "pink", label: "Roze", hex: "#ec4899" },
+const EVENT_TYPE_OPTIONS = [
+  { value: "orange", sr: "Konferencija", en: "Conference", hex: "#f05123" },
+  { value: "blue", sr: "Vebinar", en: "Webinar", hex: "#3b82f6" },
+  { value: "blue", sr: "Online konferencija", en: "Online conference", hex: "#3b82f6" },
+  { value: "purple", sr: "Radionice", en: "Workshops", hex: "#a855f7" },
+  { value: "red", sr: "Q&A Sesija", en: "Q&A Session", hex: "#ef4444" },
+  { value: "green", sr: "Timske aktivnosti", en: "Team activities", hex: "#22c55e" },
+  { value: "teal", sr: "Team Building", en: "Team Building", hex: "#14b8a6" },
+  { value: "pink", sr: "Onboarding klijenata", en: "Client onboarding", hex: "#ec4899" },
+  { value: "yellow", sr: "Kompanijski odmor", en: "Company holiday", hex: "#eab308" },
+  { value: "orange", sr: "Ostalo", en: "Other", hex: "#f05123" },
 ];
 
 function selectedUserIds(event?: CompanyCalendarItem) {
@@ -39,8 +41,15 @@ export default function CompanyEventForm({
 }) {
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(() => selectedUserIds(event));
   const [selectedPositions, setSelectedPositions] = useState<Set<string>>(() => selectedPositionIds(event));
-  const [color, setColor] = useState(event?.color ?? "orange");
+  const [selectedTypeIndex, setSelectedTypeIndex] = useState<number>(() => {
+    const existingColor = event?.color ?? "orange";
+    const idx = EVENT_TYPE_OPTIONS.findIndex((t) => t.value === existingColor);
+    return idx >= 0 ? idx : 0;
+  });
   const [allDay, setAllDay] = useState(event ? event.allDay : true);
+
+  const selectedColor = EVENT_TYPE_OPTIONS[selectedTypeIndex]?.value ?? "orange";
+  const selectedHex = EVENT_TYPE_OPTIONS[selectedTypeIndex]?.hex ?? "#f05123";
 
   function addTeam(teamId: string) {
     const team = pickerData.teams?.find((t) => t.id === teamId);
@@ -79,7 +88,7 @@ export default function CompanyEventForm({
     endTime: lang === "sr" ? "Kraj" : "End time",
     allDay: lang === "sr" ? "Ceo dan" : "All day",
     description: lang === "sr" ? "Opis" : "Description",
-    colorLabel: lang === "sr" ? "Boja u kalendaru" : "Calendar color",
+    eventTypeLabel: lang === "sr" ? "Tip događaja" : "Event type",
     peopleLabel: lang === "sr" ? "Uključeni zaposleni" : "Included employees",
     positionsLabel: lang === "sr" ? "Uključene pozicije" : "Included positions",
     quickAddTeam: lang === "sr" ? "Dodaj ceo tim" : "Add whole team",
@@ -99,7 +108,7 @@ export default function CompanyEventForm({
       {[...selectedPositions].map((id) => (
         <input key={id} type="hidden" name="positionIds" value={id} />
       ))}
-      <input type="hidden" name="color" value={color} />
+      <input type="hidden" name="color" value={selectedColor} />
       <input type="hidden" name="allDay" value={allDay ? "1" : "0"} />
 
       <div className="grid2">
@@ -164,22 +173,33 @@ export default function CompanyEventForm({
           <textarea className="input" name="description" rows={2} maxLength={2000} defaultValue={event?.description ?? ""} />
         </label>
 
-        {/* Color picker */}
+        {/* Event type selector */}
         <div className="field">
-          <span className="label">{copy.colorLabel}</span>
-          <div className="color-picker">
-            {EVENT_COLORS.map((c) => (
-              <button
-                key={c.value}
-                type="button"
-                className={`color-swatch${color === c.value ? " color-swatch-active" : ""}`}
-                style={{ background: c.hex }}
-                title={c.label}
-                onClick={() => setColor(c.value)}
-                aria-label={c.label}
-                aria-pressed={color === c.value}
-              />
-            ))}
+          <span className="label">{copy.eventTypeLabel}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <select
+              className="input"
+              value={selectedTypeIndex}
+              onChange={(e) => setSelectedTypeIndex(Number(e.target.value))}
+              style={{ flex: 1 }}
+            >
+              {EVENT_TYPE_OPTIONS.map((t, i) => (
+                <option key={i} value={i}>
+                  {lang === "sr" ? t.sr : t.en}
+                </option>
+              ))}
+            </select>
+            <span
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: 4,
+                background: selectedHex,
+                flexShrink: 0,
+                display: "inline-block",
+                border: "2px solid rgba(0,0,0,0.15)",
+              }}
+            />
           </div>
         </div>
       </div>

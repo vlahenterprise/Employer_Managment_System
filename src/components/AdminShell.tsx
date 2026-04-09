@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { getBrandingSettings } from "@/server/settings";
 import { getI18n, type Lang } from "@/i18n";
-import UserMenu from "@/app/dashboard/UserMenu";
 import { IconArrowLeft } from "@/components/icons";
 
 export type AdminTabKey =
@@ -141,16 +140,6 @@ export default async function AdminShell({
             </div>
           </div>
 
-          <UserMenu
-            name={user.name}
-            email={user.email}
-            role={user.role}
-            hrAddon={user.hrAddon ?? undefined}
-            adminAddon={user.adminAddon ?? undefined}
-            position={user.position}
-            team={user.team?.name ?? null}
-            lang={lang}
-          />
         </div>
 
         {success ? <div className="success">{success}</div> : null}

@@ -1452,3 +1452,70 @@ export async function runGoogleWorkspaceDueReminders() {
 
   return { ok: true as const, checked: tasks.length, processed: sent };
 }
+
+export async function syncCompanyEventWithGoogleCalendar(eventId: string) {
+  try {
+    const event = await prisma.companyEvent.findUnique({
+      where: { id: eventId },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        startsAt: true,
+        endsAt: true,
+        allDay: true,
+        location: true,
+        color: true,
+        status: true,
+        participants: {
+          select: { user: { select: { name: true, email: true } } }
+        }
+      }
+    });
+    if (!event) return;
+
+    if (event.status !== "ACTIVE") {
+      await deleteCalendarEvent({ entityType: "COMPANY_EVENT", entityId: event.id });
+      return;
+    }
+
+    const settings = await getGoogleWorkspaceSettings();
+
+    const attendees = event.participants
+      .filter((p) => p.user.email)
+      .map((p) => ({ email: p.user.email, displayName: p.user.name }));
+
+    const startIso = event.allDay
+      ? formatInTimeZone(event.startsAt, APP_TIMEZONE, "yyyy-MM-dd")
+      : formatInTimeZone(event.startsAt, APP_TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssxxx");
+    const endIso = event.allDay
+      ? formatInTimeZone(event.endsAt, APP_TIMEZONE, "yyyy-MM-dd")
+      : formatInTimeZone(event.endsAt, APP_TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssxxx");
+
+    const startDateTime = event.allDay ? { date: startIso } : { dateTime: startIso, timeZone: APP_TIMEZONE };
+    const endDateTime = event.allDay ? { date: endIso } : { dateTime: endIso, timeZone: APP_TIMEZONE };
+
+    const calEvent = {
+      summary: event.title,
+      description: event.description || undefined,
+      location: event.location || undefined,
+      start: startDateTime,
+      end: endDateTime,
+      transparency: "transparent" as const,
+      ...(attendees.length > 0 ? { attendees } : {}),
+    };
+
+    await upsertCalendarEvent({
+      entityType: "COMPANY_EVENT",
+      entityId: event.id,
+      event: calEvent,
+      settings,
+    });
+  } catch (err) {
+    logError("syncCompanyEventWithGoogleCalendar", err);
+  }
+}
+
+export async function deleteCompanyEventFromCalendar(eventId: string) {
+  await deleteCalendarEvent({ entityType: "COMPANY_EVENT", entityId: eventId });
+}

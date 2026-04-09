@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { LabelWithTooltip } from "@/components/Tooltip";
 import { getRequestLang } from "@/i18n/server";
 import { requireActiveUser } from "@/server/current-user";
-import UserMenu from "../dashboard/UserMenu";
 import { getHrDashboard, hasHrSystemAccess } from "@/server/hr";
 import { buildHrDashboardBuckets, getProcessWorkflowSummary, type HrNextActionKey, type HrStageKey, type HrWaitingOnKey } from "@/server/hr-presentation";
 import { markHrNotificationReadAction } from "./actions";
@@ -399,16 +398,6 @@ export default async function HrPage({
             </div>
           </div>
 
-          <UserMenu
-            name={user.name}
-            email={user.email}
-            role={user.role}
-            hrAddon={user.hrAddon}
-            adminAddon={user.adminAddon}
-            position={user.position}
-            team={user.team?.name ?? null}
-            lang={lang}
-          />
         </div>
 
         {success ? <div className="success">{success}</div> : null}

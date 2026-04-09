@@ -4,7 +4,6 @@ import { LabelWithTooltip } from "@/components/Tooltip";
 import { requireActiveUser } from "@/server/current-user";
 import { getCandidatesWorkspace } from "@/server/candidates";
 import { getRequestLang } from "@/i18n/server";
-import UserMenu from "../dashboard/UserMenu";
 import { IconArrowLeft, IconArrowRight, IconCheckCircle, IconSparkles, IconUsers } from "@/components/icons";
 import { getCandidateStageMeta, getCandidateStageOptions } from "@/server/recruiting-presentation";
 import { isHrModuleEnabled } from "@/server/features";
@@ -156,16 +155,6 @@ export default async function CandidatesPage({
             </div>
           </div>
 
-          <UserMenu
-            name={user.name}
-            email={user.email}
-            role={user.role}
-            hrAddon={user.hrAddon}
-            adminAddon={user.adminAddon}
-            position={user.position}
-            team={user.team?.name ?? null}
-            lang={lang}
-          />
         </div>
 
         <div className="grid4 profile-metrics">

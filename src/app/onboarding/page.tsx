@@ -4,7 +4,6 @@ import { LabelWithTooltip } from "@/components/Tooltip";
 import { requireActiveUser } from "@/server/current-user";
 import { getOnboardingDashboard } from "@/server/onboarding";
 import { getRequestLang } from "@/i18n/server";
-import UserMenu from "../dashboard/UserMenu";
 import {
   assignOnboardingProcessAction,
   createOnboardingTemplateAction
@@ -173,16 +172,6 @@ export default async function OnboardingPage() {
             </div>
           </div>
 
-          <UserMenu
-            name={user.name}
-            email={user.email}
-            role={user.role}
-            hrAddon={user.hrAddon}
-            adminAddon={user.adminAddon}
-            position={user.position}
-            team={user.team?.name ?? null}
-            lang={lang}
-          />
         </div>
 
         <div className="grid4 profile-metrics">

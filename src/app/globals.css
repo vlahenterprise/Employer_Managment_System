@@ -399,6 +399,8 @@ p {
     0 22px 70px rgba(0, 0, 0, 0.5),
     var(--shadow-inset);
   backdrop-filter: blur(18px);
+  max-height: calc(100vh - 36px);
+  overflow: hidden;
 }
 
 .app-nav-brand {
@@ -476,6 +478,9 @@ p {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .app-nav-section {
@@ -1210,7 +1215,7 @@ p {
 
 .cal-day {
   position: relative;
-  min-height: 108px;
+  min-height: 120px;
   border: none;
   text-align: left;
   border-radius: var(--radius-lg);
@@ -3633,8 +3638,43 @@ p {
 }
 
 .guidance-panel {
+  display: block;
   align-items: flex-start;
   min-width: 0;
+  cursor: pointer;
+}
+
+.guidance-panel-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.guidance-panel-summary::-webkit-details-marker {
+  display: none;
+}
+
+.guidance-panel-summary .notice-title {
+  flex: 1;
+}
+
+.guidance-panel-caret {
+  font-size: 14px;
+  opacity: 0.6;
+  transition: transform 180ms ease;
+  line-height: 1;
+}
+
+details.guidance-panel[open] .guidance-panel-caret {
+  transform: rotate(180deg);
+}
+
+.guidance-panel-body {
+  margin-top: 10px;
+  padding-left: 28px;
 }
 
 .guidance-panel-description {
@@ -5259,4 +5299,98 @@ html[data-theme="light"] .app-nav-brand-mark,
 html[data-theme="light"] .app-nav-mobile-mark {
   background: rgba(var(--color-secondary-rgb) / 0.12);
   color: rgba(var(--color-secondary-rgb) / 0.9);
+}
+
+/* ================================================================
+   FINAL POLISH
+   ================================================================ */
+
+/* Improve form label readability */
+.label {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Make select elements look like inputs */
+select.input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+  cursor: pointer;
+}
+
+/* Better focus visibility */
+.button:focus-visible,
+.input:focus-visible,
+select.input:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Smooth page transitions */
+.app-main {
+  animation: fadeInUp 0.18s ease;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0.7; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Better table styling */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-font-secondary);
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 13.5px;
+  vertical-align: middle;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+/* Make empty states look better */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  gap: 12px;
+  text-align: center;
+}
+
+/* Better pills */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Improve item hover in light mode */
+html[data-theme="light"] .item:hover {
+  background: rgba(0 0 0 / 0.03);
+}
+
+html[data-theme="light"] tr:hover td {
+  background: rgba(0 0 0 / 0.02);
 }

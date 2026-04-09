@@ -5,7 +5,6 @@ import { getRequestLang } from "@/i18n/server";
 import { requireActiveUser } from "@/server/current-user";
 import { getHrProcessDetail } from "@/server/hr";
 import { getCandidateStageSummary, getProcessWorkflowSummary, type HrNextActionKey, type HrStageKey, type HrWaitingOnKey } from "@/server/hr-presentation";
-import UserMenu from "../../dashboard/UserMenu";
 import { isHrModuleEnabled } from "@/server/features";
 import {
   addCandidateToProcessAction,
@@ -359,16 +358,6 @@ export default async function HrProcessPage({
               <span className={statusClass(process.status)}>{process.status}</span>
             </div>
           </div>
-          <UserMenu
-            name={user.name}
-            email={user.email}
-            role={user.role}
-            hrAddon={user.hrAddon}
-            adminAddon={user.adminAddon}
-            position={user.position}
-            team={user.team?.name ?? null}
-            lang={lang}
-          />
         </div>
 
         {success ? <div className="success">{success}</div> : null}
