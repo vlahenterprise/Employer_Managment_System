@@ -1,7 +1,12 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
-const hrModuleEnabled = process.env.ENABLE_HR_MODULE === "true";
+function parseBool(value: string | undefined, defaultValue: boolean) {
+  if (value === undefined) return defaultValue;
+  return ["1", "true", "yes", "y", "on"].includes(value.toLowerCase());
+}
+
+const hrModuleEnabled = parseBool(process.env.ENABLE_HR_MODULE, true);
 
 function isHrPath(pathname: string) {
   return (

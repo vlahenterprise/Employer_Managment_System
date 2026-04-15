@@ -76,18 +76,18 @@ function getAdminNote(lang: Lang) {
   };
 }
 
-export default async function AdminShell({
-  user,
-  lang,
-  title,
-  subtitle,
-  activeTab,
-  children,
-  success,
-  error,
-  actions,
-  note
-}: AdminShellProps) {
+export default async function AdminShell(props: AdminShellProps) {
+  const {
+    lang,
+    title,
+    subtitle,
+    activeTab,
+    children,
+    success,
+    error,
+    actions,
+    note
+  } = props;
   const branding = await getBrandingSettings();
   const t = getI18n(lang);
   const shellCopy = getAdminNote(lang);

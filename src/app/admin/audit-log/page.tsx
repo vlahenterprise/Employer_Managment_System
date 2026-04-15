@@ -170,7 +170,7 @@ export default async function AuditLogPage({
 }: {
   searchParams: { type?: string; page?: string };
 }) {
-  const user = await requireAdminUser();
+  await requireAdminUser();
   const lang = getRequestLang();
   const c = copy(lang);
 

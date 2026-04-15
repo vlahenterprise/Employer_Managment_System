@@ -94,7 +94,7 @@ export const config = {
     chromiumPackUrl: env.CHROMIUM_PACK_URL?.trim() || ""
   },
   features: {
-    hrModuleEnabled: parseBool(env.ENABLE_HR_MODULE, false)
+    hrModuleEnabled: parseBool(env.ENABLE_HR_MODULE, true)
   },
   encryption: {
     fieldEncryptionKey: env.FIELD_ENCRYPTION_KEY?.trim() || ""
