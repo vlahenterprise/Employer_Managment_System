@@ -7,6 +7,7 @@ type Tone = "approved" | "pending" | "review" | "progress" | "rejected" | "muted
 const ACTIVE_CANDIDATE_STATUSES = new Set([
   "NEW_APPLICANT",
   "HR_SCREENING",
+  "ON_HOLD",
   "SENT_TO_MANAGER",
   "WAITING_MANAGER_REVIEW",
   "INTERVIEW_SCHEDULED",
@@ -29,6 +30,7 @@ export function getCandidateStageOptions(lang: Lang) {
   const options = [
     "NEW_APPLICANT",
     "HR_SCREENING",
+    "ON_HOLD",
     "SENT_TO_MANAGER",
     "WAITING_MANAGER_REVIEW",
     "INTERVIEW_SCHEDULED",
@@ -62,6 +64,8 @@ export function getCandidateStageMeta(status: HrCandidateStatus | string | null 
       return { label: lang === "sr" ? "Novi kandidat" : "New applicant", tone: "pending" };
     case "HR_SCREENING":
       return { label: lang === "sr" ? "HR screening" : "HR screening", tone: "review" };
+    case "ON_HOLD":
+      return { label: lang === "sr" ? "Na čekanju" : "On hold", tone: "muted" };
     case "REJECTED_BY_HR":
       return { label: lang === "sr" ? "Odbijen od HR" : "Rejected by HR", tone: "rejected" };
     case "SENT_TO_MANAGER":

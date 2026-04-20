@@ -71,6 +71,7 @@ enum HrProcessStatus {
 enum HrCandidateStatus {
   NEW_APPLICANT
   HR_SCREENING
+  ON_HOLD
   REJECTED_BY_HR
   SENT_TO_MANAGER
   WAITING_MANAGER_REVIEW
@@ -239,6 +240,7 @@ model OrgPosition {
   assignees OrgPositionAssignment[]
   templates OnboardingTemplate[]
   onboardings Onboarding[]
+  hrProcesses HrProcess[]
   companyEvents CompanyEventPosition[]
 
   @@index([parentId])
@@ -724,6 +726,7 @@ model PerformanceLog {
 model HrProcess {
   id                 String          @id @default(cuid())
   teamId             String?
+  positionId         String?
   positionTitle      String
   requestType        String?
   requestedHeadcount Int             @default(1)
@@ -731,6 +734,10 @@ model HrProcess {
   reason             String
   note               String?
   status             HrProcessStatus @default(OPEN)
+  isBudgeted         Boolean         @default(true)
+  budgetRange        String?
+  isInSystematization Boolean        @default(true)
+  draftJobDescriptionUrl String?
   openedById         String
   managerId          String?
   finalApproverId    String?
@@ -747,6 +754,7 @@ model HrProcess {
   updatedAt          DateTime        @updatedAt
 
   team          Team?               @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  position      OrgPosition?        @relation(fields: [positionId], references: [id], onDelete: SetNull)
   openedBy      User                @relation("HrProcessOpenedBy", fields: [openedById], references: [id], onDelete: Restrict)
   manager       User?               @relation("HrProcessManager", fields: [managerId], references: [id], onDelete: SetNull)
   finalApprover User?               @relation("HrProcessFinalApprover", fields: [finalApproverId], references: [id], onDelete: SetNull)
@@ -756,6 +764,7 @@ model HrProcess {
   onboardings   Onboarding[]
 
   @@index([teamId, status])
+  @@index([positionId])
   @@index([managerId, status])
   @@index([finalApproverId, status])
   @@index([status, openedAt])
@@ -768,6 +777,11 @@ model HrCandidate {
   phone            String?
   linkedIn         String?
   source           String?
+  seniority        String?
+  language         String?
+  location         String?
+  tags             Json?
+  skillMarkers     Json?
   cvDriveUrl       String?
   talentPoolTag    String?
   lastContactAt    DateTime?
@@ -789,6 +803,9 @@ model HrCandidate {
   @@index([email])
   @@index([phone])
   @@index([talentPoolTag])
+  @@index([seniority])
+  @@index([language])
+  @@index([location])
   @@index([updatedAt])
 }
 
@@ -799,20 +816,37 @@ model HrProcessCandidate {
   createdById            String?
   status                 HrCandidateStatus @default(NEW_APPLICANT)
   source                 String?
+  sourceGroup            String?
   appliedAt              DateTime          @default(now())
   initialContactAt       DateTime?
   hrComment              String?
   firstRoundComment      String?
   screeningResult        String?
+  expectedSalary         String?
+  hrScorecard            Json?
+  hrRecommendation       String?
+  hrRejectionReason      String?
+  mustHaveChecklist      Json?
+  niceToHaveChecklist    Json?
   managerComment         String?
+  managerScorecard       Json?
+  managerRecommendation  String?
+  managerRejectionReason String?
+  interviewFeedback      Json?
+  interviewRecommendation String?
+  interviewReadiness     String?
   finalComment           String?
+  finalReasonCode        String?
   interviewScheduledAt   DateTime?
   secondRoundCompletedAt DateTime?
   finalDecisionAt        DateTime?
+  plannedStartDate       DateTime?
   archivedAt             DateTime?
   cancelledAt            DateTime?
   closedReason           String?
   nextAction             String?
+  lastDecision           String?
+  lastDecisionAt         DateTime?
   managerProposedSlots   Json?
   createdAt              DateTime          @default(now())
   updatedAt              DateTime          @updatedAt
@@ -827,6 +861,9 @@ model HrProcessCandidate {
   @@unique([processId, candidateId])
   @@index([processId, status])
   @@index([candidateId, status])
+  @@index([sourceGroup])
+  @@index([hrRecommendation])
+  @@index([managerRecommendation])
   @@index([appliedAt])
 }
 

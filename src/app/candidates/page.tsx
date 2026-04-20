@@ -39,6 +39,11 @@ function copy(lang: "sr" | "en") {
       team: "Tim",
       position: "Pozicija",
       source: "Izvor",
+      seniority: "Senioritet",
+      language: "Jezik",
+      location: "Lokacija",
+      tags: "Tagovi",
+      skills: "Veštine",
       status: "Status",
       noValue: "—"
     };
@@ -73,6 +78,11 @@ function copy(lang: "sr" | "en") {
     team: "Team",
     position: "Position",
     source: "Source",
+    seniority: "Seniority",
+    language: "Language",
+    location: "Location",
+    tags: "Tags",
+    skills: "Skills",
     status: "Status",
     noValue: "—"
   };
@@ -85,6 +95,10 @@ function formatDate(value: Date | null | undefined, locale: string) {
 
 function getToneClass(tone: ReturnType<typeof getCandidateStageMeta>["tone"]) {
   return `pill pill-status pill-status-${tone}`;
+}
+
+function jsonList(value: unknown) {
+  return Array.isArray(value) ? value.map((item) => String(item)).filter(Boolean) : [];
 }
 
 export default async function CandidatesPage({
@@ -258,6 +272,8 @@ export default async function CandidatesPage({
             {data.items.map((candidate) => {
               const latest = candidate.applications[0] || null;
               const stage = getCandidateStageMeta(latest?.status, lang);
+              const tags = jsonList(candidate.tags);
+              const skills = jsonList(candidate.skillMarkers);
               return (
                 <div key={candidate.id} className="item stack entity-card">
                   <div className="item-top">
@@ -287,6 +303,21 @@ export default async function CandidatesPage({
                     </div>
                     <div>
                       <strong>{c.source}:</strong> {candidate.source || c.noValue}
+                    </div>
+                    <div>
+                      <strong>{c.seniority}:</strong> {candidate.seniority || c.noValue}
+                    </div>
+                    <div>
+                      <strong>{c.language}:</strong> {candidate.language || c.noValue}
+                    </div>
+                    <div>
+                      <strong>{c.location}:</strong> {candidate.location || c.noValue}
+                    </div>
+                    <div>
+                      <strong>{c.tags}:</strong> {tags.length ? tags.join(" · ") : c.noValue}
+                    </div>
+                    <div>
+                      <strong>{c.skills}:</strong> {skills.length ? skills.join(" · ") : c.noValue}
                     </div>
                     <div>
                       <strong>{c.nextAction}:</strong> {latest?.nextAction || c.noValue}

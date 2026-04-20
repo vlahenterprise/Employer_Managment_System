@@ -4,6 +4,7 @@ import { LabelWithTooltip } from "@/components/Tooltip";
 import { getRequestLang } from "@/i18n/server";
 import { requireActiveUser } from "@/server/current-user";
 import { getManagementPanel, hasManagementPanelAccess } from "@/server/hr";
+import { HIRING_REQUEST_TYPES } from "@/server/hr-workflow";
 import { createHrProcessAction, markHrNotificationReadAction } from "../hr/actions";
 import { isHrModuleEnabled } from "@/server/features";
 import {
@@ -41,14 +42,19 @@ function copy(lang: "sr" | "en") {
       requestFormText: "Unesi samo osnovne poslovne podatke. Kandidati i screening se vode kasnije, kada HR preuzme odobren zahtev.",
       teamLabel: "Tim",
       positionLabel: "Pozicija",
-      requestTypeLabel: "Zamena / nova pozicija",
+      systemPositionLabel: "Pozicija iz sistematizacije",
+      requestTypeLabel: "Tip angažovanja",
+      budgetedLabel: "Budžetirana pozicija",
+      budgetRangeLabel: "Budžet / opseg plate",
+      systematizationLabel: "Postoji u sistematizaciji",
+      draftJobDescriptionLabel: "Link ka draft opisu pozicije",
       priorityLabel: "Prioritet",
       desiredStartDateLabel: "Željeni datum početka",
       headcountLabel: "Broj izvršilaca",
       reasonLabel: "Razlog",
       managerCommentLabel: "Komentar menadžera",
       createRequest: "Kreiraj zahtev",
-      replacementPlaceholder: "Zamena / nova pozicija",
+      replacementPlaceholder: "Ako nije u sistematizaciji, upiši naziv nove pozicije",
       noData: "Nema podataka za prikaz.",
       openDetail: "Otvori detalj",
       markRead: "Označi kao pročitano",
@@ -83,15 +89,20 @@ function copy(lang: "sr" | "en") {
     requestFormTitle: "Step 1 — New hiring request",
     requestFormText: "Enter only the core business request. Candidates and screening are handled later, once HR takes over the approved request.",
     teamLabel: "Team",
-    positionLabel: "Position",
-    requestTypeLabel: "Replacement / new position",
+      positionLabel: "Position",
+    systemPositionLabel: "Systematized position",
+    requestTypeLabel: "Engagement type",
+    budgetedLabel: "Budgeted position",
+    budgetRangeLabel: "Budget / salary range",
+    systematizationLabel: "Exists in systematization",
+    draftJobDescriptionLabel: "Draft job description link",
     priorityLabel: "Priority",
     desiredStartDateLabel: "Desired start date",
     headcountLabel: "Headcount",
     reasonLabel: "Reason",
     managerCommentLabel: "Manager comment",
     createRequest: "Create request",
-    replacementPlaceholder: "Replacement / New position",
+    replacementPlaceholder: "If not systematized, type the new position title",
     noData: "No data to show.",
     openDetail: "Open detail",
     markRead: "Mark as read",
@@ -243,15 +254,35 @@ export default async function ManagementPage() {
               <label className="field">
                 <span className="label">
                   <LabelWithTooltip
-                    label={c.positionLabel}
+                    label={c.systemPositionLabel}
                     tooltip={
                       lang === "sr"
-                        ? "Naziv pozicije treba da bude jasan i isti kao interni naziv koji ćete koristiti kasnije u onboardingu i profilu zaposlenog."
-                        : "Use a clear position title that matches the internal name you want to keep later in onboarding and employee profiles."
+                        ? "Ako pozicija već postoji u organizacionoj strukturi, izaberi je ovde. Sistem će koristiti njen naziv, tim i dokumentaciju kao osnovu za hiring."
+                        : "If the position already exists in the organization structure, choose it here. The system will use its title, team, and documentation as the hiring basis."
                     }
                   />
                 </span>
-                <input className="input" name="positionTitle" type="text" required />
+                <select className="input" name="positionId" defaultValue="">
+                  <option value="">{c.noData}</option>
+                  {panel.positions.map((position) => (
+                    <option key={position.id} value={position.id}>
+                      {position.title} {position.team?.name ? `· ${position.team.name}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span className="label">
+                  <LabelWithTooltip
+                    label={c.positionLabel}
+                    tooltip={
+                      lang === "sr"
+                        ? "Popuni samo ako pozicija ne postoji u sistematizaciji ili želiš da predložiš novi naziv."
+                        : "Fill this only if the position does not exist in systematization or you want to propose a new title."
+                    }
+                  />
+                </span>
+                <input className="input" name="positionTitle" type="text" placeholder={c.replacementPlaceholder} />
               </label>
               <label className="field">
                 <span className="label">
@@ -259,12 +290,18 @@ export default async function ManagementPage() {
                     label={c.requestTypeLabel}
                     tooltip={
                       lang === "sr"
-                        ? "Upiši da li je u pitanju zamena ili nova pozicija, da bi superior i HR odmah razumeli kontekst zahteva."
-                        : "State whether this is a replacement or a new position so the superior and HR immediately understand the context."
+                        ? "Standardizovan tip angažovanja pomaže HR-u da filtrira procese i pripremi pravi onboarding."
+                        : "A standardized engagement type helps HR filter processes and prepare the correct onboarding."
                     }
                   />
                 </span>
-                <input className="input" name="requestType" type="text" placeholder={c.replacementPlaceholder} />
+                <select className="input" name="requestType" defaultValue="FULL_TIME">
+                  {HIRING_REQUEST_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {lang === "sr" ? type.sr : type.en}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="field">
                 <span className="label">
@@ -300,6 +337,33 @@ export default async function ManagementPage() {
               <label className="field">
                 <span className="label">
                   <LabelWithTooltip
+                    label={c.systematizationLabel}
+                    tooltip={
+                      lang === "sr"
+                        ? "Ako ne postoji u sistematizaciji, HR zna da prvo treba pripremiti finalan opis i strukturu pozicije."
+                        : "If it does not exist in systematization, HR knows the final job description and structure must be prepared first."
+                    }
+                  />
+                </span>
+                <select className="input" name="isInSystematization" defaultValue="true">
+                  <option value="true">{lang === "sr" ? "Da" : "Yes"}</option>
+                  <option value="false">{lang === "sr" ? "Ne" : "No"}</option>
+                </select>
+              </label>
+              <label className="field">
+                <span className="label">{c.budgetedLabel}</span>
+                <select className="input" name="isBudgeted" defaultValue="true">
+                  <option value="true">{lang === "sr" ? "Da" : "Yes"}</option>
+                  <option value="false">{lang === "sr" ? "Ne" : "No"}</option>
+                </select>
+              </label>
+              <label className="field">
+                <span className="label">{c.budgetRangeLabel}</span>
+                <input className="input" name="budgetRange" type="text" placeholder={lang === "sr" ? "npr. 900–1200 EUR" : "e.g. 900–1200 EUR"} />
+              </label>
+              <label className="field">
+                <span className="label">
+                  <LabelWithTooltip
                     label={c.headcountLabel}
                     tooltip={
                       lang === "sr"
@@ -309,6 +373,10 @@ export default async function ManagementPage() {
                   />
                 </span>
                 <input className="input" name="requestedHeadcount" type="number" min={1} max={20} defaultValue={1} />
+              </label>
+              <label className="field">
+                <span className="label">{c.draftJobDescriptionLabel}</span>
+                <input className="input" name="draftJobDescriptionUrl" type="url" placeholder="https://drive.google.com/..." />
               </label>
               <label className="field">
                 <span className="label">

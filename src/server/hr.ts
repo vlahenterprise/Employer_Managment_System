@@ -11,6 +11,7 @@ import {
 } from "./rbac";
 import { logInfo } from "./log";
 import { ensureOnboardingForApprovedCandidate } from "./onboarding";
+import { getSourceGroup } from "./hr-workflow";
 
 type HrActor = {
   id: string;
@@ -34,6 +35,7 @@ const OPEN_PROCESS_STATUSES: HrProcessStatus[] = ["DRAFT", "OPEN", "IN_PROGRESS"
 const ACTIVE_CANDIDATE_STATUSES: HrCandidateStatus[] = [
   "NEW_APPLICANT",
   "HR_SCREENING",
+  "ON_HOLD",
   "SENT_TO_MANAGER",
   "WAITING_MANAGER_REVIEW",
   "INTERVIEW_SCHEDULED",
@@ -63,6 +65,35 @@ function toDateOrNull(value: string | Date | null | undefined) {
 
 function dedupe<T>(items: T[]) {
   return [...new Set(items)];
+}
+
+function cleanList(items: string[] | null | undefined) {
+  return dedupe((items || []).map((item) => cleanText(item)).filter(Boolean));
+}
+
+function listJson(items: string[] | null | undefined) {
+  const cleaned = cleanList(items);
+  return cleaned.length ? (cleaned as Prisma.InputJsonValue) : Prisma.DbNull;
+}
+
+function scorecardJson(input: Record<string, number | string | null | undefined> | null | undefined) {
+  const output: Record<string, number> = {};
+  for (const [key, value] of Object.entries(input || {})) {
+    const score = Number(value);
+    if (Number.isFinite(score) && score >= 1 && score <= 5) {
+      output[key] = score;
+    }
+  }
+  return Object.keys(output).length ? (output as Prisma.InputJsonValue) : Prisma.DbNull;
+}
+
+function objectJson(input: Record<string, string | null | undefined> | null | undefined) {
+  const output: Record<string, string> = {};
+  for (const [key, value] of Object.entries(input || {})) {
+    const cleaned = cleanText(value);
+    if (cleaned) output[key] = cleaned;
+  }
+  return Object.keys(output).length ? (output as Prisma.InputJsonValue) : Prisma.DbNull;
 }
 
 function hasActorHrAddon(actor: Pick<HrActor, "role" | "hrAddon">) {
@@ -182,6 +213,11 @@ async function getCandidateProfileTx(
     phone?: string | null;
     linkedIn?: string | null;
     source?: string | null;
+    seniority?: string | null;
+    language?: string | null;
+    location?: string | null;
+    tags?: string[] | null;
+    skillMarkers?: string[] | null;
     cvDriveUrl?: string | null;
     createdById?: string | null;
     cvFileName?: string | null;
@@ -192,6 +228,8 @@ async function getCandidateProfileTx(
   }
 ) {
   const cvDriveUrl = cleanText(input.cvDriveUrl) || null;
+  const tags = input.tags?.length ? (input.tags as Prisma.InputJsonValue) : undefined;
+  const skillMarkers = input.skillMarkers?.length ? (input.skillMarkers as Prisma.InputJsonValue) : undefined;
   const hasUploadedCv = Boolean(input.cvData && input.cvData.byteLength > 0);
   const cvSizeBytes = hasUploadedCv ? Math.max(0, input.cvSizeBytes ?? input.cvData?.byteLength ?? 0) : null;
   const cvUploadedAt = hasUploadedCv ? input.cvUploadedAt || new Date() : null;
@@ -207,6 +245,11 @@ async function getCandidateProfileTx(
         phone: normalizePhone(input.phone) || existing.phone,
         linkedIn: cleanText(input.linkedIn) || existing.linkedIn,
         source: cleanText(input.source) || existing.source,
+        seniority: cleanText(input.seniority) || existing.seniority,
+        language: cleanText(input.language) || existing.language,
+        location: cleanText(input.location) || existing.location,
+        tags: tags ?? existing.tags ?? Prisma.DbNull,
+        skillMarkers: skillMarkers ?? existing.skillMarkers ?? Prisma.DbNull,
         cvDriveUrl: cvDriveUrl || existing.cvDriveUrl,
         latestCvFileName: input.cvFileName || existing.latestCvFileName,
         latestCvMimeType: input.cvMimeType || existing.latestCvMimeType,
@@ -241,6 +284,11 @@ async function getCandidateProfileTx(
         phone: phone || existing.phone,
         linkedIn: cleanText(input.linkedIn) || existing.linkedIn,
         source: cleanText(input.source) || existing.source,
+        seniority: cleanText(input.seniority) || existing.seniority,
+        language: cleanText(input.language) || existing.language,
+        location: cleanText(input.location) || existing.location,
+        tags: tags ?? existing.tags ?? Prisma.DbNull,
+        skillMarkers: skillMarkers ?? existing.skillMarkers ?? Prisma.DbNull,
         cvDriveUrl: cvDriveUrl || existing.cvDriveUrl,
         latestCvFileName: input.cvFileName || existing.latestCvFileName,
         latestCvMimeType: input.cvMimeType || existing.latestCvMimeType,
@@ -258,6 +306,11 @@ async function getCandidateProfileTx(
       phone: phone || null,
       linkedIn: cleanText(input.linkedIn) || null,
       source: cleanText(input.source) || null,
+      seniority: cleanText(input.seniority) || null,
+      language: cleanText(input.language) || null,
+      location: cleanText(input.location) || null,
+      tags: tags ?? Prisma.DbNull,
+      skillMarkers: skillMarkers ?? Prisma.DbNull,
       cvDriveUrl,
       createdById: input.createdById || null,
       latestCvFileName: input.cvFileName || null,
@@ -311,12 +364,32 @@ export async function getHrDashboard(actor: HrActor, rawFilters: ProcessFilterIn
         reason: true,
         note: true,
         status: true,
+        requestType: true,
+        desiredStartDate: true,
+        isBudgeted: true,
+        budgetRange: true,
+        isInSystematization: true,
+        draftJobDescriptionUrl: true,
         adChannel: true,
         adPublishedAt: true,
         openedAt: true,
+        updatedAt: true,
         closedAt: true,
         cancelledAt: true,
+        superiorDecidedAt: true,
         team: { select: { id: true, name: true } },
+        position: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            links: {
+              where: { type: "POSITION_INSTRUCTION" },
+              orderBy: [{ order: "asc" }],
+              select: { id: true, label: true, url: true, type: true }
+            }
+          }
+        },
         openedBy: { select: { id: true, name: true, email: true } },
         manager: { select: { id: true, name: true, email: true } },
         finalApprover: { select: { id: true, name: true, email: true } },
@@ -325,11 +398,33 @@ export async function getHrDashboard(actor: HrActor, rawFilters: ProcessFilterIn
           select: {
             id: true,
             status: true,
+            sourceGroup: true,
             appliedAt: true,
+            updatedAt: true,
             interviewScheduledAt: true,
             secondRoundCompletedAt: true,
             finalDecisionAt: true,
-            candidate: { select: { id: true, fullName: true, email: true, phone: true, source: true } }
+            expectedSalary: true,
+            hrRecommendation: true,
+            managerRecommendation: true,
+            interviewRecommendation: true,
+            finalReasonCode: true,
+            lastDecision: true,
+            lastDecisionAt: true,
+            candidate: {
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+                phone: true,
+                source: true,
+                seniority: true,
+                language: true,
+                location: true,
+                tags: true,
+                skillMarkers: true
+              }
+            }
           }
         }
       }
@@ -352,6 +447,11 @@ export async function getHrDashboard(actor: HrActor, rawFilters: ProcessFilterIn
         email: true,
         phone: true,
         source: true,
+        seniority: true,
+        language: true,
+        location: true,
+        tags: true,
+        skillMarkers: true,
         cvDriveUrl: true,
         talentPoolTag: true,
         lastContactAt: true,
@@ -421,15 +521,32 @@ export async function getHrProcessDetail(actor: HrActor, processId: string) {
       note: true,
       status: true,
       requestType: true,
+      isBudgeted: true,
+      budgetRange: true,
+      isInSystematization: true,
+      draftJobDescriptionUrl: true,
       adChannel: true,
       adPublishedAt: true,
       openedAt: true,
+      updatedAt: true,
       closedAt: true,
       cancelledAt: true,
       desiredStartDate: true,
       superiorComment: true,
       superiorDecidedAt: true,
       team: { select: { id: true, name: true } },
+      position: {
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          links: {
+            where: { type: "POSITION_INSTRUCTION" },
+            orderBy: [{ order: "asc" }],
+            select: { id: true, label: true, description: true, url: true, type: true }
+          }
+        }
+      },
       openedBy: { select: { id: true, name: true, email: true } },
       manager: { select: { id: true, name: true, email: true } },
       finalApprover: { select: { id: true, name: true, email: true } },
@@ -439,19 +556,37 @@ export async function getHrProcessDetail(actor: HrActor, processId: string) {
           id: true,
           status: true,
           source: true,
+          sourceGroup: true,
           appliedAt: true,
           initialContactAt: true,
           hrComment: true,
           firstRoundComment: true,
           screeningResult: true,
+          expectedSalary: true,
+          hrScorecard: true,
+          hrRecommendation: true,
+          hrRejectionReason: true,
+          mustHaveChecklist: true,
+          niceToHaveChecklist: true,
           managerComment: true,
+          managerScorecard: true,
+          managerRecommendation: true,
+          managerRejectionReason: true,
+          interviewFeedback: true,
+          interviewRecommendation: true,
+          interviewReadiness: true,
           finalComment: true,
+          finalReasonCode: true,
           interviewScheduledAt: true,
           secondRoundCompletedAt: true,
           finalDecisionAt: true,
+          plannedStartDate: true,
           archivedAt: true,
           cancelledAt: true,
           closedReason: true,
+          lastDecision: true,
+          lastDecisionAt: true,
+          updatedAt: true,
           managerProposedSlots: true,
           candidate: {
             select: {
@@ -461,6 +596,11 @@ export async function getHrProcessDetail(actor: HrActor, processId: string) {
               phone: true,
               linkedIn: true,
               source: true,
+              seniority: true,
+              language: true,
+              location: true,
+              tags: true,
+              skillMarkers: true,
               cvDriveUrl: true,
               talentPoolTag: true,
               lastContactAt: true,
@@ -530,6 +670,7 @@ export async function getHrProcessDetail(actor: HrActor, processId: string) {
 export async function createHrProcess(params: {
   actor: HrActor;
   teamId?: string | null;
+  positionId?: string | null;
   positionTitle: string;
   requestType?: string | null;
   requestedHeadcount?: number;
@@ -537,6 +678,10 @@ export async function createHrProcess(params: {
   reason: string;
   note?: string | null;
   desiredStartDate?: Date | string | null;
+  isBudgeted?: boolean;
+  budgetRange?: string | null;
+  isInSystematization?: boolean;
+  draftJobDescriptionUrl?: string | null;
 }) {
   if (!isManagerRole(params.actor.role)) return { ok: false as const, error: "NO_ACCESS" };
 
@@ -544,9 +689,11 @@ export async function createHrProcess(params: {
   const reason = cleanText(params.reason);
   const note = cleanText(params.note);
   const requestType = cleanText(params.requestType);
+  const positionId = cleanText(params.positionId) || null;
+  const budgetRange = cleanText(params.budgetRange);
+  const draftJobDescriptionUrl = cleanText(params.draftJobDescriptionUrl);
   const requestedHeadcount = Math.max(1, Math.floor(Number(params.requestedHeadcount || 1)));
   const desiredStartDate = toDateOrNull(params.desiredStartDate);
-  if (!positionTitle) return { ok: false as const, error: "POSITION_REQUIRED" };
   if (!reason) return { ok: false as const, error: "REASON_REQUIRED" };
 
   const orgUsers = await loadOrgUsers();
@@ -554,19 +701,33 @@ export async function createHrProcess(params: {
   const selectedManagerId = params.actor.id;
   const finalApproverId = pickFinalApprover(params.actor.id, managerOf) || params.actor.managerId || null;
   if (!finalApproverId) return { ok: false as const, error: "SUPERIOR_REQUIRED" };
-  const resolvedTeamId = cleanText(params.teamId) || params.actor.teamId || null;
+  const selectedPosition = positionId
+    ? await prisma.orgPosition.findUnique({
+        where: { id: positionId },
+        select: { id: true, title: true, teamId: true, isActive: true }
+      })
+    : null;
+  const resolvedPositionId = selectedPosition?.isActive ? selectedPosition.id : null;
+  const resolvedPositionTitle = positionTitle || selectedPosition?.title || "";
+  if (!resolvedPositionTitle) return { ok: false as const, error: "POSITION_REQUIRED" };
+  const resolvedTeamId = cleanText(params.teamId) || selectedPosition?.teamId || params.actor.teamId || null;
 
   const created = await prisma.$transaction(async (tx) => {
     const process = await tx.hrProcess.create({
       data: {
         teamId: resolvedTeamId,
-        positionTitle,
+        positionId: resolvedPositionId,
+        positionTitle: resolvedPositionTitle,
         requestType: requestType || null,
         requestedHeadcount,
         priority: params.priority || "MED",
         reason,
         note: note || null,
         status: "DRAFT",
+        isBudgeted: params.isBudgeted ?? true,
+        budgetRange: budgetRange || null,
+        isInSystematization: params.isInSystematization ?? true,
+        draftJobDescriptionUrl: draftJobDescriptionUrl || null,
         openedById: params.actor.id,
         managerId: selectedManagerId,
         finalApproverId,
@@ -581,13 +742,13 @@ export async function createHrProcess(params: {
       action: "PROCESS_CREATED",
       field: "status",
       newValue: "DRAFT",
-      comment: `${positionTitle} · ${reason}`
+      comment: `${resolvedPositionTitle} · ${reason}`
     });
 
     await createNotificationsTx(tx, {
       userIds: [finalApproverId],
       type: "HIRING_REQUEST_APPROVAL",
-      title: `Hiring request waiting approval: ${positionTitle}`,
+      title: `Hiring request waiting approval: ${resolvedPositionTitle}`,
       body: reason,
       href: `/management`,
       processId: process.id
@@ -747,6 +908,12 @@ export async function addCandidateToHrProcess(params: {
   phone?: string | null;
   linkedIn?: string | null;
   source?: string | null;
+  seniority?: string | null;
+  language?: string | null;
+  location?: string | null;
+  tags?: string[] | null;
+  skillMarkers?: string[] | null;
+  expectedSalary?: string | null;
   appliedAt?: Date | string | null;
   hrComment?: string | null;
   firstRoundComment?: string | null;
@@ -779,6 +946,11 @@ export async function addCandidateToHrProcess(params: {
       phone: params.phone,
       linkedIn: params.linkedIn,
       source: params.source,
+      seniority: params.seniority,
+      language: params.language,
+      location: params.location,
+      tags: cleanList(params.tags),
+      skillMarkers: cleanList(params.skillMarkers),
       createdById: params.actor.id,
       cvDriveUrl: params.cvDriveUrl,
       cvFileName: params.cvFileName,
@@ -802,10 +974,12 @@ export async function addCandidateToHrProcess(params: {
         createdById: params.actor.id,
         status: "HR_SCREENING",
         source: cleanText(params.source) || candidate.source || null,
+        sourceGroup: getSourceGroup(params.source || candidate.source),
         appliedAt: toDateOrNull(params.appliedAt) || new Date(),
         hrComment: cleanText(params.hrComment) || null,
         firstRoundComment: cleanText(params.firstRoundComment) || null,
         screeningResult: cleanText(params.screeningResult) || null,
+        expectedSalary: cleanText(params.expectedSalary) || null,
         initialContactAt: new Date()
       },
       select: { id: true }
@@ -857,10 +1031,16 @@ export async function addCandidateToHrProcess(params: {
 export async function hrScreenCandidate(params: {
   actor: HrActor;
   applicationId: string;
-  decision: "REJECT" | "SEND_TO_MANAGER";
+  decision: "REJECT" | "SEND_TO_MANAGER" | "HOLD";
   hrComment?: string | null;
   firstRoundComment?: string | null;
   screeningResult?: string | null;
+  expectedSalary?: string | null;
+  hrScorecard?: Record<string, number | string | null | undefined> | null;
+  hrRecommendation?: string | null;
+  hrRejectionReason?: string | null;
+  mustHaveChecklist?: string[] | null;
+  niceToHaveChecklist?: string[] | null;
 }) {
   if (!hasActorHrAddon(params.actor)) return { ok: false as const, error: "NO_ACCESS" };
   const applicationId = cleanText(params.applicationId);
@@ -878,24 +1058,42 @@ export async function hrScreenCandidate(params: {
   });
   if (!application) return { ok: false as const, error: "APPLICATION_NOT_FOUND" };
 
-  const nextStatus: HrCandidateStatus = params.decision === "REJECT" ? "REJECTED_BY_HR" : "WAITING_MANAGER_REVIEW";
+  const hrComment = cleanText(params.hrComment);
+  const firstRoundComment = cleanText(params.firstRoundComment);
+  const screeningResult = cleanText(params.screeningResult);
+  const hrRejectionReason = cleanText(params.hrRejectionReason);
+  const expectedSalary = cleanText(params.expectedSalary);
+  if (params.decision === "REJECT" && !hrRejectionReason && !screeningResult && !hrComment) {
+    return { ok: false as const, error: "REJECTION_REASON_REQUIRED" };
+  }
+
+  const nextStatus: HrCandidateStatus =
+    params.decision === "REJECT" ? "REJECTED_BY_HR" : params.decision === "HOLD" ? "ON_HOLD" : "WAITING_MANAGER_REVIEW";
   await prisma.$transaction(async (tx) => {
     await tx.hrProcessCandidate.update({
       where: { id: applicationId },
       data: {
         status: nextStatus,
-        hrComment: cleanText(params.hrComment) || null,
-        firstRoundComment: cleanText(params.firstRoundComment) || null,
-        screeningResult: cleanText(params.screeningResult) || null,
+        hrComment: hrComment || null,
+        firstRoundComment: firstRoundComment || null,
+        screeningResult: screeningResult || null,
+        expectedSalary: expectedSalary || null,
+        hrScorecard: scorecardJson(params.hrScorecard),
+        hrRecommendation: cleanText(params.hrRecommendation) || params.decision,
+        hrRejectionReason: hrRejectionReason || null,
+        mustHaveChecklist: listJson(params.mustHaveChecklist),
+        niceToHaveChecklist: listJson(params.niceToHaveChecklist),
         archivedAt: params.decision === "REJECT" ? new Date() : null,
-        closedReason: params.decision === "REJECT" ? cleanText(params.screeningResult) || cleanText(params.hrComment) || null : null
+        closedReason: params.decision === "REJECT" ? hrRejectionReason || screeningResult || hrComment || null : null,
+        lastDecision: params.decision,
+        lastDecisionAt: new Date()
       }
     });
     await addCommentTx(tx, {
       processCandidateId: applicationId,
       actorId: params.actor.id,
       stage: "HR_SCREENING",
-      body: cleanText(params.firstRoundComment) || cleanText(params.hrComment) || cleanText(params.screeningResult)
+      body: firstRoundComment || hrComment || screeningResult || hrRejectionReason
     });
     await logAuditTx(tx, {
       actorId: params.actor.id,
@@ -935,9 +1133,13 @@ export async function hrScreenCandidate(params: {
 export async function managerReviewHrCandidate(params: {
   actor: HrActor;
   applicationId: string;
-  decision: "REJECT" | "ADVANCE";
+  decision: "REJECT" | "ADVANCE" | "HOLD";
   managerComment?: string | null;
   proposedSlots?: string[];
+  managerScorecard?: Record<string, number | string | null | undefined> | null;
+  managerRecommendation?: string | null;
+  managerRejectionReason?: string | null;
+  interviewReadiness?: string | null;
 }) {
   const applicationId = cleanText(params.applicationId);
   if (!applicationId) return { ok: false as const, error: "APPLICATION_NOT_FOUND" };
@@ -965,17 +1167,29 @@ export async function managerReviewHrCandidate(params: {
   }
 
   const managerComment = cleanText(params.managerComment);
+  const managerRejectionReason = cleanText(params.managerRejectionReason);
+  const interviewReadiness = cleanText(params.interviewReadiness);
   const proposedSlots = dedupe((params.proposedSlots || []).map((slot) => cleanText(slot)).filter(Boolean));
-  const nextStatus: HrCandidateStatus = params.decision === "REJECT" ? "REJECTED_BY_MANAGER" : "SENT_TO_MANAGER";
+  const nextStatus: HrCandidateStatus =
+    params.decision === "REJECT" ? "REJECTED_BY_MANAGER" : params.decision === "HOLD" ? "ON_HOLD" : "SENT_TO_MANAGER";
   if (params.decision === "ADVANCE" && proposedSlots.length === 0) return { ok: false as const, error: "SLOTS_REQUIRED" };
+  if (params.decision === "REJECT" && !managerRejectionReason && !managerComment) {
+    return { ok: false as const, error: "REJECTION_REASON_REQUIRED" };
+  }
 
   await prisma.$transaction(async (tx) => {
     const updateData: Prisma.HrProcessCandidateUpdateInput = {
       status: nextStatus,
       managerComment: managerComment || null,
+      managerScorecard: scorecardJson(params.managerScorecard),
+      managerRecommendation: cleanText(params.managerRecommendation) || params.decision,
+      managerRejectionReason: managerRejectionReason || null,
+      interviewReadiness: interviewReadiness || null,
       managerProposedSlots: proposedSlots.length ? (proposedSlots as Prisma.InputJsonValue) : Prisma.DbNull,
-      closedReason: params.decision === "REJECT" ? managerComment || null : null,
-      archivedAt: params.decision === "REJECT" ? new Date() : null
+      closedReason: params.decision === "REJECT" ? managerRejectionReason || managerComment || null : null,
+      archivedAt: params.decision === "REJECT" ? new Date() : null,
+      lastDecision: params.decision,
+      lastDecisionAt: new Date()
     };
 
     await tx.hrProcessCandidate.update({
@@ -1000,12 +1214,19 @@ export async function managerReviewHrCandidate(params: {
     });
     await createNotificationsTx(tx, {
       userIds: [application.process.openedById],
-      type: params.decision === "REJECT" ? "HR_CANDIDATE_RETURNED" : "HR_INTERVIEW_SLOTS_READY",
+      type:
+        params.decision === "REJECT"
+          ? "HR_CANDIDATE_RETURNED"
+          : params.decision === "HOLD"
+            ? "HR_CANDIDATE_ON_HOLD"
+            : "HR_INTERVIEW_SLOTS_READY",
       title:
         params.decision === "REJECT"
           ? `Candidate rejected by manager: ${application.candidate.fullName}`
-          : `Interview slots proposed: ${application.candidate.fullName}`,
-      body: managerComment || application.process.positionTitle,
+          : params.decision === "HOLD"
+            ? `Candidate put on hold: ${application.candidate.fullName}`
+            : `Interview slots proposed: ${application.candidate.fullName}`,
+      body: managerRejectionReason || managerComment || application.process.positionTitle,
       href: `/hr/${application.processId}`,
       processId: application.processId,
       processCandidateId: applicationId
@@ -1054,7 +1275,9 @@ export async function scheduleHrInterview(params: {
       data: {
         status: "INTERVIEW_SCHEDULED",
         interviewScheduledAt: interviewAt,
-        hrComment: cleanText(params.hrComment) || null
+        hrComment: cleanText(params.hrComment) || null,
+        lastDecision: "INTERVIEW_SCHEDULED",
+        lastDecisionAt: new Date()
       }
     });
     await addCommentTx(tx, {
@@ -1101,6 +1324,9 @@ export async function secondRoundHrDecision(params: {
   applicationId: string;
   decision: "REJECT" | "FINAL_APPROVAL";
   managerComment?: string | null;
+  interviewFeedback?: Record<string, string | null | undefined> | null;
+  interviewRecommendation?: string | null;
+  managerRejectionReason?: string | null;
 }) {
   const applicationId = cleanText(params.applicationId);
   if (!applicationId) return { ok: false as const, error: "APPLICATION_NOT_FOUND" };
@@ -1124,6 +1350,11 @@ export async function secondRoundHrDecision(params: {
 
   const nextStatus: HrCandidateStatus = params.decision === "REJECT" ? "REJECTED_BY_MANAGER" : "WAITING_FINAL_APPROVAL";
   const managerComment = cleanText(params.managerComment);
+  const managerRejectionReason = cleanText(params.managerRejectionReason);
+  const interviewRecommendation = cleanText(params.interviewRecommendation);
+  if (params.decision === "REJECT" && !managerRejectionReason && !managerComment) {
+    return { ok: false as const, error: "REJECTION_REASON_REQUIRED" };
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.hrProcessCandidate.update({
@@ -1131,17 +1362,22 @@ export async function secondRoundHrDecision(params: {
       data: {
         status: nextStatus,
         managerComment: managerComment || null,
+        managerRejectionReason: params.decision === "REJECT" ? managerRejectionReason || null : undefined,
+        interviewFeedback: objectJson(params.interviewFeedback),
+        interviewRecommendation: interviewRecommendation || params.decision,
         secondRoundCompletedAt: new Date(),
         finalDecisionAt: params.decision === "REJECT" ? new Date() : null,
-        closedReason: params.decision === "REJECT" ? managerComment || null : null,
-        archivedAt: params.decision === "REJECT" ? new Date() : null
+        closedReason: params.decision === "REJECT" ? managerRejectionReason || managerComment || null : null,
+        archivedAt: params.decision === "REJECT" ? new Date() : null,
+        lastDecision: params.decision,
+        lastDecisionAt: new Date()
       }
     });
     await addCommentTx(tx, {
       processCandidateId: applicationId,
       actorId: params.actor.id,
       stage: "SECOND_ROUND",
-      body: managerComment
+      body: managerComment || managerRejectionReason
     });
     await logAuditTx(tx, {
       actorId: params.actor.id,
@@ -1192,6 +1428,8 @@ export async function finalApproveHrCandidate(params: {
   applicationId: string;
   decision: "APPROVE" | "REJECT";
   finalComment?: string | null;
+  finalReasonCode?: string | null;
+  plannedStartDate?: Date | string | null;
 }) {
   const applicationId = cleanText(params.applicationId);
   if (!applicationId) return { ok: false as const, error: "APPLICATION_NOT_FOUND" };
@@ -1223,6 +1461,11 @@ export async function finalApproveHrCandidate(params: {
   }
 
   const finalComment = cleanText(params.finalComment);
+  const finalReasonCode = cleanText(params.finalReasonCode);
+  const plannedStartDate = toDateOrNull(params.plannedStartDate);
+  if (params.decision === "REJECT" && !finalReasonCode && !finalComment) {
+    return { ok: false as const, error: "REJECTION_REASON_REQUIRED" };
+  }
   const nextStatus: HrCandidateStatus = params.decision === "APPROVE" ? "APPROVED_FOR_EMPLOYMENT" : "REJECTED_FINAL";
 
   await prisma.$transaction(async (tx) => {
@@ -1231,9 +1474,13 @@ export async function finalApproveHrCandidate(params: {
       data: {
         status: nextStatus,
         finalComment: finalComment || null,
+        finalReasonCode: finalReasonCode || (params.decision === "APPROVE" ? "APPROVED_FOR_EMPLOYMENT" : null),
+        plannedStartDate,
         finalDecisionAt: new Date(),
         archivedAt: params.decision === "REJECT" ? new Date() : null,
-        closedReason: params.decision === "REJECT" ? finalComment || null : null
+        closedReason: params.decision === "REJECT" ? finalReasonCode || finalComment || null : null,
+        lastDecision: params.decision,
+        lastDecisionAt: new Date()
       }
     });
 
@@ -1244,7 +1491,7 @@ export async function finalApproveHrCandidate(params: {
           status: "APPROVED_FOR_EMPLOYMENT"
         }
       });
-      if (approvedCount + 1 >= application.process.requestedHeadcount) {
+      if (approvedCount >= application.process.requestedHeadcount) {
         await tx.hrProcess.update({
           where: { id: application.processId },
           data: {
@@ -1338,7 +1585,9 @@ export async function archiveHrCandidate(params: {
         status: params.status,
         archivedAt: params.status === "ARCHIVED" ? new Date() : null,
         cancelledAt: params.status === "CANCELED" ? new Date() : null,
-        closedReason: reason
+        closedReason: reason,
+        lastDecision: params.status,
+        lastDecisionAt: new Date()
       }
     });
     await logAuditTx(tx, {
@@ -1394,7 +1643,9 @@ export async function cancelHrProcess(params: {
       data: {
         status: "CANCELED",
         cancelledAt: new Date(),
-        closedReason: reason
+        closedReason: reason,
+        lastDecision: "CANCELED",
+        lastDecisionAt: new Date()
       }
     });
     await logAuditTx(tx, {
@@ -1490,8 +1741,10 @@ export async function getManagementPanel(actor: HrActor) {
   const { managerOf } = buildOrgIndex(orgUsers);
   const allowedEmployees = getScopedEmployeeIds({ id: actor.id, role: actor.role }, orgUsers);
   const allowedTeams = new Set(orgUsers.filter((user) => allowedEmployees.has(user.id)).map((user) => user.teamId).filter(Boolean));
+  const allowedTeamIds = [...allowedTeams].filter((teamId): teamId is string => Boolean(teamId));
+  const visibleTeamIds = [...new Set([actor.teamId, ...allowedTeamIds].filter((teamId): teamId is string => Boolean(teamId)))];
 
-  const [pendingSuperiorApprovals, processes, pendingReview, finalApprovals, notifications, openTasks, overdueTasks, pendingEvaluations, activeAbsences, teams] =
+  const [pendingSuperiorApprovals, processes, pendingReview, finalApprovals, notifications, openTasks, overdueTasks, pendingEvaluations, activeAbsences, teams, positions] =
     await Promise.all([
       prisma.hrProcess.findMany({
         where: { status: "DRAFT", finalApproverId: actor.id },
@@ -1501,8 +1754,16 @@ export async function getManagementPanel(actor: HrActor) {
           positionTitle: true,
           priority: true,
           reason: true,
+          requestType: true,
+          isBudgeted: true,
+          budgetRange: true,
+          isInSystematization: true,
+          draftJobDescriptionUrl: true,
+          openedAt: true,
+          updatedAt: true,
           desiredStartDate: true,
           team: { select: { id: true, name: true } },
+          position: { select: { id: true, title: true } },
           openedBy: { select: { id: true, name: true, email: true } }
         }
       }),
@@ -1516,8 +1777,17 @@ export async function getManagementPanel(actor: HrActor) {
           positionTitle: true,
           status: true,
           priority: true,
+          requestType: true,
+          isBudgeted: true,
+          budgetRange: true,
+          isInSystematization: true,
+          draftJobDescriptionUrl: true,
           requestedHeadcount: true,
+          desiredStartDate: true,
+          openedAt: true,
+          updatedAt: true,
           team: { select: { id: true, name: true } },
+          position: { select: { id: true, title: true } },
           manager: { select: { id: true, name: true } },
           finalApprover: { select: { id: true, name: true } },
           candidates: { select: { id: true, status: true } }
@@ -1581,9 +1851,35 @@ export async function getManagementPanel(actor: HrActor) {
         }
       }),
       prisma.team.findMany({
-        where: { id: { in: [...new Set([actor.teamId, ...allowedTeams].filter(Boolean) as string[])] } },
+        where: { id: { in: visibleTeamIds } },
         orderBy: [{ name: "asc" }],
         select: { id: true, name: true }
+      }),
+      prisma.orgPosition.findMany({
+        where: {
+          isActive: true,
+          kind: "POSITION",
+          OR: [
+            { teamId: { in: allowedTeamIds } },
+            ...(actor.teamId ? [{ teamId: actor.teamId }] : []),
+            { teamId: null }
+          ]
+        },
+        orderBy: [{ tier: "asc" }, { order: "asc" }, { title: "asc" }],
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          teamId: true,
+          tier: true,
+          team: { select: { id: true, name: true } },
+          links: {
+            where: { type: "POSITION_INSTRUCTION" },
+            orderBy: [{ order: "asc" }],
+            take: 3,
+            select: { id: true, label: true, url: true }
+          }
+        }
       })
     ]);
 
@@ -1607,6 +1903,7 @@ export async function getManagementPanel(actor: HrActor) {
     },
     pendingSuperiorApprovals,
     teams,
+    positions,
     processes: visibleProcesses,
     pendingReview: pendingReview.filter((item) => item.process.managerId === actor.id),
     finalApprovals: finalApprovals.filter((item) => item.process.finalApproverId === actor.id),

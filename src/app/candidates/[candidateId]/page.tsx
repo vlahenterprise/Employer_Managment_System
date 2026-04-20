@@ -23,6 +23,14 @@ function copy(lang: "sr" | "en") {
       email: "Email",
       phone: "Telefon",
       source: "Izvor",
+      seniority: "Senioritet",
+      language: "Jezik",
+      location: "Lokacija",
+      tags: "Tagovi",
+      skills: "Veštine",
+      recommendation: "Preporuka",
+      expectedSalary: "Očekivana plata",
+      finalOutcome: "Finalni ishod",
       talentTag: "Talent pool tag",
       lastContact: "Poslednji kontakt",
       position: "Pozicija",
@@ -53,6 +61,14 @@ function copy(lang: "sr" | "en") {
     email: "Email",
     phone: "Phone",
     source: "Source",
+    seniority: "Seniority",
+    language: "Language",
+    location: "Location",
+    tags: "Tags",
+    skills: "Skills",
+    recommendation: "Recommendation",
+    expectedSalary: "Expected salary",
+    finalOutcome: "Final outcome",
     talentTag: "Talent pool tag",
     lastContact: "Last contact",
     position: "Position",
@@ -74,6 +90,10 @@ function copy(lang: "sr" | "en") {
 function formatDate(value: Date | null | undefined, locale: string) {
   if (!value) return "—";
   return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(value);
+}
+
+function jsonList(value: unknown) {
+  return Array.isArray(value) ? value.map((item) => String(item)).filter(Boolean) : [];
 }
 
 export default async function CandidateDetailPage({
@@ -103,6 +123,8 @@ export default async function CandidateDetailPage({
   const candidate = data.candidate;
   const latestApplication = candidate.applications[0] || null;
   const latestStage = getCandidateStageMeta(latestApplication?.status, lang);
+  const tags = jsonList(candidate.tags);
+  const skills = jsonList(candidate.skillMarkers);
 
   return (
     <main className="page">
@@ -188,6 +210,11 @@ export default async function CandidateDetailPage({
               <div><strong>{c.email}:</strong> {candidate.email || c.noValue}</div>
               <div><strong>{c.phone}:</strong> {candidate.phone || c.noValue}</div>
               <div><strong>{c.source}:</strong> {candidate.source || c.noValue}</div>
+              <div><strong>{c.seniority}:</strong> {candidate.seniority || c.noValue}</div>
+              <div><strong>{c.language}:</strong> {candidate.language || c.noValue}</div>
+              <div><strong>{c.location}:</strong> {candidate.location || c.noValue}</div>
+              <div><strong>{c.tags}:</strong> {tags.length ? tags.join(" · ") : c.noValue}</div>
+              <div><strong>{c.skills}:</strong> {skills.length ? skills.join(" · ") : c.noValue}</div>
               <div><strong>{c.talentTag}:</strong> {candidate.talentPoolTag || c.noValue}</div>
               <div><strong>{c.lastContact}:</strong> {formatDate(candidate.lastContactAt, locale)}</div>
               <div><strong>{c.updated}:</strong> {formatDate(candidate.updatedAt, locale)}</div>
@@ -227,9 +254,13 @@ export default async function CandidateDetailPage({
                       <div><strong>{c.team}:</strong> {application.process.team?.name || c.noValue}</div>
                       <div><strong>{c.nextAction}:</strong> {application.nextAction || c.noValue}</div>
                       <div><strong>{c.hr}:</strong> {application.hrComment || c.noValue}</div>
+                      <div><strong>{c.recommendation} HR:</strong> {application.hrRecommendation || c.noValue}</div>
                       <div><strong>{c.round1}:</strong> {application.firstRoundComment || c.noValue}</div>
                       <div><strong>{c.round2}:</strong> {application.managerComment || c.noValue}</div>
+                      <div><strong>{c.recommendation} Manager:</strong> {application.managerRecommendation || c.noValue}</div>
+                      <div><strong>{c.expectedSalary}:</strong> {application.expectedSalary || c.noValue}</div>
                       <div><strong>{c.final}:</strong> {application.finalComment || c.noValue}</div>
+                      <div><strong>{c.finalOutcome}:</strong> {application.finalReasonCode || c.noValue}</div>
                     </div>
 
                     <div className="list hr-mini-list timeline-list">

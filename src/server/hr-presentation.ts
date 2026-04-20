@@ -53,6 +53,15 @@ export function getCandidateStageSummary(candidate: CandidateLike): StageSummary
     };
   }
 
+  if (status === "ON_HOLD") {
+    return {
+      stageKey: "PAUSED" as HrStageKey,
+      waitingOn: "HR" as HrWaitingOnKey,
+      nextAction: "WAITING_INPUT" as HrNextActionKey,
+      tone: "muted" as const
+    };
+  }
+
   if (status === "SENT_TO_MANAGER" || status === "WAITING_MANAGER_REVIEW") {
     return {
       stageKey: "MANAGER_REVIEW" as HrStageKey,
@@ -245,7 +254,7 @@ export function buildHrDashboardBuckets(processes: ProcessLike[]) {
 
     for (const candidate of process.candidates || []) {
       const candidateStatus = String(candidate.status || "").toUpperCase();
-      if (candidateStatus === "NEW_APPLICANT" || candidateStatus === "HR_SCREENING") buckets.hrScreening += 1;
+      if (candidateStatus === "NEW_APPLICANT" || candidateStatus === "HR_SCREENING" || candidateStatus === "ON_HOLD") buckets.hrScreening += 1;
       if (candidateStatus === "SENT_TO_MANAGER" || candidateStatus === "WAITING_MANAGER_REVIEW" || candidateStatus === "INTERVIEW_SCHEDULED") {
         buckets.managerReview += 1;
       }

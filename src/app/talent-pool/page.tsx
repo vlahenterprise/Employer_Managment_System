@@ -28,6 +28,10 @@ function copy(lang: "sr" | "en") {
       empty: "Još nema kandidata u talent pool-u.",
       lastRole: "Poslednja pozicija",
       tag: "Tag",
+      seniority: "Senioritet",
+      language: "Jezik",
+      location: "Lokacija",
+      skills: "Veštine",
       reason: "Razlog zatvaranja",
       stage: "Poslednji status",
       noValue: "—"
@@ -51,10 +55,18 @@ function copy(lang: "sr" | "en") {
     empty: "No candidates in the talent pool yet.",
     lastRole: "Latest role",
     tag: "Tag",
+    seniority: "Seniority",
+    language: "Language",
+    location: "Location",
+    skills: "Skills",
     reason: "Closing reason",
     stage: "Latest status",
     noValue: "—"
   };
+}
+
+function jsonList(value: unknown) {
+  return Array.isArray(value) ? value.map((item) => String(item)).filter(Boolean) : [];
 }
 
 export default async function TalentPoolPage({
@@ -200,6 +212,7 @@ export default async function TalentPoolPage({
             {pool.items.map((candidate) => {
               const latest = candidate.applications[0] || null;
               const stage = getCandidateStageMeta(latest?.status, lang);
+              const skills = jsonList(candidate.skillMarkers);
               return (
                 <div key={candidate.id} className="item stack entity-card">
                   <div className="item-top">
@@ -221,6 +234,18 @@ export default async function TalentPoolPage({
                     </div>
                     <div>
                       <strong>{c.tag}:</strong> {candidate.talentPoolTag || c.noValue}
+                    </div>
+                    <div>
+                      <strong>{c.seniority}:</strong> {candidate.seniority || c.noValue}
+                    </div>
+                    <div>
+                      <strong>{c.language}:</strong> {candidate.language || c.noValue}
+                    </div>
+                    <div>
+                      <strong>{c.location}:</strong> {candidate.location || c.noValue}
+                    </div>
+                    <div>
+                      <strong>{c.skills}:</strong> {skills.length ? skills.join(" · ") : c.noValue}
                     </div>
                     <div>
                       <strong>{c.reason}:</strong> {latest?.closedReason || (lang === "sr" ? "Sačuvan za buduće procese." : "Kept for future processes.")}

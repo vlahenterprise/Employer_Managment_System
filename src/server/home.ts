@@ -59,7 +59,7 @@ const getHrCountsCached = unstable_cache(
     const [hrApprovedRequests, hrScreening, hrRoundTwo, hrFinalRound, hrApprovedForHire, talentPoolCount] =
       await Promise.all([
         prisma.hrProcess.count({ where: { status: "OPEN" } }),
-        prisma.hrProcessCandidate.count({ where: { status: "HR_SCREENING" } }),
+        prisma.hrProcessCandidate.count({ where: { status: { in: ["HR_SCREENING", "ON_HOLD"] } } }),
         prisma.hrProcessCandidate.count({ where: { status: "INTERVIEW_SCHEDULED" } }),
         prisma.hrProcessCandidate.count({ where: { status: "WAITING_FINAL_APPROVAL" } }),
         prisma.hrProcessCandidate.count({ where: { status: "APPROVED_FOR_EMPLOYMENT" } }),

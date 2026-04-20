@@ -20,6 +20,7 @@ import {
   secondRoundHrDecision,
   updateHrProcessMeta
 } from "@/server/hr";
+import { parseLines } from "@/server/hr-workflow";
 
 const HR_PRIORITIES = new Set(["LOW", "MED", "HIGH", "CRITICAL"]);
 const HR_PROCESS_STATUSES = new Set(["DRAFT", "OPEN", "IN_PROGRESS", "ON_HOLD", "APPROVED", "CLOSED", "CANCELED"]);
@@ -64,6 +65,14 @@ function formatUploadLimit(bytes: number) {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
+function scoreFields(formData: FormData, prefix: string, keys: string[]) {
+  return Object.fromEntries(keys.map((key) => [key, String(formData.get(`${prefix}${key}`) ?? "").trim()]));
+}
+
+function textFields(formData: FormData, prefix: string, keys: string[]) {
+  return Object.fromEntries(keys.map((key) => [key, String(formData.get(`${prefix}${key}`) ?? "").trim() || null]));
+}
+
 export async function createHrProcessAction(formData: FormData) {
   ensureHrModuleEnabled();
   const user = await requireActiveUser();
@@ -71,13 +80,18 @@ export async function createHrProcessAction(formData: FormData) {
   const res = await createHrProcess({
     actor: actorPayload(user),
     teamId: String(formData.get("teamId") ?? "").trim() || null,
+    positionId: String(formData.get("positionId") ?? "").trim() || null,
     positionTitle: String(formData.get("positionTitle") ?? "").trim(),
     requestType: String(formData.get("requestType") ?? "").trim() || null,
     requestedHeadcount: Number(String(formData.get("requestedHeadcount") ?? "1")),
     priority: (HR_PRIORITIES.has(priorityRaw) ? priorityRaw : "MED") as any,
     reason: String(formData.get("reason") ?? "").trim(),
     note: String(formData.get("note") ?? "").trim() || null,
-    desiredStartDate: String(formData.get("desiredStartDate") ?? "").trim() || null
+    desiredStartDate: String(formData.get("desiredStartDate") ?? "").trim() || null,
+    isBudgeted: String(formData.get("isBudgeted") ?? "true") !== "false",
+    budgetRange: String(formData.get("budgetRange") ?? "").trim() || null,
+    isInSystematization: String(formData.get("isInSystematization") ?? "true") !== "false",
+    draftJobDescriptionUrl: String(formData.get("draftJobDescriptionUrl") ?? "").trim() || null
   });
   if (!res.ok) redirectError("/hr", res.error);
   revalidateHrViews(res.processId);
@@ -140,6 +154,12 @@ export async function addCandidateToProcessAction(formData: FormData) {
     phone: String(formData.get("phone") ?? "").trim() || null,
     linkedIn: String(formData.get("linkedIn") ?? "").trim() || null,
     source: String(formData.get("source") ?? "").trim() || null,
+    seniority: String(formData.get("seniority") ?? "").trim() || null,
+    language: String(formData.get("language") ?? "").trim() || null,
+    location: String(formData.get("location") ?? "").trim() || null,
+    tags: parseLines(String(formData.get("tags") ?? "")),
+    skillMarkers: parseLines(String(formData.get("skillMarkers") ?? "")),
+    expectedSalary: String(formData.get("expectedSalary") ?? "").trim() || null,
     appliedAt: String(formData.get("appliedAt") ?? "").trim() || null,
     hrComment: String(formData.get("hrComment") ?? "").trim() || null,
     firstRoundComment: String(formData.get("firstRoundComment") ?? "").trim() || null,
@@ -165,10 +185,16 @@ export async function hrScreenCandidateAction(formData: FormData) {
   const res = await hrScreenCandidate({
     actor: actorPayload(user),
     applicationId,
-    decision: decision === "REJECT" ? "REJECT" : "SEND_TO_MANAGER",
+    decision: decision === "REJECT" ? "REJECT" : decision === "HOLD" ? "HOLD" : "SEND_TO_MANAGER",
     hrComment: String(formData.get("hrComment") ?? "").trim() || null,
     firstRoundComment: String(formData.get("firstRoundComment") ?? "").trim() || null,
-    screeningResult: String(formData.get("screeningResult") ?? "").trim() || null
+    screeningResult: String(formData.get("screeningResult") ?? "").trim() || null,
+    expectedSalary: String(formData.get("expectedSalary") ?? "").trim() || null,
+    hrScorecard: scoreFields(formData, "hrScore_", ["communication", "experienceFit", "cultureFit", "languageFit", "salaryFit"]),
+    hrRecommendation: String(formData.get("hrRecommendation") ?? "").trim() || decision,
+    hrRejectionReason: String(formData.get("hrRejectionReason") ?? "").trim() || null,
+    mustHaveChecklist: parseLines(String(formData.get("mustHaveChecklist") ?? "")),
+    niceToHaveChecklist: parseLines(String(formData.get("niceToHaveChecklist") ?? ""))
   });
   if (!res.ok) redirectError(`/hr/${processId}`, res.error);
   revalidateHrViews(processId);
@@ -189,9 +215,13 @@ export async function managerReviewCandidateAction(formData: FormData) {
   const res = await managerReviewHrCandidate({
     actor: actorPayload(user),
     applicationId,
-    decision: decision === "REJECT" ? "REJECT" : "ADVANCE",
+    decision: decision === "REJECT" ? "REJECT" : decision === "HOLD" ? "HOLD" : "ADVANCE",
     managerComment: String(formData.get("managerComment") ?? "").trim() || null,
-    proposedSlots
+    proposedSlots,
+    managerScorecard: scoreFields(formData, "managerScore_", ["roleFit", "teamFit", "growthPotential", "communication"]),
+    managerRecommendation: String(formData.get("managerRecommendation") ?? "").trim() || decision,
+    managerRejectionReason: String(formData.get("managerRejectionReason") ?? "").trim() || null,
+    interviewReadiness: String(formData.get("interviewReadiness") ?? "").trim() || null
   });
   if (!res.ok) redirectError(`/hr/${processId}`, res.error);
   revalidateHrViews(processId);
@@ -224,7 +254,10 @@ export async function secondRoundDecisionAction(formData: FormData) {
     actor: actorPayload(user),
     applicationId,
     decision: decision === "REJECT" ? "REJECT" : "FINAL_APPROVAL",
-    managerComment: String(formData.get("managerComment") ?? "").trim() || null
+    managerComment: String(formData.get("managerComment") ?? "").trim() || null,
+    managerRejectionReason: String(formData.get("managerRejectionReason") ?? "").trim() || null,
+    interviewRecommendation: String(formData.get("interviewRecommendation") ?? "").trim() || decision,
+    interviewFeedback: textFields(formData, "interview_", ["summary", "strengths", "risks"])
   });
   if (!res.ok) redirectError(`/hr/${processId}`, res.error);
   revalidateHrViews(processId);
@@ -241,7 +274,9 @@ export async function finalApprovalAction(formData: FormData) {
     actor: actorPayload(user),
     applicationId,
     decision: decision === "REJECT" ? "REJECT" : "APPROVE",
-    finalComment: String(formData.get("finalComment") ?? "").trim() || null
+    finalComment: String(formData.get("finalComment") ?? "").trim() || null,
+    finalReasonCode: String(formData.get("finalReasonCode") ?? "").trim() || null,
+    plannedStartDate: String(formData.get("plannedStartDate") ?? "").trim() || null
   });
   if (!res.ok) redirectError(`/hr/${processId}`, res.error);
   revalidateHrViews(processId);
